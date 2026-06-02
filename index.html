@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAPFIT — Estilo que va contigo</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+<!-- ══ NAV ══════════════════════════════════════════════════════ -->
+<nav>
+  <a class="nav-logo" href="#">CAPFIT</a>
+  <ul class="nav-links">
+    <li><a href="#">Inicio</a></li>
+    <li><a href="#try-section">Probar</a></li>
+    <li><a href="#">Comprar</a></li>
+  </ul>
+</nav>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════ -->
+<div id="hero">
+  <canvas id="bg-canvas"></canvas>
+
+  <div id="model-viewer">
+    <div class="model-msg" id="model-msg">
+      <div class="spinner"></div>
+      <p>Cargando modelo 3D…</p>
+    </div>
+  </div>
+
+  <p class="hero-hint fade-in">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <path d="M8 9l4-4 4 4"/><path d="M12 5v10"/><path d="M8 15l4 4 4-4"/>
+    </svg>
+    Arrastrá para girar
+  </p>
+
+  <button class="btn-probar fade-in"
+    onclick="document.getElementById('try-section').scrollIntoView({behavior:'smooth'})">
+    Probar ahora
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12l7 7 7-7"/>
+    </svg>
+  </button>
+</div>
+
+<!-- ══ SECCIÓN 01 — CÁMARA ═══════════════════════════════════════ -->
+<div id="try-section" style="background:var(--white)">
+<div class="section-inner">
+
+  <span class="step-pill fade-in">01</span>
+  <h2 class="section-title fade-in">Probála contigo</h2>
+  <p class="section-sub fade-in">
+    Activá tu cámara y tomate una foto. La IA genera la imagen real
+    con la gorra puesta, ajustando iluminación y perspectiva.
+  </p>
+
+  <!-- Camera layout -->
+  <div class="camera-layout">
+    <div class="camera-tips">
+      <div class="tip">
+        <div class="tip-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="2" x2="12" y2="4"/>
+            <line x1="12" y1="20" x2="12" y2="22"/>
+          </svg>
+          Buena luz
+        </div>
+        <p>Luz natural o frontal para mejor resultado.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+          Rostro al centro
+        </div>
+        <p>Encuadré tu cabeza y hombros.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+            <line x1="9" y1="9" x2="9.01" y2="9" stroke-width="3" stroke-linecap="round"/>
+            <line x1="15" y1="9" x2="15.01" y2="9" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          Sonreí
+        </div>
+        <p>La IA respeta tu expresión natural.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          ~15–30 seg
+        </div>
+        <p>El modelo tarda un poco. ¡Vale la pena!</p>
+      </div>
+    </div>
+
+    <div class="camera-box" id="camera-box">
+      <video id="video-feed" autoplay playsinline></video>
+      <canvas id="photo-canvas" style="display:none"></canvas>
+
+      <div class="cam-placeholder" id="cam-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <p>Tu cámara aparecerá aquí</p>
+      </div>
+
+      <div class="cam-btn-row">
+        <button id="btn-activate" onclick="activateCamera()">Activar cámara</button>
+        <button id="btn-shoot" style="display:none" onclick="takePhoto()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="13" r="4"/>
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p class="privacy-note">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:12px;height:12px">
+      <rect x="3" y="11" width="18" height="11" rx="2"/>
+      <path d="M7 11V7a5 5 0 0110 0v4"/>
+    </svg>
+    Tu foto va directo al modelo de IA. No se almacena en ningún servidor nuestro.
+  </p>
+
+</div>
+</div>
+
+<!-- ══ SECCIÓN 02 — RESULTADO ════════════════════════════════════ -->
+<div id="result-section">
+<div class="section-inner">
+
+  <span class="step-pill">02</span>
+  <h2 class="section-title">Así te queda</h2>
+  <p class="section-sub">La IA generó tu foto con la gorra, ajustando iluminación y perspectiva real.</p>
+
+  <div class="result-layout">
+
+    <!-- Foto resultado -->
+    <div class="result-img-wrap">
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <p class="load-title">IA procesando tu foto…</p>
+        <div class="loading-steps">
+          <div class="load-step active" id="ls-1"><div class="load-dot"></div>Enviando foto al modelo</div>
+          <div class="load-step"        id="ls-2"><div class="load-dot"></div>En cola de procesamiento</div>
+          <div class="load-step"        id="ls-3"><div class="load-dot"></div>Generando imagen con gorra</div>
+          <div class="load-step"        id="ls-4"><div class="load-dot"></div>Ajustando iluminación</div>
+        </div>
+        <p class="load-eta">Esto puede tardar 15–30 segundos…</p>
+      </div>
+
+      <div class="error-box" id="error-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#c00" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <circle cx="12" cy="16" r="0.5" fill="#c00" stroke="none"/>
+        </svg>
+        <p id="error-msg">Ocurrió un error.</p>
+        <small>Verificá tu API Key y volvé a intentar.</small>
+      </div>
+
+      <img id="result-img" alt="Tu foto con la gorra">
+    </div>
+
+    <!-- Card piropo + compra -->
+    <div class="result-card">
+      <div class="piropo-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        Piropo del día
+      </div>
+      <p id="piropo-text">…</p>
+
+      <a id="whatsapp-btn" class="btn-whatsapp" href="#" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:17px;height:17px">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+        </svg>
+        Comprar por WhatsApp
+      </a>
+
+      <div class="trust-row">
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Seguro
+        </div>
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="1" y="3" width="15" height="13" rx="1"/>
+            <path d="M16 8h4l3 6v3h-7V8z"/>
+            <circle cx="5.5" cy="18.5" r="2.5"/>
+            <circle cx="18.5" cy="18.5" r="2.5"/>
+          </svg>
+          Envíos
+        </div>
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+          </svg>
+          Premium
+        </div>
+      </div>
+
+      <button class="btn-retry" onclick="retryPhoto()">↩ Sacar otra foto</button>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ══ FOOTER ════════════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="footer-logo">CAPFIT</div>
+      <p>Estilo que va contigo.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Navegación</h4>
+      <ul>
+        <li><a href="#">Inicio</a></li>
+        <li><a href="#try-section">Probar</a></li>
+        <li><a href="#">Comprar</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Ayuda</h4>
+      <ul>
+        <li><a href="#">Preguntas frecuentes</a></li>
+        <li><a href="#">Privacidad</a></li>
+        <li><a href="#">Términos</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Seguinos</h4>
+      <div class="social-row">
+        <a class="social-btn" href="#" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="2" width="20" height="20" rx="5"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="17.5" cy="6.5" r="0.7" fill="currentColor"/>
+          </svg>
+        </a>
+        <a class="social-btn" href="#" aria-label="TikTok">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 000 12.68 6.34 6.34 0 006.33-6.34V8.95a8.16 8.16 0 004.77 1.52V7.02a4.85 4.85 0 01-1-.33z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2025 CAPFIT. Todos los derechos reservados.</div>
+</footer>
+
+<!-- ══ SCRIPTS (orden importa) ══════════════════════════════════ -->
+<script src="js/config.js"></script>
+<script src="js/piropos.js"></script>
+<script src="js/tryon.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/background.js"></script>
+<script src="js/model3d.js"></script>
+<script src="js/ui.js"></script>
+
+</body>
+</html>
