@@ -3,8 +3,8 @@
 
 const CONFIG = {
   model3D:    'assets/hat.glb',
-  capImg1:    'assets/gorra_frente.jpg',
-  capImg2:    'assets/gorra_lado.jpg',
+  capImg1:    'assets/1.jpg',
+  capImg2:    'assets/2.jpg',
 
   whatsapp:   '5491100000000',           // ← tu número sin + ni espacios
   whatsappMsg:'Hola! Vi la gorra en CAPFIT y me encantó. Quiero comprarla 🧢',
