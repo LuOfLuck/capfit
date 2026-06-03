@@ -1,12 +1,3 @@
-/**
- * CAPFIT — Proxy Server (solo para desarrollo local)
- * Lee las API keys del archivo .env
- *
- * Uso:
- *   npm install dotenv   (solo la primera vez)
- *   node server.js
- *   Abrí http://localhost:3000
- */
 
 require('dotenv').config();
 
@@ -18,7 +9,6 @@ const url   = require('url');
 
 const PORT = 3000;
 
-// Verificar que las keys estén configuradas
 if (!process.env.FAL_KEY) {
   console.warn('⚠️  FAL_KEY no encontrada en .env — el try-on no va a funcionar');
 }
@@ -81,7 +71,6 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(204, corsHeaders()); res.end(); return;
   }
 
-  // ── /api/anthropic ──────────────────────────────────────
   if (reqPath === '/api/anthropic') {
     const apiKey = process.env.ANTHROPIC_KEY || '';
     if (!apiKey) {
@@ -102,7 +91,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── /api/fal/submit ─────────────────────────────────────
   if (reqPath === '/api/fal/submit') {
     const falKey = process.env.FAL_KEY || '';
     if (!falKey) {
@@ -123,7 +111,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── /api/fal/status ─────────────────────────────────────
   if (reqPath === '/api/fal/status') {
     const falKey = process.env.FAL_KEY || '';
     const model  = qs.model  || 'fal-ai/fashn/tryon/v1.5';
@@ -137,7 +124,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── /api/fal/result ─────────────────────────────────────
   if (reqPath === '/api/fal/result') {
     const falKey = process.env.FAL_KEY || '';
     const model  = qs.model || 'fal-ai/fashn/tryon/v1.5';
@@ -151,7 +137,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Archivos estáticos ───────────────────────────────────
   let filePath = path.join(__dirname, reqPath === '/' ? 'index.html' : reqPath);
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
 

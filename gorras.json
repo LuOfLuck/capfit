@@ -1,0 +1,38 @@
+[
+  {
+    "id": "clasica-negra",
+    "nombre": "Clásica Negra",
+    "precio": 24900,
+    "colores": ["#111111", "#888888", "#cccccc"],
+    "imgPreview": "assets/gorras/clasica-negra-lado.jpg",
+    "imgFrontal": "assets/gorras/clasica-negra-frente.jpg",
+    "model3D":    "assets/gorra.glb"
+  },
+  {
+    "id": "beige-minimal",
+    "nombre": "Beige Minimal",
+    "precio": 24900,
+    "colores": ["#c8a97e", "#b89060", "#8b6f47"],
+    "imgPreview": "assets/gorras/beige-lado.jpg",
+    "imgFrontal": "assets/gorras/beige-frente.jpg",
+    "model3D":    "assets/gorra.glb"
+  },
+  {
+    "id": "azul-navy",
+    "nombre": "Azul Navy",
+    "precio": 26900,
+    "colores": ["#1a2a4a", "#243560", "#3a4f7a"],
+    "imgPreview": "assets/gorras/navy-lado.jpg",
+    "imgFrontal": "assets/gorras/navy-frente.jpg",
+    "model3D":    "assets/gorra.glb"
+  },
+  {
+    "id": "edicion-premium",
+    "nombre": "Edición Premium",
+    "precio": 29900,
+    "colores": ["#111111", "#888888", "#6b4c1e", "#c8a020"],
+    "imgPreview": "assets/gorras/premium-lado.jpg",
+    "imgFrontal": "assets/gorras/premium-frente.jpg",
+    "model3D":    "assets/gorra.glb"
+  }
+]
