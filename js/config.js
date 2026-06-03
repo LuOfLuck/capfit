@@ -6,16 +6,22 @@ const CONFIG = {
   capImg1:    'assets/1.jpg',
   capImg2:    'assets/2.jpg',
 
-  whatsapp:   '5491100000000',           // ← tu número sin + ni espacios
+  whatsapp:   '5491100000000',
   whatsappMsg:'Hola! Vi la gorra en CAPFIT y me encantó. Quiero comprarla 🧢',
 
+  // Backends de try-on (en orden de prioridad)
+  // 1. fal.ai - Mejor calidad, requiere créditos
+  // 2. Kolors HF - Gratuito, funciona desde el browser
+  // 3. Modo demo - Muestra la foto original si todo falla
   falModel:   'fal-ai/fashn/tryon/v1.5',
 
-  // Hugging Face Spaces (IDM-VTON)
-  hfSpace: 'yisol/IDM-VTON',
-  hfSpaceURL: 'https://yisol-idm-vton.hf.space/api/predict',
+  // Kolors Virtual Try-On (gratuito, sin token)
+  kolorsSpace: 'kwai-kolors/kolors-virtual-try-on',
 
-  proxyBase: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? window.location.origin   // local: http://localhost:3000
-    : '',                      // Vercel: rutas relativas /api/...
+  // proxyBase detecta automáticamente el entorno
+  proxyBase: (function() {
+    return window.location.origin;
+  })(),
 };
+
+console.log('[CONFIG] proxyBase:', CONFIG.proxyBase);

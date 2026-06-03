@@ -13,6 +13,7 @@ async function activateCamera() {
     document.getElementById('btn-activate').style.display = 'none';
     document.getElementById('btn-shoot').style.display = 'flex';
   } catch (e) {
+    console.error('Error cámara:', e);
     alert('No se pudo acceder a la cámara. Habilitá los permisos.');
   }
 }
@@ -37,8 +38,19 @@ function takePhoto() {
   rs.style.display = 'block';
   setTimeout(() => rs.scrollIntoView({ behavior: 'smooth' }), 80);
 
+  // Obtener la imagen frontal de la gorra activa
+  let garmentPath = null;
+  if (typeof gorraActiva !== 'undefined' && gorraActiva) {
+    garmentPath = gorraActiva.imgFrontal || gorraActiva.imgPreview;
+    console.log('[Camera] Gorra activa:', gorraActiva.nombre, '- imgFrontal:', garmentPath);
+  } else {
+    console.warn('[Camera] No hay gorra activa seleccionada');
+  }
+
   resetResult();
-  runVirtualTryOn(dataURL);
+
+  // Pasar tanto la foto como la imagen de la gorra
+  runVirtualTryOn(dataURL, garmentPath);
   showPiropo();
 }
 

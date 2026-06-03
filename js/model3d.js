@@ -1,7 +1,23 @@
 // ── Visor 3D con Three.js + GLTFLoader + OrbitControls ──
 (function () {
+  // Verificar que CONFIG existe
+  if (typeof CONFIG === 'undefined') {
+    console.error('[Model3D] ❌ CONFIG no está definido. Asegurate de cargar config.js antes de model3d.js');
+    const container = document.getElementById('model-viewer');
+    if (container) {
+      container.innerHTML = '<p style="color:#c00;font-size:.74rem;padding:20px;text-align:center">⚠️ Error de configuración. Recargá la página.</p>';
+    }
+    return;
+  }
+
   const container = document.getElementById('model-viewer');
-  const W = container.clientWidth, H = container.clientHeight;
+  if (!container) {
+    console.error('[Model3D] ❌ No se encontró #model-viewer');
+    return;
+  }
+
+  const W = container.clientWidth || 400;
+  const H = container.clientHeight || 400;
 
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -27,11 +43,16 @@
   controls.minPolarAngle  = Math.PI * 0.25;
   controls.maxPolarAngle  = Math.PI * 0.72;
 
+  const modelPath = CONFIG.model3D || 'assets/hat.glb';
+  console.log('[Model3D] Cargando modelo:', modelPath);
+
   const loader = new THREE.GLTFLoader();
   loader.load(
-    CONFIG.model3D,
+    modelPath,
     (gltf) => {
-      document.getElementById('model-msg').style.display = 'none';
+      const msgEl = document.getElementById('model-msg');
+      if (msgEl) msgEl.style.display = 'none';
+
       const model  = gltf.scene;
       const box    = new THREE.Box3().setFromObject(model);
       const size   = box.getSize(new THREE.Vector3());
@@ -42,11 +63,21 @@
       model.position.y += 0.05;
       model.userData.baseY = model.position.y;
       scene.add(model);
+      console.log('[Model3D] ✅ Modelo cargado correctamente');
     },
-    null,
-    () => {
-      document.getElementById('model-msg').innerHTML =
-        '<p style="color:#c00;font-size:.74rem;padding:20px;text-align:center">⚠️ Colocá tu archivo 3D en <strong>assets/gorra.glb</strong></p>';
+    (progress) => {
+      // Opcional: mostrar progreso de carga
+      if (progress.lengthComputable) {
+        const percent = Math.round((progress.loaded / progress.total) * 100);
+        console.log('[Model3D] Cargando... ' + percent + '%');
+      }
+    },
+    (error) => {
+      console.error('[Model3D] ❌ Error cargando modelo:', error);
+      const msgEl = document.getElementById('model-msg');
+      if (msgEl) {
+        msgEl.innerHTML = '<p style="color:#c00;font-size:.74rem;padding:20px;text-align:center">⚠️ No se pudo cargar el modelo 3D.<br>Verificá que <strong>' + modelPath + '</strong> exista.</p>';
+      }
     }
   );
 
@@ -64,10 +95,10 @@
   animate();
 
   window.addEventListener('resize', () => {
-    const w = container.clientWidth, h = container.clientHeight;
+    const w = container.clientWidth || 400;
+    const h = container.clientHeight || 400;
     renderer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   });
 })();
-

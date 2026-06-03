@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<base target="_blank">
 </head>
 <body>
 
@@ -328,11 +329,12 @@
 </footer>
 
 <!-- ══ SCRIPTS ══ -->
+<!-- Orden importante: config.js primero, luego los que dependen de CONFIG -->
 <script src="js/config.js"></script>
 <script src="js/piropos.js"></script>
+<script src="js/catalogo.js"></script>
 <script src="js/tryon.js"></script>
 <script src="js/camera.js"></script>
-<script src="js/catalogo.js"></script>
 <script src="js/background.js"></script>
 <script src="js/model3d.js"></script>
 <script src="js/ui.js"></script>
