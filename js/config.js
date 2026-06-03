@@ -11,6 +11,10 @@ const CONFIG = {
 
   falModel:   'fal-ai/fashn/tryon/v1.5',
 
+  // Hugging Face Spaces (IDM-VTON)
+  hfSpace: 'yisol/IDM-VTON',
+  hfSpaceURL: 'https://yisol-idm-vton.hf.space/api/predict',
+
   proxyBase: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? window.location.origin   // local: http://localhost:3000
     : '',                      // Vercel: rutas relativas /api/...

@@ -27,25 +27,35 @@
 <!-- ══ HERO ══ -->
 <div id="hero">
   <canvas id="bg-canvas"></canvas>
-  <div id="model-viewer">
-    <div class="model-msg" id="model-msg">
-      <div class="spinner"></div>
-      <p>Cargando modelo 3D…</p>
+
+  <div class="hero-inner">
+    <!-- Texto -->
+    <div class="hero-text fade-in">
+      <h1 class="hero-title">La gorra<br>que va contigo.</h1>
+      <p class="hero-sub">Probala con IA antes de comprar<br>y elegí tu estilo perfecto.</p>
+      <button class="btn-probar"
+        onclick="document.getElementById('catalogo-section').scrollIntoView({behavior:'smooth'})">
+        Probar ahora
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <p class="hero-hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M8 9l4-4 4 4"/><path d="M12 5v10"/><path d="M8 15l4 4 4-4"/>
+        </svg>
+        Girá para ver en 3D
+      </p>
+    </div>
+
+    <!-- Modelo 3D -->
+    <div id="model-viewer">
+      <div class="model-msg" id="model-msg">
+        <div class="spinner"></div>
+        <p>Cargando modelo 3D…</p>
+      </div>
     </div>
   </div>
-  <p class="hero-hint fade-in">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-      <path d="M8 9l4-4 4 4"/><path d="M12 5v10"/><path d="M8 15l4 4 4-4"/>
-    </svg>
-    Arrastrá para girar
-  </p>
-  <button class="btn-probar fade-in"
-    onclick="document.getElementById('catalogo-section').scrollIntoView({behavior:'smooth'})">
-    Ver modelos
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M12 5v14M5 12l7 7 7-7"/>
-    </svg>
-  </button>
 </div>
 
 <!-- ══ SECCIÓN 01 — CATÁLOGO ══ -->

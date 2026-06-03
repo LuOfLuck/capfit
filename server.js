@@ -13,6 +13,15 @@ if (!process.env.FAL_KEY) {
   console.warn('⚠️  FAL_KEY no encontrada en .env — el try-on no va a funcionar');
 }
 
+// Gradio Client para HF Spaces
+let Client;
+try {
+  Client = require('@gradio/client').Client;
+} catch (e) {
+  console.warn('⚠️ @gradio/client no disponible');
+  Client = null;
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js':   'application/javascript',
@@ -134,6 +143,62 @@ const server = http.createServer(async (req, res) => {
         'Authorization': 'Key ' + falKey,
       }, null, res);
     } catch(e) { res.writeHead(500, corsHeaders()); res.end(JSON.stringify({ error: e.message })); }
+    return;
+  }
+
+  if (reqPath === '/api/hf/tryon') {
+    console.log('[HF] POST tryon');
+    if (!Client) {
+      res.writeHead(500, corsHeaders());
+      res.end(JSON.stringify({ error: '@gradio/client no disponible' }));
+      return;
+    }
+    try {
+      const body = await readBody(req);
+      const { person_image, garment_image } = JSON.parse(body);
+      
+      if (!person_image || !garment_image) {
+        res.writeHead(400, corsHeaders());
+        res.end(JSON.stringify({ error: 'person_image y garment_image requeridas' }));
+        return;
+      }
+
+      // Llamar al Space IDM-VTON usando Gradio Client
+      const client = await Client.connect('yisol/IDM-VTON', { hf_token: process.env.HF_TOKEN });
+      console.log('[HF] Conectado a yisol/IDM-VTON');
+
+      // El Space espera: person image editor, garment image, checkboxes, descripción
+      // Simplificamos: solo imagen de persona y prenda, defaults para el resto
+      const result = await client.predict('/tryon', [
+        {
+          background: person_image,
+          layers: [],
+          composite: null,
+        },
+        garment_image,
+        true,   // use auto-generated mask
+        false,  // use auto-crop & resizing
+        'cap',  // descripción
+      ]);
+
+      console.log('[HF] ✅ Resultado obtenido');
+
+      // Gradio retorna un array, la imagen está en result.data[0]
+      const imgURL = result.data?.[0];
+      if (!imgURL) {
+        res.writeHead(500, corsHeaders());
+        res.end(JSON.stringify({ error: 'No se obtuvo imagen del resultado', result }));
+        return;
+      }
+
+      res.writeHead(200, corsHeaders());
+      res.end(JSON.stringify({ image: imgURL }));
+
+    } catch(e) { 
+      console.error('[HF] Error:', e.message);
+      res.writeHead(500, corsHeaders()); 
+      res.end(JSON.stringify({ error: e.message })); 
+    }
     return;
   }
 
