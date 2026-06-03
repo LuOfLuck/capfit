@@ -1,3 +1,5 @@
+// ── Catálogo de gorras ──
+// Lee gorras.json, renderiza las cards y maneja la selección
 
 let gorras       = [];       // datos del JSON
 let gorraActiva  = null;     // gorra seleccionada actualmente
@@ -35,16 +37,20 @@ function renderCatalogo() {
 function seleccionarGorra(g) {
   gorraActiva = g;
 
+  // Marcar card activa
   document.querySelectorAll('.cap-card').forEach(c => c.classList.remove('activa'));
   const card = document.getElementById('card-' + g.id);
   if (card) card.classList.add('activa');
 
+  // Actualizar panel "elegiste" en sección cámara
   document.getElementById('elegiste-img').src       = g.imgPreview;
   document.getElementById('elegiste-nombre').textContent = g.nombre;
   document.getElementById('elegiste-precio').textContent = formatPrecio(g.precio);
 
+  // Actualizar 3D si está cargado
   if (window.cargar3D) window.cargar3D(g.model3D);
 
+  // Scroll a sección probar
   document.getElementById('try-section').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -52,6 +58,7 @@ function formatPrecio(n) {
   return '$' + n.toLocaleString('es-AR');
 }
 
+// Exponer para el botón "cambiar modelo"
 function cambiarModelo() {
   document.getElementById('catalogo-section').scrollIntoView({ behavior: 'smooth' });
 }

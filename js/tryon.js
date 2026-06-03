@@ -1,11 +1,9 @@
 // ── fal.ai FASHN Virtual Try-On ──
 // La API key vive en el servidor (variable de entorno), nunca en el browser.
-// Flujo: browser → /api/fal/submit → queue.fal.run
 
-// ── Loading steps UI ──
 function resetResult() {
-  document.getElementById('result-img').style.display    = 'none';
-  document.getElementById('error-box').style.display     = 'none';
+  document.getElementById('result-img').style.display     = 'none';
+  document.getElementById('error-box').style.display      = 'none';
   document.getElementById('loading-overlay').style.display = 'flex';
   setStep(1);
 }
@@ -14,7 +12,7 @@ function setStep(n) {
   for (let i = 1; i <= 4; i++) {
     const el = document.getElementById(`ls-${i}`);
     el.classList.remove('active', 'done');
-    if (i < n)       el.classList.add('done');
+    if (i < n)        el.classList.add('done');
     else if (i === n) el.classList.add('active');
   }
 }
@@ -25,18 +23,18 @@ function showError(msg) {
   document.getElementById('error-box').style.display = 'flex';
 }
 
-// ── Main try-on ──
-async function runVirtualTryOn(photoDataURL) {
+// garmentImgPath = ruta local de la imagen FRONTAL de la gorra seleccionada
+async function runVirtualTryOn(photoDataURL, garmentImgPath) {
   try {
     setStep(1);
 
     const proxy = CONFIG.proxyBase;
     const model = CONFIG.falModel;
 
-    // Cargar imagen de la gorra como data URI (servida localmente)
+    // Cargar imagen frontal de la gorra seleccionada como data URI
     let garmentDataURI;
     try {
-      const r    = await fetch(CONFIG.capImg1);
+      const r    = await fetch(garmentImgPath);
       const blob = await r.blob();
       garmentDataURI = await new Promise((res, rej) => {
         const rd = new FileReader();
@@ -45,12 +43,11 @@ async function runVirtualTryOn(photoDataURL) {
         rd.readAsDataURL(blob);
       });
     } catch (e) {
-      throw new Error('No se encontró assets/gorra_frente.jpg. Verificá que el archivo existe.');
+      throw new Error(`No se encontró la imagen de la gorra: ${garmentImgPath}`);
     }
 
     setStep(2);
 
-    // Submit — la API key la agrega el servidor, no el browser
     const submitResp = await fetch(proxy + '/api/fal/submit?model=' + encodeURIComponent(model), {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -80,9 +77,7 @@ async function runVirtualTryOn(photoDataURL) {
     while (Date.now() < deadline) {
       await new Promise(r => setTimeout(r, 3000));
 
-      const stResp = await fetch(
-        proxy + '/api/fal/status?model=' + encodeURIComponent(model) + '&reqId=' + requestId
-      );
+      const stResp = await fetch(proxy + '/api/fal/status?reqId=' + requestId);
       if (!stResp.ok) { console.warn('[fal] status', stResp.status); continue; }
 
       const st = await stResp.json();
@@ -91,9 +86,7 @@ async function runVirtualTryOn(photoDataURL) {
       if (st.status === 'COMPLETED') {
         setStep(4);
 
-        const resResp    = await fetch(
-          proxy + '/api/fal/result?model=' + encodeURIComponent(model) + '&reqId=' + requestId
-        );
+        const resResp    = await fetch(proxy + '/api/fal/result?reqId=' + requestId);
         const resultData = await resResp.json();
 
         const imgURL =
@@ -109,8 +102,12 @@ async function runVirtualTryOn(photoDataURL) {
         ri.onerror = () => showError('No se pudo cargar la imagen. Intentá de nuevo.');
         ri.src = imgURL;
 
+        // WhatsApp con nombre y precio de la gorra elegida
+        const msg = gorraActiva
+          ? `Hola! Vi la gorra *${gorraActiva.nombre}* en CAPFIT (${formatPrecio(gorraActiva.precio)}) y me encantó. ¡Quiero comprarla! 🧢`
+          : CONFIG.whatsappMsg;
         document.getElementById('whatsapp-btn').href =
-          'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(CONFIG.whatsappMsg);
+          'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(msg);
         return;
       }
 
