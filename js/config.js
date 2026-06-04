@@ -6,7 +6,7 @@ const CONFIG = {
   capImg1:    'assets/1.jpg',
   capImg2:    'assets/2.jpg',
 
-  whatsapp:   '5491100000000',
+  whatsapp:   '5491138607910',
   whatsappMsg:'Hola! Vi la gorra en CAPFIT y me encantó. Quiero comprarla 🧢',
 
   // Backends de try-on (en orden de prioridad)
