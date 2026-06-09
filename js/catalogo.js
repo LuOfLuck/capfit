@@ -98,7 +98,7 @@ function seleccionarGorra(g) {
 // ── Init ──
 async function cargarCatalogo() {
   try {
-    const r = await fetch('gorras.json');
+    const r = await fetch('assets/gorras.json');
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const gorras = await r.json();
 
