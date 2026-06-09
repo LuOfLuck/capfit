@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="shortcut icon" href="https://www.luofluck.tech/assets/favicon.ico" type="image/x-icon">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -254,7 +255,7 @@
     </div>
 
     <!-- Card compra -->
-    <div class="result-card">
+    <div class="result-card" id="result-card">
 
       <!-- Gorra elegida -->
       <div class="result-cap-card">
@@ -297,7 +298,7 @@
         </div>
       </div>
 
-      <button class="btn-retry" onclick="retryPhoto()">↩ Sacar otra foto</button>
+      <button class="btn-retry" id="btn-retry" onclick="retryPhoto()">↩ Sacar otra foto</button>
     </div>
   </div>
 </div>
@@ -310,6 +311,7 @@
       <div class="footer-logo">CAPFIT</div>
       <p>Estilo que va contigo.</p>
     </div>
+    <!--
     <div class="footer-col">
       <h4>Navegación</h4>
       <ul>
@@ -319,6 +321,7 @@
         <li><a href="#">Comprar</a></li>
       </ul>
     </div>
+    
     <div class="footer-col">
       <h4>Ayuda</h4>
       <ul>
@@ -327,6 +330,7 @@
         <li><a href="#">Términos</a></li>
       </ul>
     </div>
+    -->
     <div class="footer-col">
       <h4>Seguinos</h4>
       <div class="social-row">
@@ -343,12 +347,13 @@
   <div class="footer-bottom">© 2026 CAPFIT. Todos los derechos reservados por Guerrero Lucas.</div>
 </footer>
 
-<!-- ══ SCRIPTS ══ -->
+
+<script src="js/store.js"></script>
 <script src="js/config.js"></script>
+<script src="js/catalogo.js"></script>
 <script src="js/piropos.js"></script>
 <script src="js/tryon.js"></script>
 <script src="js/camera.js"></script>
-<script src="js/catalogo.js"></script>
 <script src="js/background.js"></script>
 <script src="js/model3d.js"></script>
 <script src="js/ui.js"></script>

@@ -305,3 +305,29 @@ footer { background: var(--black); color: var(--white); padding: 60px 52px 28px;
 @media (max-width: 860px) {
   .elegiste-strip { display: flex; }
 }
+
+/* ── BADGE GENERACIONES ── */
+.gen-badge {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gen-badge::before {
+  content: '';
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+.gen-badge.agotado::before { background: #c00; }
+
+/* Retry deshabilitado durante generación */
+#btn-retry:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}

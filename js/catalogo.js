@@ -1,29 +1,37 @@
 // ── Catálogo de gorras ──
-let gorras      = [];
-let gorraActiva = null;
 
-async function cargarCatalogo() {
-  try {
-    const r = await fetch('gorras.json');
-    gorras = await r.json();
-    renderCatalogo();
-    // Seleccionar primera por defecto sin hacer scroll
-    gorraActiva = gorras[0];
-    marcarActiva(gorras[0].id);
-    actualizarPanelElegiste(gorras[0]);
-    if (window.cargar3D) window.cargar3D(gorras[0].model3D);
-  } catch (e) {
-    console.error('Error cargando gorras.json:', e);
-  }
+// ── DOM refs (cacheados una sola vez) ──
+const CatalogoUI = {
+  get grid()         { return document.getElementById('catalogo-grid'); },
+  // Desktop panel
+  get elegImg()      { return document.getElementById('elegiste-img'); },
+  get elegNombre()   { return document.getElementById('elegiste-nombre'); },
+  get elegPrecio()   { return document.getElementById('elegiste-precio'); },
+  // Mobile strip
+  get stripImg()     { return document.getElementById('elegiste-strip-img'); },
+  get stripEmoji()   { return document.getElementById('elegiste-strip-emoji'); },
+  get stripNombre()  { return document.getElementById('elegiste-strip-nombre'); },
+  get stripPrecio()  { return document.getElementById('elegiste-strip-precio'); },
+};
+
+// ── Helpers ──
+function formatPrecio(n) {
+  return '$' + n.toLocaleString('es-AR');
 }
 
-function renderCatalogo() {
-  const grid = document.getElementById('catalogo-grid');
+function cambiarModelo() {
+  document.getElementById('catalogo-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Render ──
+function renderCatalogo(gorras) {
+  const grid = CatalogoUI.grid;
+
   grid.innerHTML = gorras.map((g, i) => `
     <div class="cap-card" id="card-${g.id}" data-index="${i}">
       <div class="cap-card-img">
         <img src="${g.imgPreview}" alt="${g.nombre}"
-          onerror="this.src='';this.style.display='none';this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#ccc;font-size:2rem\'}>🧢</div>'">
+          onerror="this.style.display='none';this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#ccc;font-size:2rem\\'>🧢</div>'">
       </div>
       <div class="cap-card-colores">
         ${g.colores.map(c => `<span class="color-dot" style="background:${c}"></span>`).join('')}
@@ -36,70 +44,80 @@ function renderCatalogo() {
     </div>
   `).join('');
 
-  // Eventos con event delegation — sin inline onclick
-  grid.addEventListener('click', (e) => {
+  // Event delegation — un solo listener en el grid
+  grid.addEventListener('click', e => {
     const card = e.target.closest('.cap-card');
     if (!card) return;
-    const idx = parseInt(card.dataset.index);
-    seleccionarGorra(gorras[idx]);
+    const g = gorras[parseInt(card.dataset.index)];
+    if (g) seleccionarGorra(g);
   });
 }
 
-function seleccionarGorra(g) {
-  gorraActiva = g;
-  marcarActiva(g.id);
-  actualizarPanelElegiste(g);
-  if (window.cargar3D) window.cargar3D(g.model3D);
-  // Scroll a cámara
-  document.getElementById('try-section').scrollIntoView({ behavior: 'smooth' });
-}
-
+// ── Selección ──
 function marcarActiva(id) {
   document.querySelectorAll('.cap-card').forEach(c => c.classList.remove('activa'));
-  const card = document.getElementById('card-' + id);
-  if (card) card.classList.add('activa');
+  document.getElementById('card-' + id)?.classList.add('activa');
 }
 
 function actualizarPanelElegiste(g) {
+  const ui = CatalogoUI;
+
   // Panel lateral (desktop)
-  const img    = document.getElementById('elegiste-img');
-  const nombre = document.getElementById('elegiste-nombre');
-  const precio = document.getElementById('elegiste-precio');
-  if (img) {
-    img.src = g.imgPreview || '';
-    img.style.display = 'block';
-    img.onerror = () => {
-      img.style.display = 'none';
-      img.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#ccc;font-size:3rem">🧢</div>';
+  if (ui.elegImg) {
+    ui.elegImg.src          = g.imgPreview || '';
+    ui.elegImg.style.display = 'block';
+    ui.elegImg.onerror = () => {
+      ui.elegImg.style.display = 'none';
+      ui.elegImg.parentElement.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#ccc;font-size:3rem">🧢</div>';
     };
   }
-  if (nombre) nombre.textContent = g.nombre;
-  if (precio) precio.textContent = formatPrecio(g.precio);
+  if (ui.elegNombre) ui.elegNombre.textContent = g.nombre;
+  if (ui.elegPrecio) ui.elegPrecio.textContent  = formatPrecio(g.precio);
 
   // Strip mobile
-  const stripImg    = document.getElementById('elegiste-strip-img');
-  const stripEmoji  = document.getElementById('elegiste-strip-emoji');
-  const stripNombre = document.getElementById('elegiste-strip-nombre');
-  const stripPrecio = document.getElementById('elegiste-strip-precio');
-  if (stripImg) {
-    stripImg.style.display = 'block';
-    stripImg.src = g.imgPreview || '';
-    if (stripEmoji) stripEmoji.style.display = 'none';
-    if (!g.imgPreview) {
-      stripImg.style.display = 'none';
-      if (stripEmoji) stripEmoji.style.display = 'flex';
-    }
+  const hasImg = !!g.imgPreview;
+  if (ui.stripImg) {
+    ui.stripImg.src          = g.imgPreview || '';
+    ui.stripImg.style.display = hasImg ? 'block' : 'none';
   }
-  if (stripNombre) stripNombre.textContent = g.nombre;
-  if (stripPrecio) stripPrecio.textContent = formatPrecio(g.precio);
+  if (ui.stripEmoji)  ui.stripEmoji.style.display  = hasImg ? 'none' : 'flex';
+  if (ui.stripNombre) ui.stripNombre.textContent    = g.nombre;
+  if (ui.stripPrecio) ui.stripPrecio.textContent    = formatPrecio(g.precio);
 }
 
-function formatPrecio(n) {
-  return '$' + n.toLocaleString('es-AR');
+function seleccionarGorra(g) {
+  Store.setGorraActiva(g);
+  window.gorraActiva = g;
+  marcarActiva(g.id);
+  actualizarPanelElegiste(g);
+  if (window.cargar3D) window.cargar3D(g.model3D);
+  document.getElementById('try-section').scrollIntoView({ behavior: 'smooth' });
 }
 
-function cambiarModelo() {
-  document.getElementById('catalogo-section').scrollIntoView({ behavior: 'smooth' });
+// ── Init ──
+async function cargarCatalogo() {
+  try {
+    const r = await fetch('gorras.json');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const gorras = await r.json();
+
+    Store.setGorras(gorras);
+
+    renderCatalogo(gorras);
+
+    // Seleccionar primera por defecto (sin scroll)
+    const primera = gorras[0];
+    Store.setGorraActiva(primera);
+    marcarActiva(primera.id);
+    actualizarPanelElegiste(primera);
+    if (window.cargar3D) window.cargar3D(primera.model3D);
+
+  } catch (e) {
+    console.error('[Catalogo] Error cargando gorras.json:', e);
+    CatalogoUI.grid.innerHTML =
+      '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#c00;font-size:.82rem">Error cargando el catálogo. Recargá la página.</div>';
+  }
 }
 
 window.addEventListener('DOMContentLoaded', cargarCatalogo);
