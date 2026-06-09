@@ -145,57 +145,121 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── /api/gpt/edit → fal.run/openai/gpt-image-2/edit ────
+   // ── /api/gpt/edit → fal.run/openai/gpt-image-2/edit ────
   if (reqPath === '/api/gpt/edit') {
     const falKey = process.env.FAL_KEY || '';
+    
+    // ===== LOGS DE DEBUG =====
+    console.log('');
+    console.log('╔════════════════════════════════════════════╗');
+    console.log('║  [DEBUG] /api/gpt/edit llamado             ║');
+    console.log('╠════════════════════════════════════════════╣');
+    console.log('║  FAL_KEY presente:  ', falKey ? '✓ SÍ' : '✗ NO');
+    if (falKey) console.log('║  FAL_KEY preview:   ', falKey.slice(0, 12) + '...');
+    console.log('╚════════════════════════════════════════════╝');
+    // =========================
+
     if (!falKey) {
+      console.error('[DEBUG] ERROR: FAL_KEY no configurada en .env');
       res.writeHead(500, corsHeaders());
       res.end(JSON.stringify({ error: 'FAL_KEY no configurada en .env' }));
       return;
     }
-    console.log('[gpt-image-2] POST edit');
+    
+    console.log('[DEBUG] Leyendo body del request...');
+    
     try {
       const body = await readBody(req);
+      console.log('[DEBUG] Body recibido: ' + body.length + ' bytes');
+      console.log('[DEBUG] Primeros 200 chars del body:', body.toString().slice(0, 200));
+
+      console.log('[DEBUG] Enviando request a fal.run/openai/gpt-image-2/edit...');
+      console.log('[DEBUG] Headers:', {
+        'Content-Type': 'application/json',
+        'Authorization': 'Key ' + falKey.slice(0, 8) + '...',
+        'Content-Length': body.length
+      });
+
       proxyRequest('fal.run', '/openai/gpt-image-2/edit', 'POST', {
         'Content-Type':   'application/json',
         'Authorization':  'Key ' + falKey,
         'Content-Length': body.length,
       }, body, res);
-    } catch(e) { res.writeHead(500, corsHeaders()); res.end(JSON.stringify({ error: e.message })); }
+
+      console.log('[DEBUG] Request proxy enviada. Esperando respuesta de fal.ai...');
+
+    } catch(e) { 
+      console.error('[DEBUG] ERROR en /api/gpt/edit:', e.message);
+      console.error('[DEBUG] Stack:', e.stack);
+      res.writeHead(500, corsHeaders()); 
+      res.end(JSON.stringify({ error: e.message })); 
+    }
     return;
   }
 
   // ── /api/fal/submit ─────────────────────────────────────
+    // ── /api/fal/submit ─────────────────────────────────────
   if (reqPath === '/api/fal/submit') {
     const falKey = process.env.FAL_KEY || '';
+    const model = qs.model || 'fal-ai/fashn/tryon/v1.5';
+
+    // ===== LOGS DE DEBUG =====
+    console.log('');
+    console.log('╔════════════════════════════════════════════╗');
+    console.log('║  [DEBUG] /api/fal/submit llamado           ║');
+    console.log('╠════════════════════════════════════════════╣');
+    console.log('║  FAL_KEY presente:  ', falKey ? '✓ SÍ' : '✗ NO');
+    console.log('║  Model:             ', model);
+    console.log('╚════════════════════════════════════════════╝');
+    // =========================
+
     if (!falKey) {
+      console.error('[DEBUG] ERROR: FAL_KEY no configurada');
       res.writeHead(500, corsHeaders());
       res.end(JSON.stringify({ error: 'FAL_KEY no configurada en .env' }));
       return;
     }
-    const model = qs.model || 'fal-ai/fashn/tryon/v1.5';
-    console.log('[fal] submit →', model);
+    
+    console.log('[DEBUG] Leyendo body...');
+    
     try {
       const rawBody = await readBody(req);
+      console.log('[DEBUG] Body raw recibido: ' + rawBody.length + ' bytes');
+      
       const payload = JSON.parse(rawBody.toString());
+      console.log('[DEBUG] Payload parseado. Keys:', Object.keys(payload));
+      console.log('[DEBUG] model_image presente:', payload.model_image ? '✓' : '✗');
+      console.log('[DEBUG] garment_image presente:', payload.garment_image ? '✓' : '✗');
 
       // Subir imágenes para obtener URLs públicas
-      console.log('[fal] uploading images...');
+      console.log('[DEBUG] Subiendo imágenes a fal.ai storage...');
       const [personURL, garmentURL] = await Promise.all([
-        uploadDataURItoFal(payload.model_image,   falKey),
+        uploadDataURItoFal(payload.model_image, falKey),
         uploadDataURItoFal(payload.garment_image, falKey),
       ]);
-      console.log('[fal] uploaded ok');
+      console.log('[DEBUG] Upload OK. personURL:', personURL.slice(0, 50) + '...');
+      console.log('[DEBUG] Upload OK. garmentURL:', garmentURL.slice(0, 50) + '...');
+
       payload.model_image   = personURL;
       payload.garment_image = garmentURL;
 
       const newBody = Buffer.from(JSON.stringify(payload));
+      console.log('[DEBUG] Enviando a queue.fal.run/' + model);
+
       proxyRequest('queue.fal.run', '/' + model, 'POST', {
         'Content-Type':   'application/json',
         'Content-Length': newBody.length,
         'Authorization':  'Key ' + falKey,
       }, newBody, res);
-    } catch(e) { res.writeHead(500, corsHeaders()); res.end(JSON.stringify({ error: e.message })); }
+
+      console.log('[DEBUG] Request proxy enviado a queue.fal.run');
+
+    } catch(e) { 
+      console.error('[DEBUG] ERROR en /api/fal/submit:', e.message);
+      console.error('[DEBUG] Stack:', e.stack);
+      res.writeHead(500, corsHeaders()); 
+      res.end(JSON.stringify({ error: e.message })); 
+    }
     return;
   }
 

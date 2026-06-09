@@ -61,23 +61,28 @@ function setWhatsAppLink() {
 //  ENTRADA PRINCIPAL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runVirtualTryOn(photoDataURL, garmentImgPath) {
-  console.log('[tryon] Motor activo:', CONFIG.aiModel);
+  console.log('[TRYON] ========== INICIO ==========');
+  console.log('[TRYON] Motor activo:', CONFIG.aiModel);
+  console.log('[TRYON] proxyBase:', CONFIG.proxyBase);
+  console.log('[TRYON] garmentImgPath:', garmentImgPath);
+  console.log('[TRYON] photoDataURL length:', photoDataURL?.length);
 
   try {
-    // Cargar imagen de la gorra (compartido por ambos motores)
     setStep(1);
+    console.log('[TRYON] Step 1: Cargando imagen de gorra...');
+    
     let garmentDataURI;
     try {
       garmentDataURI = await cargarImagenComoDataURI(garmentImgPath);
+      console.log('[TRYON] Gorra cargada OK, length:', garmentDataURI.length);
     } catch (e) {
-      console.warn('[tryon] No se pudo cargar la imagen de la gorra:', garmentImgPath);
-      // Fallback: mostrar foto sin editar
+      console.error('[TRYON] ERROR cargando gorra:', e);
       showPhotoFallback(photoDataURL);
       setWhatsAppLink();
       return;
     }
 
-    // Despachar al motor correcto
+    console.log('[TRYON] Dispatching a motor:', CONFIG.aiModel);
     if (CONFIG.aiModel === 'gpt-image-2') {
       await runGPTImage2(photoDataURL, garmentDataURI);
     } else {
@@ -85,10 +90,11 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
     }
 
     setWhatsAppLink();
+    console.log('[TRYON] ========== FIN OK ==========');
 
   } catch (err) {
-    console.error('[tryon] Error:', err);
-    // Fallback: mostrar foto original sin editar en vez de pantalla de error
+    console.error('[TRYON] ========== ERROR GENERAL ==========');
+    console.error('[TRYON]', err);
     showPhotoFallback(photoDataURL);
     setWhatsAppLink();
   }
@@ -99,44 +105,70 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
 //  ~$0.015 por imagen en low quality
 //  Acepta múltiples imágenes + prompt en texto
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// ── GPT-Image-2 con logs ──
 async function runGPTImage2(photoDataURL, garmentDataURI) {
   const proxy = CONFIG.proxyBase;
+  console.log('[GPT2] Iniciando, proxy:', proxy);
 
   setStep(2);
+  
+  const prompt = 'The first image is a person...'; // tu prompt actual
+  console.log('[GPT2] Prompt length:', prompt.length);
 
-  const prompt =
-    'The first image is a person. The second image is a cap/hat product photo. ' +
-    'Place the cap naturally on the person\'s head, matching the lighting, angle and skin tone. ' +
-    'Preserve the person\'s face, hair, background and everything else exactly. ' +
-    'Only add the cap on the head. Make it look like a real photo.';
+  const payload = {
+    prompt,
+    image_urls: [photoDataURL, garmentDataURI],
+    quality: 'low',
+    image_size: 'square',
+    output_format: 'jpeg',
+  };
+  console.log('[GPT2] Payload image_urls lengths:', 
+    payload.image_urls[0]?.length, 
+    payload.image_urls[1]?.length
+  );
 
-  const resp = await fetch(proxy + '/api/gpt/edit', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt,
-      image_urls:    [photoDataURL, garmentDataURI],
-      quality:       'low',        // nivel más barato
-      image_size:    '1024x1024',  // tamaño fijo chico → menos tokens de salida
-      output_format: 'jpeg',       // jpeg pesa menos que png
-    }),
-  });
+  const url = proxy + '/api/gpt/edit';
+  console.log('[GPT2] Fetching:', url);
 
-  setStep(3);
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    
+    console.log('[GPT2] Response status:', resp.status);
+    console.log('[GPT2] Response headers:', [...resp.headers.entries()]);
 
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error('GPT-Image-2 error (' + resp.status + '): ' + t);
+    setStep(3);
+
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error('[GPT2] ERROR HTTP', resp.status, ':', t.slice(0, 500));
+      throw new Error('GPT-Image-2 error (' + resp.status + '): ' + t);
+    }
+
+    const data = await resp.json();
+    console.log('[GPT2] Response data keys:', Object.keys(data));
+    console.log('[GPT2] Response data:', JSON.stringify(data).slice(0, 500));
+
+    const imgURL = data?.images?.[0]?.url || data?.data?.[0]?.url;
+    console.log('[GPT2] imgURL encontrada:', imgURL ? 'SÍ' : 'NO');
+    
+    if (!imgURL) {
+      console.error('[GPT2] No imgURL en respuesta. Estructura:', data);
+      throw new Error('GPT-Image-2 no devolvió imagen');
+    }
+
+    setStep(4);
+    mostrarResultado(imgURL);
+    console.log('[GPT2] Resultado mostrado');
+
+  } catch (e) {
+    console.error('[GPT2] ERROR en fetch:', e);
+    throw e;
   }
-
-  const data = await resp.json();
-  console.log('[gpt-image-2] response:', data);
-
-  const imgURL = data?.images?.[0]?.url || data?.data?.[0]?.url;
-  if (!imgURL) throw new Error('GPT-Image-2 no devolvió imagen: ' + JSON.stringify(data));
-
-  setStep(4);
-  mostrarResultado(imgURL);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
