@@ -1,4 +1,4 @@
-// ── UI helpers: fade-in observer ──
+
 document.addEventListener('DOMContentLoaded', () => {
   const obs = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });

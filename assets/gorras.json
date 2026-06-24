@@ -1,6 +1,7 @@
 [
   {
     "id": "beige-minimal",
+    "tipo": "gorra",
     "nombre": "Beige Minimal",
     "precio": 24900,
     "colores": ["#c8a97e", "#b89060", "#8b6f47"],
@@ -10,6 +11,7 @@
   },
   {
     "id": "azul-navy",
+    "tipo": "gorra",
     "nombre": "Azul Navy",
     "precio": 26900,
     "colores": ["#1a2a4a", "#243560", "#3a4f7a"],
@@ -19,11 +21,23 @@
   },
   {
     "id": "edicion-premium",
+    "tipo": "gorra",
     "nombre": "Edición Premium",
     "precio": 29900,
     "colores": ["#111111", "#888888", "#6b4c1e", "#c8a020"],
     "imgPreview": "assets/gorras/Gorra_negra_lateral.webp",
     "imgFrontal": "assets/gorras/Gorra_negra_frente.webp",
     "model3D": "assets/hat.glb"
+  },
+  {
+    "id": "anteojo-aviador",
+    "tipo": "anteojo",
+    "nombre": "Aviador Clásico",
+    "precio": 18900,
+    "colores": ["#c0c0c0", "#1a1a1a", "#b8860b"],
+    "imgPreview": "assets/anteojos/anteojo.webp",
+    "imgFrontal": "assets/anteojos/anteojo.webp",
+    "model3D": "assets/glasses.glb"
   }
+
 ]

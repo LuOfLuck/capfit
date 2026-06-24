@@ -95,14 +95,26 @@ async function activateCamera() {
     document.getElementById('cam-placeholder').style.display = 'none';
     document.getElementById('btn-activate').style.display = 'none';
     document.getElementById('btn-shoot').style.display = 'flex';
+
+
+    v.onloadedmetadata = () => {
+      if (typeof FaceDetection !== 'undefined') {
+        FaceDetection.start(v);
+      }
+    };
   } catch (e) {
-    alert('No se pudo acceder a la cámara. Habilitá los permisos.');
+    //alert('No se pudo acceder a la cámara. Habilitá los permisos.');
   }
 }
 
 function takePhoto() {
   if (!gorraActiva) {
-    alert('Primero elegí una gorra del catálogo.');
+    //alert('Primero elegí una gorra del catálogo.');
+    return;
+  }
+
+  if (typeof FaceDetection !== 'undefined' && FaceDetection.isActive() && !FaceDetection.hasFace()) {
+    //alert('No se detectó ningún rostro.\n\nAsegurate de que tu cara esté bien iluminada y centrada en la cámara antes de sacar la foto.');
     return;
   }
 
@@ -111,6 +123,11 @@ function takePhoto() {
     const t = tiempoRestante();
     mostrarLimiteAlcanzado(t);
     return;
+  }
+
+  // Detener detección de rostro antes de procesar
+  if (typeof FaceDetection !== 'undefined') {
+    FaceDetection.stop();
   }
 
   const video  = document.getElementById('video-feed');
@@ -174,6 +191,11 @@ function mostrarLimiteAlcanzado(tiempoStr) {
 }
 
 function retryPhoto() {
+  // Detener detección de rostro al reiniciar
+  if (typeof FaceDetection !== 'undefined') {
+    FaceDetection.stop();
+  }
+
   document.getElementById('result-section').style.display = 'none';
   document.getElementById('error-box').style.display = 'none';
   document.getElementById('btn-activate').style.display = 'block';

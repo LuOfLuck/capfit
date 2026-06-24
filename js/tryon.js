@@ -1,8 +1,4 @@
-// ── Virtual Try-On ──
-// Soporta dos motores: GPT-Image-2 y FASHN v1.6/v1.5
-// Para cambiar el motor: editá CONFIG.aiModel en config.js
 
-// ── UI helpers ──
 function resetResult() {
   document.getElementById('result-img').style.display     = 'none';
   document.getElementById('error-box').style.display      = 'none';
@@ -50,33 +46,53 @@ async function cargarImagenComoDataURI(path) {
 
 // Setea el link de WhatsApp con la gorra activa
 function setWhatsAppLink() {
-  const msg = gorraActiva
-    ? `Hola! Vi la gorra *${gorraActiva.nombre}* en CAPFIT (${formatPrecio(gorraActiva.precio)}) y me encantó. ¡Quiero comprarla! 🧢`
+  const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+  const msg = item
+    ? `Hola! Vi *${item.nombre}* en CAPFIT (${formatPrecio(item.precio)}) y me encantó. ¡Quiero comprarlo! 🧢`
     : CONFIG.whatsappMsg;
   document.getElementById('whatsapp-btn').href =
     'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(msg);
+}
+
+const PROMPTS_POR_TIPO = {
+  gorra:
+    'Devolve una foto de la persona con la gorra puesta',
+
+  anteojo:
+    'Devolve una foto de la persona con los anteojos puestos',
+
+  default:
+    'Devolve una foto de la persona con eso puesto',
+};
+
+function getPromptParaTipo(tipo) {
+  return PROMPTS_POR_TIPO[tipo] || PROMPTS_POR_TIPO.default;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  ENTRADA PRINCIPAL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runVirtualTryOn(photoDataURL, garmentImgPath) {
+  // Item activo (gorra, anteojo, etc.) — lo usamos para saber qué prompt usar
+  const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+  const tipo = item?.tipo || 'gorra'; // default a 'gorra' por compatibilidad con items viejos sin "tipo"
+
   console.log('[TRYON] ========== INICIO ==========');
   console.log('[TRYON] Motor activo:', CONFIG.aiModel);
+  console.log('[TRYON] Tipo de producto:', tipo);
   console.log('[TRYON] proxyBase:', CONFIG.proxyBase);
   console.log('[TRYON] garmentImgPath:', garmentImgPath);
-  console.log('[TRYON] photoDataURL length:', photoDataURL?.length);
 
   try {
     setStep(1);
-    console.log('[TRYON] Step 1: Cargando imagen de gorra...');
-    
+    console.log('[TRYON] Step 1: Cargando imagen del producto...');
+
     let garmentDataURI;
     try {
       garmentDataURI = await cargarImagenComoDataURI(garmentImgPath);
-      console.log('[TRYON] Gorra cargada OK, length:', garmentDataURI.length);
+      console.log('[TRYON] Imagen cargada OK, length:', garmentDataURI.length);
     } catch (e) {
-      console.error('[TRYON] ERROR cargando gorra:', e);
+      console.error('[TRYON] ERROR cargando imagen del producto:', e);
       showPhotoFallback(photoDataURL);
       setWhatsAppLink();
       return;
@@ -84,7 +100,7 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
 
     console.log('[TRYON] Dispatching a motor:', CONFIG.aiModel);
     if (CONFIG.aiModel === 'gpt-image-2') {
-      await runGPTImage2(photoDataURL, garmentDataURI);
+      await runGPTImage2(photoDataURL, garmentDataURI, tipo);
     } else {
       await runFASHN(photoDataURL, garmentDataURI);
     }
@@ -101,20 +117,16 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  MOTOR 1: GPT-Image-2 (openai/gpt-image-2/edit)
-//  ~$0.015 por imagen en low quality
-//  Acepta múltiples imágenes + prompt en texto
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// ── GPT-Image-2 con logs ──
-async function runGPTImage2(photoDataURL, garmentDataURI) {
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   const proxy = CONFIG.proxyBase;
   console.log('[GPT2] Iniciando, proxy:', proxy);
 
   setStep(2);
-  
-  const prompt = 'The first image is a person...'; // tu prompt actual
-  console.log('[GPT2] Prompt length:', prompt.length);
+
+  const prompt = getPromptParaTipo(tipo);
+  console.log('[GPT2] Tipo:', tipo, '| Prompt length:', prompt.length);
 
   const payload = {
     prompt,
@@ -123,8 +135,8 @@ async function runGPTImage2(photoDataURL, garmentDataURI) {
     image_size: 'square',
     output_format: 'jpeg',
   };
-  console.log('[GPT2] Payload image_urls lengths:', 
-    payload.image_urls[0]?.length, 
+  console.log('[GPT2] Payload image_urls lengths:',
+    payload.image_urls[0]?.length,
     payload.image_urls[1]?.length
   );
 
@@ -137,9 +149,8 @@ async function runGPTImage2(photoDataURL, garmentDataURI) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    
+
     console.log('[GPT2] Response status:', resp.status);
-    console.log('[GPT2] Response headers:', [...resp.headers.entries()]);
 
     setStep(3);
 
@@ -151,11 +162,10 @@ async function runGPTImage2(photoDataURL, garmentDataURI) {
 
     const data = await resp.json();
     console.log('[GPT2] Response data keys:', Object.keys(data));
-    console.log('[GPT2] Response data:', JSON.stringify(data).slice(0, 500));
 
     const imgURL = data?.images?.[0]?.url || data?.data?.[0]?.url;
     console.log('[GPT2] imgURL encontrada:', imgURL ? 'SÍ' : 'NO');
-    
+
     if (!imgURL) {
       console.error('[GPT2] No imgURL en respuesta. Estructura:', data);
       throw new Error('GPT-Image-2 no devolvió imagen');
@@ -171,76 +181,6 @@ async function runGPTImage2(photoDataURL, garmentDataURI) {
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  MOTOR 2: FASHN (v1.6 o v1.5)
-//  ~$0.075 por imagen
-//  Submit → poll status → fetch result
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-async function runFASHN(photoDataURL, garmentDataURI) {
-  const proxy = CONFIG.proxyBase;
-  const model = CONFIG.aiModel === 'fashn-v1.5'
-    ? 'fal-ai/fashn/tryon/v1.5'
-    : 'fal-ai/fashn/tryon/v1.6';
-
-  setStep(2);
-
-  const submitResp = await fetch(proxy + '/api/fal/submit?model=' + encodeURIComponent(model), {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model_image:        photoDataURL,
-      garment_image:      garmentDataURI,
-      category:           'auto',
-      mode:               'performance',
-      garment_photo_type: 'flat-lay',
-      nsfw_filter:        false,
-    }),
-  });
-
-  if (!submitResp.ok) {
-    const t = await submitResp.text();
-    throw new Error('FASHN submit error (' + submitResp.status + '): ' + t);
-  }
-
-  const { request_id: requestId } = await submitResp.json();
-  if (!requestId) throw new Error('FASHN: sin request_id.');
-  console.log('[fashn] request_id:', requestId);
-
-  setStep(3);
-
-  // Poll status máx 120s
-  const deadline = Date.now() + 120000;
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 3000));
-
-    const stResp = await fetch(proxy + '/api/fal/status?reqId=' + requestId);
-    if (!stResp.ok) { console.warn('[fashn] status', stResp.status); continue; }
-
-    const st = await stResp.json();
-    console.log('[fashn] status:', st.status);
-
-    if (st.status === 'COMPLETED') {
-      setStep(4);
-      const resResp    = await fetch(proxy + '/api/fal/result?reqId=' + requestId);
-      const resultData = await resResp.json();
-      const imgURL =
-        resultData?.images?.[0]?.url         ||
-        resultData?.image?.url               ||
-        resultData?.output?.images?.[0]?.url ||
-        resultData?.output?.image?.url;
-
-      if (!imgURL) throw new Error('FASHN: sin URL de imagen.');
-      mostrarResultado(imgURL);
-      return;
-    }
-
-    if (st.status === 'FAILED') {
-      throw new Error('FASHN falló: ' + (st.error || JSON.stringify(st)));
-    }
-  }
-
-  throw new Error('FASHN: tiempo de espera agotado (120s).');
-}
 
 // ── Mostrar imagen resultado ──
 function mostrarResultado(imgURL) {
