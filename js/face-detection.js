@@ -1,9 +1,6 @@
-// ── Detección de rostro con Face-API.js ──
-// Valida que haya al menos un rostro visible antes de permitir tomar la foto
-// Usa TinyFaceDetector — liviano y rápido para uso en tiempo real
 
 const FaceDetection = (() => {
-  // ── Estado ──
+
   let _modelLoaded = false;
   let _detecting   = false;
   let _faceFound   = false;
@@ -12,14 +9,14 @@ const FaceDetection = (() => {
   let _videoEl       = null;
   let _statusEl      = null;
 
-  // ── Configuración ──
+
   const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
   const DETECT_OPTS = new faceapi.TinyFaceDetectorOptions({
-    inputSize: 320,   // 128..512 — 320 es buen balance velocidad/precisión
-    scoreThreshold: 0.5, // 0..1 — confianza mínima para considerar un rostro
+    inputSize: 320,   
+    scoreThreshold: 0.5, 
   });
 
-  // ── Referencias a elementos del DOM ──
+
   function getOverlayCanvas() {
     if (!_overlayCanvas) {
       const container = document.getElementById('camera-box');

@@ -2,41 +2,71 @@
   {
     "id": "beige-minimal",
     "tipo": "gorra",
-    "nombre": "Beige Minimal",
+    "nombre": "Edicion Final 10",
     "precio": 24900,
-    "colores": ["#c8a97e", "#b89060", "#8b6f47"],
-    "imgPreview": "assets/gorras/Agila_lateral.webp",
-    "imgFrontal": "assets/gorras/Agila_frente.webp",
+    "colores": ["#ffd700", "#000000"],
+    "imgPreview": "assets/gorras/messi_dorada_lateral.webp",
+    "imgFrontal": "assets/gorras/messi_dorada_frente.webp",
+    "model3D": "assets/hat.glb"
+  },
+  {
+    "id": "beige-2",
+    "tipo": "gorra",
+    "nombre": "BiCampeon 10",
+    "precio": 24200,
+    "colores": ["#B2FFFF", "#FFFFFF", "#B2FFFF"],
+    "imgPreview": "assets/gorras/messi_lateral.webp",
+    "imgFrontal": "assets/gorras/messi_frente.webp",
+    "model3D": "assets/hat.glb"
+  },
+  {
+    "id": "beige1-minimal",
+    "tipo": "gorra",
+    "nombre": "La araña 9",
+    "precio": 21300,
+    "colores": ["#B2FFFF", "#FFFFFF", "#B2FFFF"],
+    "imgPreview": "assets/gorras/julian_lateral.webp",
+    "imgFrontal": "assets/gorras/julian_frente.webp",
     "model3D": "assets/hat.glb"
   },
   {
     "id": "azul-navy",
     "tipo": "gorra",
-    "nombre": "Azul Navy",
+    "nombre": "Celeste Argenina",
     "precio": 26900,
     "colores": ["#1a2a4a", "#243560", "#3a4f7a"],
-    "imgPreview": "assets/gorras/Gorra_azul_lateral.webp",
-    "imgFrontal": "assets/gorras/Gorra_azul_frente.webp",
+    "imgPreview": "assets/gorras/blanca_lateral.png",
+    "imgFrontal": "assets/gorras/blanca_frente.png",
     "model3D": "assets/hat.glb"
   },
   {
     "id": "edicion-premium",
     "tipo": "gorra",
-    "nombre": "Edición Premium",
+    "nombre": "Edición Premium Argenina",
     "precio": 29900,
     "colores": ["#111111", "#888888", "#6b4c1e", "#c8a020"],
-    "imgPreview": "assets/gorras/Gorra_negra_lateral.webp",
-    "imgFrontal": "assets/gorras/Gorra_negra_frente.webp",
+    "imgPreview": "assets/gorras/negra_lateral.png",
+    "imgFrontal": "assets/gorras/negra_frente.png",
     "model3D": "assets/hat.glb"
   },
   {
     "id": "anteojo-aviador",
     "tipo": "anteojo",
-    "nombre": "Aviador Clásico",
+    "nombre": "Argetina Clásico",
     "precio": 18900,
     "colores": ["#c0c0c0", "#1a1a1a", "#b8860b"],
-    "imgPreview": "assets/anteojos/anteojo.webp",
-    "imgFrontal": "assets/anteojos/anteojo.webp",
+    "imgPreview": "assets/anteojos/band.webp",
+    "imgFrontal": "assets/anteojos/band.webp",
+    "model3D": "assets/glasses.glb"
+  },
+    {
+    "id": "anteojo-Argentina",
+    "tipo": "anteojo",
+    "nombre": "Sol de mayo",
+    "precio": 13200,
+    "colores": ["#c0c0c0", "#1a1a1a", "#b8860b"],
+    "imgPreview": "assets/anteojos/ant_arg.png",
+    "imgFrontal": "assets/anteojos/ant_arg.png",
     "model3D": "assets/glasses.glb"
   }
 
