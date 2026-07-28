@@ -69,15 +69,35 @@ function finishTryOnProgress() {
 }
 
 function resetResult() {
-  document.getElementById('result-img').style.display = 'none';
-  document.getElementById('error-box').style.display  = 'none';
+  const resultImg = document.getElementById('result-img');
+  if (resultImg) resultImg.style.display = 'none';
+  const errorBox = document.getElementById('error-box');
+  if (errorBox) errorBox.style.display = 'none';
   startTryOnProgress();
   setStep(1);
 }
 
 function setStep(n) {
-  for (let i = 1; i <= 4; i++) {
+  const stepIds = ['chk-step-1', 'chk-step-2', 'chk-step-3', 'chk-step-4', 'chk-step-5'];
+  stepIds.forEach((id, idx) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const iconSpan = el.querySelector('.chk-icon');
+    if (idx + 1 < n) {
+      el.className = 'tryon-check-item done';
+      if (iconSpan) iconSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+    } else if (idx + 1 === n) {
+      el.className = 'tryon-check-item active';
+      if (iconSpan) iconSpan.innerHTML = `<span class="spin-dot"></span>`;
+    } else {
+      el.className = 'tryon-check-item';
+      if (iconSpan) iconSpan.innerHTML = `<span class="empty-circle"></span>`;
+    }
+  });
+
+  for (let i = 1; i <= 5; i++) {
     const el = document.getElementById(`ls-${i}`);
+    if (!el) continue;
     el.classList.remove('active', 'done');
     if (i < n)        el.classList.add('done');
     else if (i === n) el.classList.add('active');
@@ -85,18 +105,23 @@ function setStep(n) {
 }
 
 function showError(msg) {
-  document.getElementById('loading-overlay').style.display = 'none';
-  document.getElementById('error-msg').textContent = msg;
-  document.getElementById('error-box').style.display = 'flex';
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'none';
+  const errorMsg = document.getElementById('error-msg');
+  if (errorMsg) errorMsg.textContent = msg;
+  const errorBox = document.getElementById('error-box');
+  if (errorBox) errorBox.style.display = 'flex';
 }
 
 // Muestra la foto original sin editar como fallback
 function showPhotoFallback(photoDataURL) {
   console.warn('[tryon] Mostrando foto original como fallback');
   const ri = document.getElementById('result-img');
+  if (!ri) return;
   ri.src = photoDataURL;
   ri.onload = () => {
-    document.getElementById('loading-overlay').style.display = 'none';
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'none';
     ri.style.display = 'block';
   };
 }
@@ -119,8 +144,10 @@ function setWhatsAppLink() {
   const msg = item
     ? `Hola! Vi *${item.nombre}* en CAPFIT (${formatPrecio(item.precio)}) y me encantó. ¡Quiero comprarlo!`
     : CONFIG.whatsappMsg;
-  document.getElementById('whatsapp-btn').href =
-    'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(msg);
+  const waBtn = document.getElementById('whatsapp-btn');
+  if (waBtn) {
+    waBtn.href = 'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(msg);
+  }
 }
 
 const PROMPTS_POR_TIPO = {
@@ -259,16 +286,19 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 function mostrarResultado(imgURL) {
   finishTryOnProgress();
   const ri = document.getElementById('result-img');
+  if (!ri) return;
   ri.onload  = () => {
     setTimeout(() => {
-      document.getElementById('loading-overlay').style.display = 'none';
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.style.display = 'none';
       ri.style.display = 'block';
     }, 400);
   };
   ri.onerror = () => {
     console.warn('[tryon] No se pudo cargar la imagen resultado, mostrando fallback');
-    document.getElementById('loading-overlay').style.display = 'none';
-    ri.style.display = 'block'; // igual mostramos aunque esté rota
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+    ri.style.display = 'block';
   };
   ri.src = imgURL;
 }

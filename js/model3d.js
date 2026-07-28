@@ -27,21 +27,21 @@
 
   const scene  = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(40, W / H, 0.01, 100);
-  camera.position.set(0, 0.5, 3.2);
+  camera.position.set(0, 0.18, 1.7);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-  const key  = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(3, 5, 4);  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xffeedd, 0.5); fill.position.set(-4, 2, -2); scene.add(fill);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const key  = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(3, 5, 4);  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffeedd, 0.6); fill.position.set(-4, 2, -2); scene.add(fill);
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping  = true;
   controls.dampingFactor  = 0.08;
-  controls.enableZoom     = false;
+  controls.enableZoom     = true;
   controls.enablePan      = false;
   controls.autoRotate     = true;
   controls.autoRotateSpeed = 2.2;
-  controls.minPolarAngle  = Math.PI * 0.25;
-  controls.maxPolarAngle  = Math.PI * 0.72;
+  controls.minPolarAngle  = Math.PI * 0.2;
+  controls.maxPolarAngle  = Math.PI * 0.75;
 
   const modelPath = CONFIG.model3D || 'assets/hat.glb';
   console.log('[Model3D] Cargando modelo:', modelPath);
@@ -57,10 +57,12 @@
       const box    = new THREE.Box3().setFromObject(model);
       const size   = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
-      const scale  = 1.6 / Math.max(size.x, size.y, size.z);
+      // Increase scale factor so model fills the viewer properly
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const scale  = 3.2 / maxDim;
       model.scale.setScalar(scale);
       model.position.sub(center.multiplyScalar(scale));
-      model.position.y += 0.05;
+      model.position.y += 0.02;
       model.userData.baseY = model.position.y;
       scene.add(model);
       console.log('[Model3D] ✅ Modelo cargado correctamente');

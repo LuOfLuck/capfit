@@ -240,10 +240,23 @@ nav.main-nav {
 .app-view {
   display: none;
   min-height: calc(100vh - 120px);
+  opacity: 0;
 }
 
 .app-view.active-view {
   display: block;
+  animation: viewFadeSlideUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes viewFadeSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -382,6 +395,22 @@ nav.main-nav {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+#model-viewer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#model-viewer canvas {
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+  touch-action: none;
 }
 
 .hero-floating-cap {
@@ -2595,3 +2624,876 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MERCADO PAGO GATEWAY CHECKOUT STYLES (WHITE BACKGROUND THEME)
+   ══════════════════════════════════════════════════════════════ */
+.mp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: mpFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes mpFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mp-modal-card {
+  width: 100%;
+  max-width: 500px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3);
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+  animation: mpSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes mpSlideUp {
+  from { transform: translateY(20px) scale(0.97); }
+  to { transform: translateY(0) scale(1); }
+}
+
+/* Header Top */
+.mp-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.mp-top-security {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.mp-top-security svg {
+  width: 16px;
+  height: 16px;
+  color: #0f172a;
+}
+
+.mp-top-security strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.mp-close-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #475569;
+  font-size: 1.3rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mp-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Brand Row */
+.mp-header-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 8px;
+  background: #ffffff;
+}
+
+.mp-brand-logo {
+  font-family: var(--font-sans);
+  font-size: 1.45rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #0f172a;
+  margin: 0;
+}
+
+.mp-protected-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+}
+
+.mp-protected-badge svg {
+  width: 14px;
+  height: 14px;
+  color: #16a34a;
+}
+
+.mp-scrollable-content {
+  padding: 12px 20px 20px;
+  overflow-y: auto;
+}
+
+/* Product Summary Card (Screenshot 1 matching) */
+.mp-product-summary-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mp-product-summary-card img {
+  width: 58px;
+  height: 58px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  flex-shrink: 0;
+}
+
+.mp-product-main-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mp-product-main-info h3 {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.mp-product-meta {
+  font-size: 0.76rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.mp-product-price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.mp-product-price-val {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.mp-detail-toggle-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mp-detail-toggle-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.mp-detail-toggle-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Collapsible Drawer */
+.mp-order-details-drawer {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.mp-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mp-item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+
+.mp-item-row img {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+.mp-item-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.mp-item-details strong {
+  color: #0f172a;
+  font-size: 0.82rem;
+}
+
+.mp-item-details small {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.mp-item-price {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* Green Promo Banner */
+.mp-promo-banner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mp-promo-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mp-promo-icon-box svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mp-promo-text-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.mp-promo-text-col strong {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #15803d;
+}
+
+.mp-promo-text-col span {
+  font-size: 0.72rem;
+  color: #166534;
+}
+
+.mp-arrow-right {
+  width: 16px;
+  height: 16px;
+  color: #16a34a;
+}
+
+/* Section Title */
+.mp-section-title {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 16px 0 10px;
+}
+
+/* Method Tabs Grid (4 columns) */
+.mp-method-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.mp-tab-btn {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mp-tab-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mp-tab-btn:hover {
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.mp-tab-btn.active {
+  background: #ffffff;
+  border-color: #0f172a;
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+/* Cards Accepted Strip */
+.mp-cards-accepted-strip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.mp-accepted-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.mp-cards-logos-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mp-card-logo-pill {
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.mp-card-logo-pill.visa {
+  background: #1a1f71;
+  color: #ffffff;
+}
+
+.mp-card-logo-pill.mastercard {
+  background: #eb001b;
+  color: #ffffff;
+}
+
+.mp-card-logo-pill.amex {
+  background: #006fcf;
+  color: #ffffff;
+}
+
+.mp-card-logo-pill.cabal {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+/* Form inputs */
+.mp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mp-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mp-field-group label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.mp-field-group input,
+.mp-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.mp-field-group input:focus,
+.mp-select:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.mp-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mp-input-right-actions {
+  position: absolute;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mp-card-brand-tag {
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #1a1f71;
+  background: #e0e7ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mp-cam-scan-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+}
+
+.mp-cam-scan-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mp-help-icon {
+  position: absolute;
+  right: 12px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}
+
+.mp-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+/* Submit Button (Black/Dark Pill) */
+.mp-submit-btn {
+  width: 100%;
+  margin-top: 10px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 15px 20px;
+  border-radius: 14px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.2);
+  transition: transform 0.15s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.mp-submit-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+}
+
+.mp-submit-btn:active {
+  transform: translateY(0);
+}
+
+.mp-submit-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Account Box */
+.mp-account-box {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.mp-account-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mp-avatar {
+  font-size: 1.5rem;
+}
+
+.mp-account-header strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #0369a1;
+}
+
+.mp-account-header p {
+  font-size: 0.78rem;
+  color: #0284c7;
+  margin: 0;
+}
+
+.mp-verified-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.mp-balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  color: #334155;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.mp-balance-val {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0284c7;
+}
+
+.mp-account-note {
+  font-size: 0.75rem;
+  color: #0369a1;
+  margin-top: 10px;
+}
+
+/* QR Box */
+.mp-qr-box {
+  display: flex;
+  gap: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.mp-qr-img-wrap {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 4px;
+  background: #ffffff;
+}
+
+.mp-qr-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.mp-qr-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.mp-qr-info strong {
+  font-size: 0.88rem;
+  color: #0f172a;
+}
+
+.mp-qr-info p {
+  font-size: 0.76rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.mp-cvu-copy-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  margin-top: 6px;
+}
+
+.btn-copy-alias {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Cash box */
+.mp-cash-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mp-cash-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.mp-cash-item strong {
+  display: block;
+  font-size: 0.88rem;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.mp-cash-item p {
+  font-size: 0.76rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Footer Guarantee (Matches Screenshot 1) */
+.mp-footer-guarantee {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.mp-foot-guar-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mp-foot-guar-item svg {
+  width: 14px;
+  height: 14px;
+  color: #16a34a;
+}
+
+.mp-foot-divider {
+  color: #cbd5e1;
+}
+
+/* Center States: Processing & Success */
+.mp-center-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px 20px;
+}
+
+.mp-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #0f172a;
+  border-radius: 50%;
+  animation: mpSpin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes mpSpin {
+  to { transform: rotate(360deg); }
+}
+
+.mp-process-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.mp-process-sub {
+  font-size: 0.82rem;
+  color: #64748b;
+  max-width: 300px;
+}
+
+/* Success Check */
+.mp-success-check {
+  width: 64px;
+  height: 64px;
+  background: #dcfce7;
+  color: #16a34a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.mp-success-check svg {
+  width: 32px;
+  height: 32px;
+}
+
+.mp-success-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.mp-success-sub {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 20px;
+}
+
+.mp-receipt-card {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.mp-receipt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #475569;
+}
+
+.mp-receipt-row strong {
+  color: #0f172a;
+}
+
+.mp-status-pill {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.mp-email-notice {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 20px;
+}
+
+.mp-success-btn {
+  width: 100%;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mp-success-btn:hover {
+  background: #1e293b;
+}
+

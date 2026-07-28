@@ -222,24 +222,20 @@
     });
   });
 
-  // Checkout modal / Mercado Pago simulation
-  window.proceedToCheckout = function(provider = 'standard') {
+  // Checkout modal / Mercado Pago integration
+  window.proceedToCheckout = function(provider = 'mercadopago') {
     const count = Cart.getItemCount();
     if (count === 0) {
-      showToast('Tu carrito está vacío');
+      if (window.showToast) window.showToast('Tu carrito está vacío');
       return;
     }
 
-    const totalStr = Catalogo.formatPrecio(Cart.getSubtotal() + (Cart.getFreeShippingRemaining() === 0 ? 0 : 3500));
-
-    if (provider === 'mercadopago') {
-      alert(`Redirigiendo a Mercado Pago para procesar el pago de ${totalStr}...\n\n¡Gracias por probar CAPFIT!`);
+    if (window.MercadoPagoGateway) {
+      window.MercadoPagoGateway.open();
     } else {
-      alert(`¡Pedido listo por ${totalStr}!\n\nSe ha generado el resumen de tu compra. ¡Gracias por confiar en CAPFIT!`);
+      const totalStr = Catalogo.formatPrecio(Cart.getSubtotal() + (Cart.getFreeShippingRemaining() === 0 ? 0 : 3500));
+      alert(`Procesando pago con Mercado Pago por ${totalStr}...`);
     }
-
-    Cart.clearCart();
-    window.navigateToView('inicio');
   };
 
 })();
