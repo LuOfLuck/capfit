@@ -1,4 +1,9 @@
 // ── CAPFIT CONFIG ──
+window.formatPrecio = function(n) {
+  return '$' + Number(n || 0).toLocaleString('es-AR');
+};
+window.formatPrice = window.formatPrecio;
+
 const CONFIG = {
   model3D:    'assets/hat.glb',
   whatsapp:   '5491138607910',      // ← tu número sin + ni espacios

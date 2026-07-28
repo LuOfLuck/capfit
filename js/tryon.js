@@ -73,6 +73,10 @@ function resetResult() {
   if (resultImg) resultImg.style.display = 'none';
   const errorBox = document.getElementById('error-box');
   if (errorBox) errorBox.style.display = 'none';
+  const ph = document.getElementById('cam-placeholder');
+  if (ph) ph.style.display = 'none';
+  const video = document.getElementById('video-feed');
+  if (video) video.style.display = 'none';
   startTryOnProgress();
   setStep(1);
 }
@@ -141,8 +145,9 @@ async function cargarImagenComoDataURI(path) {
 // Setea el link de WhatsApp con la gorra activa
 function setWhatsAppLink() {
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+  const precioFormatted = window.formatPrecio ? window.formatPrecio(item?.precio || 0) : ('$' + (item?.precio || 0));
   const msg = item
-    ? `Hola! Vi *${item.nombre}* en CAPFIT (${formatPrecio(item.precio)}) y me encantó. ¡Quiero comprarlo!`
+    ? `Hola! Vi *${item.nombre}* en CAPFIT (${precioFormatted}) y me encantó. ¡Quiero comprarlo!`
     : CONFIG.whatsappMsg;
   const waBtn = document.getElementById('whatsapp-btn');
   if (waBtn) {
@@ -151,27 +156,65 @@ function setWhatsAppLink() {
 }
 
 const PROMPTS_POR_TIPO = {
-  gorra:
-    'Devolve una foto de la persona con la gorra puesta',
-
-  anteojo:
-    'Devolve una foto de la persona con los anteojos puestos',
-
-  default:
-    'Devolve una foto de la persona con eso puesto',
+  gorra: 'A realistic photograph of the person naturally wearing the baseball cap, high quality, accurate fitting on head, clean lighting',
+  anteojo: 'A realistic photograph of the person naturally wearing the sunglasses, high quality, clean lighting',
+  default: 'A realistic photograph of the person naturally wearing the item, high quality, clean lighting',
 };
 
 function getPromptParaTipo(tipo) {
   return PROMPTS_POR_TIPO[tipo] || PROMPTS_POR_TIPO.default;
 }
 
+// Helper para extraer URL de imagen de cualquier estructura de respuesta de fal.ai / OpenAI
+function extractImageUrl(data) {
+  if (!data) return null;
+
+  // 1. Array in data.images (ej: { images: [{ url: "..." }] } o { images: ["https://..."] })
+  if (Array.isArray(data.images) && data.images.length > 0) {
+    const first = data.images[0];
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object' && first.url) return first.url;
+  }
+
+  // 2. Single data.image (ej: { image: { url: "..." } } o { image: "https://..." })
+  if (data.image) {
+    if (typeof data.image === 'string') return data.image;
+    if (typeof data.image === 'object' && data.image.url) return data.image.url;
+  }
+
+  // 3. Array in data.data (ej: { data: [{ url: "..." }] })
+  if (Array.isArray(data.data) && data.data.length > 0) {
+    const first = data.data[0];
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object') {
+      if (first.url) return first.url;
+      if (first.b64_json) return `data:image/jpeg;base64,${first.b64_json}`;
+    }
+  }
+
+  // 4. Direct top-level url property
+  if (typeof data.url === 'string' && data.url.startsWith('http')) return data.url;
+
+  // 5. Nested in output or result
+  if (data.output) {
+    const nested = extractImageUrl(data.output);
+    if (nested) return nested;
+  }
+  if (data.result) {
+    const nested = extractImageUrl(data.result);
+    if (nested) return nested;
+  }
+
+  return null;
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  ENTRADA PRINCIPAL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runVirtualTryOn(photoDataURL, garmentImgPath) {
-  // Item activo (gorra, anteojo, etc.) — lo usamos para saber qué prompt usar
+  window.lastUserPhoto = photoDataURL;
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
-  const tipo = item?.tipo || 'gorra'; // default a 'gorra' por compatibilidad con items viejos sin "tipo"
+  const tipo = item?.tipo || 'gorra';
 
   console.log('[TRYON] ========== INICIO ==========');
   console.log('[TRYON] Motor activo:', CONFIG.aiModel);
@@ -192,7 +235,7 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
     } catch (e) {
       console.error('[TRYON] ERROR cargando imagen del producto:', e);
       finishTryOnProgress();
-      showPhotoFallback(photoDataURL);
+      showError('No se pudo cargar la imagen del producto.');
       setWhatsAppLink();
       return;
     }
@@ -211,13 +254,13 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
     console.error('[TRYON] ========== ERROR GENERAL ==========');
     console.error('[TRYON]', err);
     finishTryOnProgress();
-    showPhotoFallback(photoDataURL);
+    showError(err.message || 'Error al procesar la imagen con la IA');
     setWhatsAppLink();
   }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+//  GPT-IMAGE-2 (fal.ai / openai / gpt-image-2 / edit)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   const proxy = CONFIG.proxyBase;
@@ -226,7 +269,7 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   setStep(2);
 
   const prompt = getPromptParaTipo(tipo);
-  console.log('[GPT2] Tipo:', tipo, '| Prompt length:', prompt.length);
+  console.log('[GPT2] Tipo:', tipo, '| Prompt:', prompt);
 
   const payload = {
     prompt,
@@ -235,10 +278,6 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
     image_size: 'square',
     output_format: 'jpeg',
   };
-  console.log('[GPT2] Payload image_urls lengths:',
-    payload.image_urls[0]?.length,
-    payload.image_urls[1]?.length
-  );
 
   const url = proxy + '/api/gpt/edit';
   console.log('[GPT2] Fetching:', url);
@@ -261,19 +300,19 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
     }
 
     const data = await resp.json();
-    console.log('[GPT2] Response data keys:', Object.keys(data));
+    console.log('[GPT2] Response data:', data);
 
-    const imgURL = data?.images?.[0]?.url || data?.data?.[0]?.url;
-    console.log('[GPT2] imgURL encontrada:', imgURL ? 'SÍ' : 'NO');
+    const imgURL = extractImageUrl(data);
+    console.log('[GPT2] imgURL encontrada:', imgURL ? 'SÍ (' + imgURL.slice(0, 60) + '...)' : 'NO');
 
     if (!imgURL) {
       console.error('[GPT2] No imgURL en respuesta. Estructura:', data);
-      throw new Error('GPT-Image-2 no devolvió imagen');
+      throw new Error('GPT-Image-2 no devolvió URL de imagen válida');
     }
 
     setStep(4);
     mostrarResultado(imgURL);
-    console.log('[GPT2] Resultado mostrado');
+    console.log('[GPT2] Resultado mostrado correctamente');
 
   } catch (e) {
     console.error('[GPT2] ERROR en fetch:', e);
@@ -281,24 +320,260 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   }
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  FASHN TRY-ON (fal-ai/fashn/tryon)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function runFASHN(photoDataURL, garmentDataURI) {
+  const proxy = CONFIG.proxyBase;
+  const model = CONFIG.aiModel === 'fashn-v1.6'
+    ? 'fal-ai/fashn/tryon/v1.6'
+    : 'fal-ai/fashn/tryon/v1.5';
+
+  console.log('[FASHN] Iniciando try-on con modelo:', model);
+  setStep(2);
+
+  const payload = {
+    model_image: photoDataURL,
+    garment_image: garmentDataURI,
+    category: 'tops',
+  };
+
+  const submitUrl = `${proxy}/api/fal/submit?model=${encodeURIComponent(model)}`;
+  const submitResp = await fetch(submitUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!submitResp.ok) {
+    const errTxt = await submitResp.text();
+    throw new Error(`Error FASHN submit (${submitResp.status}): ${errTxt}`);
+  }
+
+  const submitData = await submitResp.json();
+  const reqId = submitData.request_id;
+  if (!reqId) {
+    const directUrl = extractImageUrl(submitData);
+    if (directUrl) {
+      setStep(4);
+      mostrarResultado(directUrl);
+      return;
+    }
+    throw new Error('FASHN no devolvió request_id');
+  }
+
+  setStep(3);
+  let status = 'IN_QUEUE';
+  let attempts = 0;
+  const maxAttempts = 30;
+
+  while (status !== 'COMPLETED' && attempts < maxAttempts) {
+    attempts++;
+    await new Promise(r => setTimeout(r, 2000));
+
+    const statusUrl = `${proxy}/api/fal/status?model=${encodeURIComponent(model)}&reqId=${encodeURIComponent(reqId)}`;
+    const statusResp = await fetch(statusUrl);
+    if (statusResp.ok) {
+      const statusData = await statusResp.json();
+      status = statusData.status || status;
+      console.log(`[FASHN] Status attempt ${attempts}:`, status);
+      if (status === 'FAILED') {
+        throw new Error('Procesamiento FASHN falló en el servidor');
+      }
+    }
+  }
+
+  if (status !== 'COMPLETED') {
+    throw new Error('Tiempo de espera agotado al procesar FASHN');
+  }
+
+  const resultUrl = `${proxy}/api/fal/result?model=${encodeURIComponent(model)}&reqId=${encodeURIComponent(reqId)}`;
+  const resultResp = await fetch(resultUrl);
+  if (!resultResp.ok) {
+    throw new Error(`Error obteniendo resultado FASHN (${resultResp.status})`);
+  }
+
+  const resultData = await resultResp.json();
+  const imgURL = extractImageUrl(resultData);
+  if (!imgURL) {
+    throw new Error('No se encontró URL de imagen en el resultado de FASHN');
+  }
+
+  setStep(4);
+  mostrarResultado(imgURL);
+}
 
 // ── Mostrar imagen resultado ──
 function mostrarResultado(imgURL) {
+  console.log('[TRYON] Mostrando resultado final:', imgURL);
   finishTryOnProgress();
   const ri = document.getElementById('result-img');
   if (!ri) return;
-  ri.onload  = () => {
-    setTimeout(() => {
-      const overlay = document.getElementById('loading-overlay');
-      if (overlay) overlay.style.display = 'none';
-      ri.style.display = 'block';
-    }, 400);
-  };
-  ri.onerror = () => {
-    console.warn('[tryon] No se pudo cargar la imagen resultado, mostrando fallback');
-    const overlay = document.getElementById('loading-overlay');
+
+  const overlay = document.getElementById('loading-overlay');
+  const ph = document.getElementById('cam-placeholder');
+  const video = document.getElementById('video-feed');
+
+  // Asegurar que se oculten placeholders y cámara activa
+  if (ph) ph.style.display = 'none';
+  if (video) video.style.display = 'none';
+
+  ri.onload = () => {
+    console.log('[TRYON] Imagen cargada e insertada en DOM con éxito');
     if (overlay) overlay.style.display = 'none';
+    if (ph) ph.style.display = 'none';
+    if (video) video.style.display = 'none';
     ri.style.display = 'block';
+
+    // Show direct buy banner
+    const buyBanner = document.getElementById('buy-direct-banner');
+    if (buyBanner) {
+      const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+      if (item) {
+        const titleEl = document.getElementById('buy-banner-title');
+        const priceEl = document.getElementById('buy-banner-price');
+        if (titleEl) titleEl.textContent = item.nombre;
+        if (priceEl) priceEl.textContent = '$' + Number(item.precio).toLocaleString('es-AR');
+      }
+      buyBanner.style.display = 'flex';
+    }
   };
+
+  ri.onerror = (err) => {
+    console.warn('[TRYON] Error al cargar URL de imagen resultado:', err);
+    if (overlay) overlay.style.display = 'none';
+    showError('No se pudo renderizar la imagen devuelta por la IA.');
+  };
+
   ri.src = imgURL;
+
+  if (ri.complete && ri.naturalWidth > 0) {
+    if (overlay) overlay.style.display = 'none';
+    if (ph) ph.style.display = 'none';
+    if (video) video.style.display = 'none';
+    ri.style.display = 'block';
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PROCESAMIENTO Y VALIDACIÓN DE IMÁGENES SUBIDAS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function processUploadedImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      return reject(new Error('No se seleccionó ningún archivo.'));
+    }
+
+    const nameLower = (file.name || '').toLowerCase();
+    const typeLower = (file.type || '').toLowerCase();
+
+    // 1. Detectar HEIC/HEIF de iOS/iPhone
+    if (nameLower.endsWith('.heic') || nameLower.endsWith('.heif') || typeLower.includes('heic') || typeLower.includes('heif')) {
+      return reject(new Error('El formato HEIC/HEIF de iPhone no se puede procesar directamente en el navegador. Por favor guardá la foto como JPG, PNG o WebP, o sacate una foto directamente con la cámara.'));
+    }
+
+    // 2. Validar formatos estándar compatibles
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    const hasValidExt = allowedExts.some(ext => nameLower.endsWith(ext));
+    const hasValidType = allowedTypes.includes(typeLower);
+
+    if (file.type && !hasValidType && !hasValidExt) {
+      return reject(new Error('Formato no soportado. Por favor elegí una imagen en formato JPG, PNG o WebP.'));
+    }
+
+    // 3. Lectura, compresión y redimensionamiento en cliente (Ancho máx: 720px)
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Error al leer el archivo seleccionado.'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('No se pudo cargar la imagen. Verificá que el archivo sea una imagen válida.'));
+      img.onload = () => {
+        try {
+          const MAX_WIDTH = 576;
+          const TARGET_RATIO = 4 / 3; // H/W = 4/3 (3:4 portrait)
+          const width = MAX_WIDTH;
+          const height = Math.round(MAX_WIDTH * TARGET_RATIO); // 768
+
+          const origW = img.naturalWidth || img.width;
+          const origH = img.naturalHeight || img.height;
+
+          const origAspect = origW / origH;
+          const targetAspect = width / height;
+
+          let sx = 0, sy = 0, sWidth = origW, sHeight = origH;
+          if (origAspect > targetAspect) {
+            sWidth = origH * targetAspect;
+            sx = (origW - sWidth) / 2;
+          } else {
+            sHeight = origW / targetAspect;
+            sy = (origH - sHeight) / 2;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
+
+          // Compresión JPEG a 85% calidad
+          const compressedDataURL = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(compressedDataURL);
+        } catch (err) {
+          reject(new Error('Error al procesar y redimensionar la imagen en el cliente.'));
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleGalleryUpload(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  input.value = ''; // Reset para poder re-seleccionar la misma imagen si fuera necesario
+
+  const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+  if (!item) {
+    alert('Primero elegí una gorra del catálogo.');
+    return;
+  }
+
+  if (typeof puedeGenerar === 'function' && !puedeGenerar()) {
+    const t = typeof tiempoRestante === 'function' ? tiempoRestante() : '';
+    if (typeof mostrarLimiteAlcanzado === 'function') mostrarLimiteAlcanzado(t);
+    return;
+  }
+
+  try {
+    const compressedDataURL = await processUploadedImage(file);
+
+    // Detener cámara si estaba activa
+    if (typeof FaceDetection !== 'undefined') {
+      FaceDetection.stop();
+    }
+    if (typeof mediaStream !== 'undefined' && mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+
+    const btnShoot = document.getElementById('btn-shoot');
+    if (btnShoot) btnShoot.style.display = 'none';
+    const btnAct = document.getElementById('btn-activate');
+    if (btnAct) btnAct.style.display = 'inline-flex';
+
+    resetResult();
+
+    if (typeof registrarGeneracion === 'function') registrarGeneracion();
+    if (typeof actualizarBadgeGeneraciones === 'function') actualizarBadgeGeneraciones();
+
+    runVirtualTryOn(compressedDataURL, item.imgFrontal || item.imgPreview);
+  } catch (err) {
+    console.warn('[handleGalleryUpload]', err);
+    showError(err.message || 'Error al procesar la imagen elegida.');
+  }
 }

@@ -12,7 +12,6 @@
 
   const container = document.getElementById('model-viewer');
   if (!container) {
-    console.error('[Model3D] ❌ No se encontró #model-viewer');
     return;
   }
 
