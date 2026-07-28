@@ -1,8 +1,77 @@
 
-function resetResult() {
-  document.getElementById('result-img').style.display     = 'none';
-  document.getElementById('error-box').style.display      = 'none';
+let tryOnProgressInterval = null;
+
+function startTryOnProgress() {
   document.getElementById('loading-overlay').style.display = 'flex';
+  const fill = document.getElementById('tryon-progress-fill');
+  const pct = document.getElementById('tryon-progress-pct');
+  const stepIds = ['chk-step-1', 'chk-step-2', 'chk-step-3', 'chk-step-4', 'chk-step-5'];
+
+  if (tryOnProgressInterval) clearInterval(tryOnProgressInterval);
+
+  let currentPct = 0;
+  if (fill) fill.style.width = '0%';
+  if (pct) pct.textContent = '0%';
+
+  function updateStepState(stepIndex) {
+    stepIds.forEach((id, idx) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const iconSpan = el.querySelector('.chk-icon');
+      if (idx < stepIndex) {
+        el.className = 'tryon-check-item done';
+        if (iconSpan) iconSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+      } else if (idx === stepIndex) {
+        el.className = 'tryon-check-item active';
+        if (iconSpan) iconSpan.innerHTML = `<span class="spin-dot"></span>`;
+      } else {
+        el.className = 'tryon-check-item';
+        if (iconSpan) iconSpan.innerHTML = `<span class="empty-circle"></span>`;
+      }
+    });
+  }
+
+  updateStepState(0);
+
+  tryOnProgressInterval = setInterval(() => {
+    if (currentPct < 92) {
+      currentPct += Math.floor(Math.random() * 4) + 2;
+      if (currentPct > 92) currentPct = 92;
+      if (fill) fill.style.width = currentPct + '%';
+      if (pct) pct.textContent = currentPct + '%';
+
+      let stepIdx = 0;
+      if (currentPct >= 75) stepIdx = 3;
+      else if (currentPct >= 50) stepIdx = 2;
+      else if (currentPct >= 25) stepIdx = 1;
+      
+      updateStepState(stepIdx);
+    }
+  }, 220);
+}
+
+function finishTryOnProgress() {
+  if (tryOnProgressInterval) clearInterval(tryOnProgressInterval);
+  const fill = document.getElementById('tryon-progress-fill');
+  const pct = document.getElementById('tryon-progress-pct');
+  const stepIds = ['chk-step-1', 'chk-step-2', 'chk-step-3', 'chk-step-4', 'chk-step-5'];
+
+  if (fill) fill.style.width = '100%';
+  if (pct) pct.textContent = '100%';
+
+  stepIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'tryon-check-item done';
+    const iconSpan = el.querySelector('.chk-icon');
+    if (iconSpan) iconSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+  });
+}
+
+function resetResult() {
+  document.getElementById('result-img').style.display = 'none';
+  document.getElementById('error-box').style.display  = 'none';
+  startTryOnProgress();
   setStep(1);
 }
 
@@ -48,7 +117,7 @@ async function cargarImagenComoDataURI(path) {
 function setWhatsAppLink() {
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
   const msg = item
-    ? `Hola! Vi *${item.nombre}* en CAPFIT (${formatPrecio(item.precio)}) y me encantó. ¡Quiero comprarlo! 🧢`
+    ? `Hola! Vi *${item.nombre}* en CAPFIT (${formatPrecio(item.precio)}) y me encantó. ¡Quiero comprarlo!`
     : CONFIG.whatsappMsg;
   document.getElementById('whatsapp-btn').href =
     'https://wa.me/' + CONFIG.whatsapp + '?text=' + encodeURIComponent(msg);
@@ -83,6 +152,8 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
   console.log('[TRYON] proxyBase:', CONFIG.proxyBase);
   console.log('[TRYON] garmentImgPath:', garmentImgPath);
 
+  startTryOnProgress();
+
   try {
     setStep(1);
     console.log('[TRYON] Step 1: Cargando imagen del producto...');
@@ -93,6 +164,7 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
       console.log('[TRYON] Imagen cargada OK, length:', garmentDataURI.length);
     } catch (e) {
       console.error('[TRYON] ERROR cargando imagen del producto:', e);
+      finishTryOnProgress();
       showPhotoFallback(photoDataURL);
       setWhatsAppLink();
       return;
@@ -111,6 +183,7 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
   } catch (err) {
     console.error('[TRYON] ========== ERROR GENERAL ==========');
     console.error('[TRYON]', err);
+    finishTryOnProgress();
     showPhotoFallback(photoDataURL);
     setWhatsAppLink();
   }
@@ -184,10 +257,13 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 
 // ── Mostrar imagen resultado ──
 function mostrarResultado(imgURL) {
+  finishTryOnProgress();
   const ri = document.getElementById('result-img');
   ri.onload  = () => {
-    document.getElementById('loading-overlay').style.display = 'none';
-    ri.style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('loading-overlay').style.display = 'none';
+      ri.style.display = 'block';
+    }, 400);
   };
   ri.onerror = () => {
     console.warn('[tryon] No se pudo cargar la imagen resultado, mostrando fallback');

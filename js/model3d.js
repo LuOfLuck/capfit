@@ -73,11 +73,16 @@
       }
     },
     (error) => {
-      console.error('[Model3D] ❌ Error cargando modelo:', error);
+      console.warn('[Model3D] Modelo 3D no encontrado, mostrando vista interactiva 2D:', error);
       const msgEl = document.getElementById('model-msg');
-      if (msgEl) {
-        msgEl.innerHTML = '<p style="color:#c00;font-size:.74rem;padding:20px;text-align:center">⚠️ No se pudo cargar el modelo 3D.<br>Verificá que <strong>' + modelPath + '</strong> exista.</p>';
-      }
+      if (msgEl) msgEl.style.display = 'none';
+      
+      // Render clean fallback image inside viewer container
+      container.innerHTML = `
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative">
+          <img src="assets/gorras/Gorra_negra_frente.webp" alt="Gorra CAPFIT" class="hero-floating-cap" style="width:85%;max-width:360px;object-fit:contain;filter:drop-shadow(0 20px 30px rgba(0,0,0,0.15))">
+        </div>
+      `;
     }
   );
 

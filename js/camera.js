@@ -1,10 +1,9 @@
 // ── Cámara, captura y límite de generaciones ──
 
-const MAX_GENERACIONES = 3;
-const RESET_MS = 2 * 60 * 60 * 1000; // 2 horas en ms
+const MAX_GENERACIONES = 5;
+const RESET_MS = 2 * 60 * 60 * 1000; // 2 horas
 const LS_KEY = 'capfit_gen';
 
-// ── Gestión del límite ──
 function getLimite() {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -21,7 +20,6 @@ function verificarYRestablecerSiPaso(data) {
   if (!data.firstAt) return data;
   const ahora = Date.now();
   if (ahora - data.firstAt >= RESET_MS) {
-    // Pasaron 2hs — resetear
     const nuevo = { count: 0, firstAt: null };
     guardarLimite(nuevo);
     return nuevo;
@@ -62,7 +60,6 @@ function generacionesRestantes() {
   return Math.max(0, MAX_GENERACIONES - data.count);
 }
 
-// ── Actualizar badge de generaciones en el botón ──
 function actualizarBadgeGeneraciones() {
   const badge = document.getElementById('gen-badge');
   if (!badge) return;
@@ -70,13 +67,8 @@ function actualizarBadgeGeneraciones() {
   if (restantes === 0) {
     const t = tiempoRestante();
     badge.textContent = `Sin usos restantes${t ? ' · Reinicia en ' + t : ''}`;
-    badge.style.color = '#c00';
-    badge.style.setProperty('--dot-color', '#c00');
-    badge.classList.add('agotado');
   } else {
     badge.textContent = `${restantes} de ${MAX_GENERACIONES} usos restantes`;
-    badge.style.color = '';
-    badge.classList.remove('agotado');
   }
 }
 
@@ -85,17 +77,22 @@ let mediaStream = null;
 
 async function activateCamera() {
   try {
-    // Pedir resolución más baja directo — ahorra procesamiento
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: { ideal: 768 }, height: { ideal: 576 } }
     });
     const v = document.getElementById('video-feed');
+    if (!v) return;
     v.srcObject = mediaStream;
     v.style.display = 'block';
-    document.getElementById('cam-placeholder').style.display = 'none';
-    document.getElementById('btn-activate').style.display = 'none';
-    document.getElementById('btn-shoot').style.display = 'flex';
 
+    const ph = document.getElementById('cam-placeholder');
+    if (ph) ph.style.display = 'none';
+
+    const btnAct = document.getElementById('btn-activate');
+    if (btnAct) btnAct.style.display = 'none';
+
+    const btnShoot = document.getElementById('btn-shoot');
+    if (btnShoot) btnShoot.style.display = 'inline-flex';
 
     v.onloadedmetadata = () => {
       if (typeof FaceDetection !== 'undefined') {
@@ -103,42 +100,34 @@ async function activateCamera() {
       }
     };
   } catch (e) {
-    //alert('No se pudo acceder a la cámara. Habilitá los permisos.');
+    console.warn('[Camera] No camera permission:', e);
   }
 }
 
 function takePhoto() {
-  if (!gorraActiva) {
-    //alert('Primero elegí una gorra del catálogo.');
+  const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+  if (!item) {
+    alert('Primero elegí una gorra del catálogo.');
     return;
   }
 
-  if (typeof FaceDetection !== 'undefined' && FaceDetection.isActive() && !FaceDetection.hasFace()) {
-    //alert('No se detectó ningún rostro.\n\nAsegurate de que tu cara esté bien iluminada y centrada en la cámara antes de sacar la foto.');
-    return;
-  }
-
-  // ── Verificar límite ANTES de procesar ──
   if (!puedeGenerar()) {
     const t = tiempoRestante();
     mostrarLimiteAlcanzado(t);
     return;
   }
 
-  // Detener detección de rostro antes de procesar
   if (typeof FaceDetection !== 'undefined') {
     FaceDetection.stop();
   }
 
-  const video  = document.getElementById('video-feed');
+  const video = document.getElementById('video-feed');
   const canvas = document.getElementById('photo-canvas');
+  if (!video || !canvas) return;
 
-  // Resolución y calidad según el motor activo
-  // GPT-Image-2 cobra por tokens de imagen → usamos 512px
-  // FASHN no cobra por tamaño → usamos 768px
-  const maxW  = CONFIG.aiModel === 'gpt-image-2' ? 512 : 768;
-  const ratio = video.videoHeight / video.videoWidth;
-  canvas.width  = Math.min(video.videoWidth || 640, maxW);
+  const maxW = CONFIG.aiModel === 'gpt-image-2' ? 512 : 768;
+  const ratio = (video.videoHeight || 480) / (video.videoWidth || 640);
+  canvas.width = Math.min(video.videoWidth || 640, maxW);
   canvas.height = Math.round(canvas.width * ratio) || Math.round(maxW * 0.75);
 
   const ctx = canvas.getContext('2d');
@@ -147,65 +136,76 @@ function takePhoto() {
   ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
   ctx.restore();
 
-  // Calidad JPEG: 0.75 para GPT-Image-2 (menos tokens), 0.80 para FASHN
   const quality = CONFIG.aiModel === 'gpt-image-2' ? 0.75 : 0.80;
   const dataURL = canvas.toDataURL('image/jpeg', quality);
-  console.log(`[camera] foto: ${canvas.width}×${canvas.height}px, calidad ${quality}`);
 
-  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-  document.getElementById('video-feed').style.display = 'none';
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+  video.style.display = 'none';
 
-  // Registrar uso
   registrarGeneracion();
   actualizarBadgeGeneraciones();
 
-  // Mostrar sección resultado
-  const rs = document.getElementById('result-section');
-  rs.style.display = 'block';
-  setTimeout(() => rs.scrollIntoView({ behavior: 'smooth' }), 80);
+  const btnShoot = document.getElementById('btn-shoot');
+  if (btnShoot) btnShoot.style.display = 'none';
 
-  // Rellenar card resultado
-  document.getElementById('result-cap-img').src            = gorraActiva.imgPreview;
-  document.getElementById('result-cap-nombre').textContent = gorraActiva.nombre;
-  document.getElementById('result-cap-precio').textContent = formatPrecio(gorraActiva.precio);
+  const btnAct = document.getElementById('btn-activate');
+  if (btnAct) btnAct.style.display = 'inline-flex';
 
   resetResult();
-  runVirtualTryOn(dataURL, gorraActiva.imgFrontal);
-  showPiropo();
+  runVirtualTryOn(dataURL, item.imgFrontal || item.imgPreview);
 }
 
 function mostrarLimiteAlcanzado(tiempoStr) {
-  // Mostrar sección resultado con mensaje de límite
-  const rs = document.getElementById('result-section');
-  rs.style.display = 'block';
-  setTimeout(() => rs.scrollIntoView({ behavior: 'smooth' }), 80);
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'none';
 
-  document.getElementById('loading-overlay').style.display = 'none';
-  document.getElementById('result-img').style.display = 'none';
+  const resImg = document.getElementById('result-img');
+  if (resImg) resImg.style.display = 'none';
 
   const eb = document.getElementById('error-box');
-  document.getElementById('error-msg').innerHTML =
-    `Alcanzaste el límite de ${MAX_GENERACIONES} pruebas gratuitas.<br>` +
-    (tiempoStr ? `Podés volver a intentarlo en <strong>${tiempoStr}</strong>.` : 'Volvé pronto.');
-  eb.style.display = 'flex';
+  const em = document.getElementById('error-msg');
+  if (em) {
+    em.innerHTML = `Alcanzaste el límite de ${MAX_GENERACIONES} pruebas gratuitas.<br>` +
+      (tiempoStr ? `Podés volver a intentarlo en <strong>${tiempoStr}</strong>.` : 'Volvé pronto.');
+  }
+  if (eb) eb.style.display = 'flex';
 }
 
 function retryPhoto() {
-  // Detener detección de rostro al reiniciar
   if (typeof FaceDetection !== 'undefined') {
     FaceDetection.stop();
   }
 
-  document.getElementById('result-section').style.display = 'none';
-  document.getElementById('error-box').style.display = 'none';
-  document.getElementById('btn-activate').style.display = 'block';
-  document.getElementById('btn-shoot').style.display = 'none';
-  document.getElementById('cam-placeholder').style.display = 'flex';
-  document.getElementById('video-feed').style.display = 'none';
-  document.getElementById('piropo-text').textContent = '…';
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+
+  const resImg = document.getElementById('result-img');
+  if (resImg) {
+    resImg.style.display = 'none';
+    resImg.src = '';
+  }
+
+  const errBox = document.getElementById('error-box');
+  if (errBox) errBox.style.display = 'none';
+
+  const video = document.getElementById('video-feed');
+  if (video) video.style.display = 'none';
+
+  const placeholder = document.getElementById('cam-placeholder');
+  if (placeholder) placeholder.style.display = 'flex';
+
+  const btnAct = document.getElementById('btn-activate');
+  if (btnAct) btnAct.style.display = 'inline-flex';
+
+  const btnShoot = document.getElementById('btn-shoot');
+  if (btnShoot) btnShoot.style.display = 'none';
+
   actualizarBadgeGeneraciones();
-  document.getElementById('try-section').scrollIntoView({ behavior: 'smooth' });
 }
 
-// Inicializar badge al cargar
 window.addEventListener('DOMContentLoaded', actualizarBadgeGeneraciones);

@@ -3,364 +3,885 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title> - CAPFIT - </title>
+  <title>CAPFIT — Probador Virtual de Gorras con IA</title>
+  
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  
+  <!-- CSS -->
   <link rel="stylesheet" href="css/style.css">
   <link rel="shortcut icon" href="https://www.luofluck.tech/assets/favicon.ico" type="image/x-icon">
+  
+  <!-- Three.js 3D Engine -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <!-- Face-API.js para detección de rostros -->
+  
+  <!-- Face-API.js -->
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
-<base target="_blank">
 </head>
 <body>
 
-<!-- ══ NAV ══ -->
-<nav>
-  <a class="nav-logo" href="#">CAP-FIT</a>
-  <ul class="nav-links">
-    <li><a href="#">Inicio</a></li>
-    <li><a href="#catalogo-section">Modelos</a></li>
-    <li><a href="#try-section">Probar</a></li>
-    <li><a href="#">Comprar</a></li>
-  </ul>
-</nav>
-
-<!-- ══ HERO ══ -->
-<div id="hero">
-  <canvas id="bg-canvas"></canvas>
-
-  <div class="hero-inner">
-    <!-- Texto -->
-    <div class="hero-text fade-in">
-      <h1 class="hero-title">La gorra<br>que va contigo.</h1>
-      <p class="hero-sub">Probala antes de comprar<br>y elegí tu estilo perfecto.</p>
-      <button class="btn-probar"
-        onclick="document.getElementById('catalogo-section').scrollIntoView({behavior:'smooth'})">
-        Probar ahora
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </button>
-      <p class="hero-hint">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          <path d="M8 9l4-4 4 4"/><path d="M12 5v10"/><path d="M8 15l4 4 4-4"/>
-        </svg>
-        Girá para ver en 3D
-      </p>
+  <!-- ══ TOP ANNOUNCEMENT BANNER ══ -->
+  <div class="top-banner">
+    <div class="top-banner-item">
+      Envío gratis en compras mayores a $39.999
     </div>
-
-    <!-- Modelo 3D -->
-    <div id="model-viewer">
-      <div class="model-msg" id="model-msg">
-        <div class="spinner"></div>
-        <p>Cargando modelo 3D…</p>
-      </div>
+    <div class="top-banner-item">
+      30 días para cambios y devoluciones
     </div>
-  </div>
-</div>
-
-<!-- ══ SECCIÓN 01 — CATÁLOGO ══ -->
-<div id="catalogo-section" style="background:var(--white)">
-<div class="section-inner">
-
-  <div class="catalogo-header">
-    <div class="catalogo-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M22 9V7H2v2l10 11L22 9z"/>
-        <path d="M6 7V4a1 1 0 011-1h10a1 1 0 011 1v3"/>
-      </svg>
-    </div>
-    <span class="step-pill">01</span>
-  </div>
-  <h2 class="section-title fade-in">Elegí una gorra</h2>
-  <p class="section-sub fade-in">Explorá nuestros modelos y elegí tu favorito.</p>
-
-  <div class="catalogo-grid" id="catalogo-grid">
-    <!-- Se renderiza desde catalogo.js -->
-    <div style="grid-column:1/-1;text-align:center;padding:40px;color:#bbb;font-size:.82rem">
-      Cargando modelos…
+    <div class="top-banner-item">
+      ¿Necesitás ayuda? Escribinos por WhatsApp
     </div>
   </div>
 
-  <div class="ver-mas-row">
-    <button class="btn-ver-mas">
-      Ver más modelos
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
-        <path d="M5 12h14M12 5l7 7-7 7"/>
-      </svg>
-    </button>
-  </div>
-
-</div>
-</div>
-
-<!-- ══ SECCIÓN 02 — CÁMARA ══ -->
-<div id="try-section" style="background:#f6f6f4">
-<div class="section-inner">
-
-  <span class="step-pill fade-in">02</span>
-  <h2 class="section-title fade-in">Pruébala contigo</h2>
-  <p class="section-sub fade-in">
-    Activá tu cámara y tomate una foto.
-    La IA generará la imagen con la gorra que elegiste.
-  </p>
-
-  <div class="camera-layout">
-
-    <!-- Tips -->
-    <div class="camera-tips">
-      <div class="tip">
-        <div class="tip-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
-          </svg>
-          Buscá buena luz
-        </div>
-        <p>Luz natural para mejores resultados.</p>
-      </div>
-      <div class="tip">
-        <div class="tip-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10"/>
-            <circle cx="9" cy="10" r="1" fill="currentColor"/>
-            <circle cx="15" cy="10" r="1" fill="currentColor"/>
-          </svg>
-          Posicioná tu rostro
-        </div>
-        <p>Tu cara debe estar al centro.</p>
-      </div>
-      <div class="tip">
-        <div class="tip-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-          </svg>
-          Relajá tu expresión
-        </div>
-        <p>Relajá tu expresión y lucé genial.</p>
-      </div>
-    </div>
-
-    <!-- Cámara -->
-    <div class="camera-box" id="camera-box">
-      <video id="video-feed" autoplay playsinline></video>
-      <canvas id="photo-canvas" style="display:none"></canvas>
-      <div class="cam-placeholder" id="cam-placeholder">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-        <p>Tu cámara aparecerá aquí</p>
-      </div>
-      <div class="cam-btn-row">
-        <button id="btn-activate" onclick="activateCamera()">Activar cámara</button>
-        <button id="btn-shoot" style="display:none" onclick="takePhoto()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="13" r="4"/>
-            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Panel "elegiste" -->
-    <div class="elegiste-panel">
-      <div class="elegiste-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        Elegiste
-      </div>
-      <div class="elegiste-img-wrap">
-        <img id="elegiste-img" src="" alt="Gorra elegida" onerror="this.style.opacity='0.2'">
-      </div>
-      <div>
-        <p class="elegiste-nombre" id="elegiste-nombre">—</p>
-        <p class="elegiste-precio-label">Precio</p>
-        <p class="elegiste-precio" id="elegiste-precio">—</p>
-      </div>
-      <button class="btn-cambiar" onclick="cambiarModelo()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
-          <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>
-        </svg>
-        Cambiar modelo
-      </button>
-    </div>
-
-  </div>
-
-  <!-- Elegiste strip — visible solo en mobile -->
-  <div class="elegiste-strip" id="elegiste-strip">
-    <div class="elegiste-strip-img-wrap" id="elegiste-strip-img-wrap">
-      <img class="elegiste-strip-img" id="elegiste-strip-img" src="" alt=""
-        onerror="this.style.display='none';document.getElementById('elegiste-strip-emoji').style.display='flex'">
-      <div id="elegiste-strip-emoji" style="display:none;align-items:center;justify-content:center;width:100%;height:100%;font-size:1.8rem;">🧢</div>
-    </div>
-    <div class="elegiste-strip-info">
-      <span class="elegiste-strip-check">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px;height:11px"><polyline points="20 6 9 17 4 12"/></svg>
-        Elegiste
-      </span>
-      <span id="elegiste-strip-nombre">—</span>
-      <span id="elegiste-strip-precio">—</span>
-    </div>
-    <button class="elegiste-strip-cambiar" onclick="cambiarModelo()">Cambiar</button>
-  </div>
-
-  <p class="privacy-note">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:12px;height:12px">
-      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
-    </svg>
-    Tu foto se procesa de forma segura y privada.
-  </p>
-
-</div>
-</div>
-
-<!-- ══ SECCIÓN 03 — RESULTADO ══ -->
-<div id="result-section" style="display:none; background:var(--white)">
-<div class="section-inner">
-
-  <span class="step-pill">03</span>
-  <h2 class="section-title">Así te queda</h2>
-  <p class="section-sub">Se generó tu foto con la gorra.</p>
-
-  <div class="result-layout">
-
-    <!-- Foto resultado -->
-    <div class="result-img-wrap">
-      <div class="loading-overlay" id="loading-overlay">
-        <div class="spinner"></div>
-        <p class="load-title">Procesando tu foto…</p>
-        <div class="loading-steps">
-          <div class="load-step active" id="ls-1"><div class="load-dot"></div>Enviando foto al modelo</div>
-          <div class="load-step"        id="ls-2"><div class="load-dot"></div>En cola de procesamiento</div>
-          <div class="load-step"        id="ls-3"><div class="load-dot"></div>Generando imagen con gorra</div>
-          <div class="load-step"        id="ls-4"><div class="load-dot"></div>Ajustando iluminación</div>
-        </div>
-        <p class="load-eta">Esto puede tardar 15–30 segundos…</p>
-      </div>
-      <div class="error-box" id="error-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#c00" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <circle cx="12" cy="16" r="0.5" fill="#c00" stroke="none"/>
-        </svg>
-        <p id="error-msg">Ocurrió un error.</p>
-        <small>Intentá de nuevo en unos segundos.</small>
-      </div>
-      <img id="result-img" alt="Tu foto con la gorra">
-    </div>
-
-    <!-- Card compra -->
-    <div class="result-card" id="result-card">
-
-      <!-- Gorra elegida -->
-      <div class="result-cap-card">
-        <img class="result-cap-img" id="result-cap-img" src="" alt="Gorra">
-        <div class="result-cap-info">
-          <p class="result-cap-nombre" id="result-cap-nombre">—</p>
-          <p class="result-cap-precio-label">Precio</p>
-          <p class="result-cap-precio" id="result-cap-precio">—</p>
-        </div>
-      </div>
-
-      <!-- Piropo -->
-      <div class="piropo-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-        Mensaje subliminal
-      </div>
-      <p id="piropo-text">…</p>
-
-      <a id="whatsapp-btn" class="btn-whatsapp" href="#" target="_blank">
-        <svg viewBox="0 0 24 24" fill="currentColor" style="width:17px;height:17px">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-        </svg>
-        Comprar por WhatsApp
+  <!-- ══ STICKY HEADER & NAV ══ -->
+  <header>
+    <nav class="main-nav">
+      <a href="#inicio" onclick="navigateToView('inicio')" class="nav-logo">
+        CAP<span>FIT</span>
       </a>
 
-      <div class="trust-row">
-        <div class="trust-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Compra segura
-        </div>
-        <div class="trust-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 6v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-          Envíos
-        </div>
-        <div class="trust-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-          Premium
-        </div>
+      <div class="nav-search-wrap">
+        <input type="text" id="nav-search-input" placeholder="Buscar gorra, anteojos..." autocomplete="off">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
       </div>
 
-      <button class="btn-retry" id="btn-retry" onclick="retryPhoto()">↩ Sacar otra foto</button>
-    </div>
-  </div>
-</div>
-</div>
-
-<!-- ══ FOOTER ══ -->
-<footer>
-  <div class="footer-grid">
-    <div class="footer-brand">
-      <div class="footer-logo">CAPFIT</div>
-      <p>Estilo que va contigo.</p>
-    </div>
-    <!--
-    <div class="footer-col">
-      <h4>Navegación</h4>
-      <ul>
-        <li><a href="#">Inicio</a></li>
-        <li><a href="#catalogo-section">Modelos</a></li>
-        <li><a href="#try-section">Probar</a></li>
-        <li><a href="#">Comprar</a></li>
+      <ul class="nav-links">
+        <li><a href="#inicio" onclick="navigateToView('inicio'); Catalogo.resetFilters();" class="active">Inicio</a></li>
+        <li><a href="#inicio" onclick="navigateToView('inicio'); Catalogo.setFilter('tipo', 'gorra');">Hombre</a></li>
+        <li><a href="#inicio" onclick="navigateToView('inicio'); Catalogo.setFilter('tipo', 'gorra');">Mujer</a></li>
+        <li><a href="#inicio" onclick="navigateToView('inicio'); Catalogo.setFilter('badge', 'Nuevo');">Nuevos ingresos</a></li>
+        <li><a href="#inicio" onclick="navigateToView('inicio'); Catalogo.setFilter('badge', 'Oferta');" class="text-red">Ofertas</a></li>
       </ul>
-    </div>
+
+      <div class="nav-actions">
+        <a href="#inicio" class="nav-icon-btn" title="Mi Cuenta" onclick="alert('Iniciá sesión o creá tu cuenta CAPFIT')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </a>
+
+        <a href="#carrito" onclick="navigateToView('carrito')" class="nav-icon-btn nav-cart-btn" title="Ver Carrito">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 01-8 0"></path>
+          </svg>
+          <span class="cart-badge">0</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 1: HOME CATALOG VIEW (#view-inicio) - MATCHES IMAGE 1
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-inicio" class="app-view active-view">
     
-    <div class="footer-col">
-      <h4>Ayuda</h4>
-      <ul>
-        <li><a href="#">Preguntas frecuentes</a></li>
-        <li><a href="#">Privacidad</a></li>
-        <li><a href="#">Términos</a></li>
-      </ul>
-    </div>
-    -->
-    <div class="footer-col">
-      <h4>Seguinos</h4>
-      <div class="social-row">
-        <a class="social-btn" href="https://instagram.com/luofluck" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.7" fill="currentColor"/></svg>
-        </a>
+    <!-- ── HERO SECTION ── -->
+    <section id="hero">
+      <div class="hero-inner">
+        <div class="hero-text fade-in">
+          <h1 class="hero-title">
+            Probátela.<br>
+            Comprá con confianza.
+          </h1>
+          <p class="hero-sub">
+            Usá IA para verte con tus gorras favoritas antes de comprarlas.
+          </p>
 
-        <a class="social-btn" href="https://wa.me/541138607910?text=Hola%20quiero%20mas%20informacion!" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          <div class="hero-pills">
+            <div class="hero-pill-item">
+              <span><strong>Rápido</strong> en 10 segundos</span>
+            </div>
+            <div class="hero-pill-item">
+              <span><strong>Realista</strong> con IA avanzada</span>
+            </div>
+            <div class="hero-pill-item">
+              <span><strong>Seguro</strong> tu foto se elimina</span>
+            </div>
+          </div>
+
+          <button class="btn-hero-primary" onclick="navigateToView('probador')">
+            PROBAR AHORA →
+          </button>
+
+          <div class="social-proof-row">
+            <div class="avatar-stack">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop" alt="Usuario">
+              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop" alt="Usuario">
+              <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&auto=format&fit=crop" alt="Usuario">
+            </div>
+            <div class="proof-text">
+              +3.500 personas ya probaron
+            </div>
+            <div class="rating-text">
+              ★★★★★ 4.9 <span style="font-weight:400;color:var(--gray-500)">(327 opiniones)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3D Model / Floating Cap Preview -->
+        <div class="hero-media-wrap fade-in">
+          <div id="model-viewer">
+            <div class="model-msg" id="model-msg">
+              <div class="spinner"></div>
+              <p>Cargando modelo 3D interactive…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TRUST CARDS HIGHLIGHTS ── -->
+    <section class="trust-cards-section">
+      <div class="trust-cards-grid">
+        <div class="trust-card-item">
+          <div class="trust-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          </div>
+          <div class="trust-card-info">
+            <h4>Probá en 3 pasos</h4>
+            <p>Elegí, subí tu foto y mirá el resultado.</p>
+          </div>
+        </div>
+
+        <div class="trust-card-item">
+          <div class="trust-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="trust-card-info">
+            <h4>Envíos a todo el país</h4>
+            <p>Envío gratis en compras mayores a $39.999.</p>
+          </div>
+        </div>
+
+        <div class="trust-card-item">
+          <div class="trust-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="trust-card-info">
+            <h4>30 días para cambios</h4>
+            <p>Si no te convence, lo cambiás sin problema.</p>
+          </div>
+        </div>
+
+        <div class="trust-card-item">
+          <div class="trust-icon-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <div class="trust-card-info">
+            <h4>Compra 100% segura</h4>
+            <p>Tus datos están protegidos siempre.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── MAIN CATALOG ── -->
+    <section class="catalogo-container" id="catalogo-section">
+      <div class="catalogo-section-header">
+        <h2 class="section-headline">Gorras más vendidas</h2>
+      </div>
+
+      <!-- Filters & Sorting Bar -->
+      <div class="filter-bar">
+        <div class="filter-left-group">
+          <button class="filter-pill-btn active" onclick="Catalogo.setFilter('tipo', 'todas')">Todas</button>
+          
+          <select class="filter-dropdown" onchange="Catalogo.setFilter('tipo', this.value)">
+            <option value="todas">Tipo</option>
+            <option value="gorra">Gorras</option>
+            <option value="anteojo">Anteojos</option>
+          </select>
+
+          <select class="filter-dropdown" id="filter-marca" onchange="Catalogo.setFilter('marca', this.value)">
+            <option value="todas">Marca</option>
+          </select>
+
+          <select class="filter-dropdown" id="filter-coleccion" onchange="Catalogo.setFilter('coleccion', this.value)">
+            <option value="todas">Colección</option>
+          </select>
+
+          <select class="filter-dropdown" onchange="Catalogo.setFilter('precioRange', this.value)">
+            <option value="todos">Precio</option>
+            <option value="hasta-25k">Hasta $25.000</option>
+            <option value="25k-30k">$25.000 - $30.000</option>
+            <option value="mas-30k">Más de $30.000</option>
+          </select>
+        </div>
+
+        <div class="filter-right-group">
+          <select class="filter-dropdown" onchange="Catalogo.setSort(this.value)">
+            <option value="mas-vendidos">Más vendidas</option>
+            <option value="precio-asc">Menor precio</option>
+            <option value="precio-desc">Mayor precio</option>
+            <option value="rating">Mejor valoradas</option>
+          </select>
+          <a href="#catalogo-section" onclick="Catalogo.resetFilters()" class="view-all-link">Ver todas</a>
+        </div>
+      </div>
+
+      <!-- Product Cards Grid -->
+      <div class="catalogo-grid" id="catalogo-grid">
+        <!-- Rendered dynamically by catalogo.js -->
+      </div>
+    </section>
+
+    <!-- ── STEP EXPLAINER SECTION ── -->
+    <section class="catalogo-container">
+      <div class="step-explainer-section">
+        <h3 class="step-explainer-title">Así de fácil es probar tu gorra</h3>
+
+        <div class="step-cards-row">
+          <div class="step-card">
+            <span class="step-num-pill">1</span>
+            <span class="step-card-text">Elegí tu gorra favorita</span>
+            <img src="assets/gorras/Gorra_negra_frente.webp" alt="Gorra" class="step-card-img" onerror="this.style.display='none'">
+          </div>
+
+          <span class="step-arrow">→</span>
+
+          <div class="step-card">
+            <span class="step-num-pill">2</span>
+            <span class="step-card-text">Subí tu foto o usá la cámara</span>
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop" alt="Foto" class="step-card-img">
+          </div>
+
+          <span class="step-arrow">→</span>
+
+          <div class="step-card">
+            <span class="step-num-pill">3</span>
+            <span class="step-card-text">La IA procesa la imagen <br><small style="color:var(--gray-500)">10 seg</small></span>
+          </div>
+
+          <span class="step-arrow">→</span>
+
+          <div class="step-card">
+            <span class="step-num-pill">4</span>
+            <span class="step-card-text">¡Ves cómo te queda!</span>
+          </div>
+        </div>
+
+        <div style="text-align:center;margin-top:28px">
+          <button class="btn-hero-primary" onclick="navigateToView('probador')">
+            PROBAR AHORA →
+          </button>
+          <p class="step-cta-sub" style="margin-top:8px">Sin registro • Gratis • En 10 seg</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TESTIMONIALS ── -->
+    <section class="testimonials-section">
+      <h3 class="section-headline">Lo que dicen nuestros clientes</h3>
+
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop" alt="Martín R." class="testimonial-avatar">
+          <div class="testimonial-info">
+            <h5>Martín R.</h5>
+            <div class="testimonial-stars">★★★★★</div>
+            <p class="testimonial-text">Me sorprendió lo real que se ve. Compré la negra y es tal cual como en la prueba.</p>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop" alt="Julieta S." class="testimonial-avatar">
+          <div class="testimonial-info">
+            <h5>Julieta S.</h5>
+            <div class="testimonial-stars">★★★★★</div>
+            <p class="testimonial-text">La experiencia es increíble, fácil y rápida. Volveré a comprar sin dudas.</p>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop" alt="Facu G." class="testimonial-avatar">
+          <div class="testimonial-info">
+            <h5>Facu G.</h5>
+            <div class="testimonial-stars">★★★★★</div>
+            <p class="testimonial-text">Nunca más compro sin probar. La IA es muy precisa, 10/10.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TRUST TICKER BAR ── -->
+    <div class="trust-ticker-bar">
+      <div class="trust-ticker-item">+3.500 pruebas realizadas</div>
+      <div class="trust-ticker-item">97% de satisfacción</div>
+      <div class="trust-ticker-item">Fotos eliminadas automáticamente</div>
+      <div class="trust-ticker-item">IA entrenada para resultados reales</div>
+    </div>
+
+  </main>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 2: SHOPPING CART (#view-carrito) - MATCHES IMAGE 2
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-carrito" class="app-view">
+    <div class="cart-view-container">
+      
+      <div class="cart-header-row">
+        <h2 class="cart-title">Tu carrito de compras (<span class="cart-item-count">0</span>)</h2>
+        <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">
+          ← Seguir comprando
         </a>
       </div>
+
+      <div class="cart-layout-grid">
+        <!-- Left Column: Items & Promos -->
+        <div class="cart-items-column">
+          
+          <div id="cart-items-list">
+            <!-- Dynamically populated by renderCartView() in ui.js -->
+          </div>
+
+          <!-- Free Shipping Threshold Banner -->
+          <div class="free-shipping-banner">
+            <div class="free-shipping-msg" id="free-shipping-msg">
+              <strong>¡Falta poco!</strong> Te faltan $15.199 para tener envío gratis a todo el país.
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="free-shipping-progress-fill" style="width: 62%;"></div>
+            </div>
+          </div>
+
+          <!-- Recommended Items Carousel -->
+          <div class="recommended-section">
+            <h3 class="recommended-title">También te puede interesar</h3>
+            <div class="recommended-grid">
+              <!-- Dynamically populated by Catalogo.renderRecommendedCarousels() -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Order Summary Sidebar -->
+        <div class="order-summary-card">
+          <h3 class="order-summary-title">Resumen del pedido</h3>
+
+          <div class="summary-rows">
+            <div class="summary-row">
+              <span>Subtotal</span>
+              <span id="cart-summary-subtotal">$0</span>
+            </div>
+            <div class="summary-row">
+              <span>Envío</span>
+              <span id="cart-summary-shipping" class="text-green">Gratis</span>
+            </div>
+            <div class="summary-row total-row">
+              <span>Total</span>
+              <span id="cart-summary-total">$0</span>
+            </div>
+          </div>
+
+          <div class="free-shipping-success-box">
+            <strong>Envío gratis</strong><br>
+            ¡Felicitaciones! Tenés envío gratis a todo el país.
+          </div>
+
+          <button class="btn-checkout-primary" onclick="proceedToCheckout('standard')">
+            FINALIZAR COMPRA
+          </button>
+
+          <button class="btn-mercadopago" onclick="proceedToCheckout('mercadopago')">
+            PAGAR CON MERCADO PAGO
+          </button>
+
+          <div class="payment-methods-note">
+            <span>Hasta 6 cuotas sin interés</span>
+            <div class="payment-cards-icons">
+              <span style="font-weight:800;font-size:.78rem">VISA</span>
+              <span style="font-weight:800;font-size:.78rem">Mastercard</span>
+              <span style="font-weight:800;font-size:.78rem">AMEX</span>
+              <span style="font-weight:800;font-size:.78rem;color:#009ee3">MercadoPago</span>
+            </div>
+          </div>
+
+          <div class="guarantees-list">
+            <div class="guarantee-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0110 0v4"></path>
+              </svg>
+              <div>
+                <h5>Compra 100% segura</h5>
+                <p>Tus datos están protegidos siempre.</p>
+              </div>
+            </div>
+
+            <div class="guarantee-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 4v6h6"></path><path d="M23 20v-6h-6"></path>
+                <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"></path>
+              </svg>
+              <div>
+                <h5>30 días para cambios y devoluciones</h5>
+                <p>Si no te convence, lo cambiás sin problema.</p>
+              </div>
+            </div>
+
+            <div class="guarantee-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"></path>
+              </svg>
+              <div>
+                <h5>Atención por WhatsApp</h5>
+                <p>Escribinos y te ayudamos en el acto.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
-  </div>
-  <div class="footer-bottom">©2026 CAPFIT | Todos los derechos reservados | Guerrero Lucas.</div>
-</footer>
+  </main>
 
 
-<script src="js/store.js"></script>
-<script src="js/config.js"></script>
-<script src="js/catalogo.js"></script>
-<script src="js/piropos.js"></script>
-<script src="js/tryon.js"></script>
-<script src="js/face-detection.js"></script>
-<script src="js/camera.js"></script>
-<script src="js/background.js"></script>
-<script src="js/model3d.js"></script>
-<script src="js/ui.js"></script>
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 3: VIRTUAL TRY-ON (#view-probador) - MATCHES IMAGE 3
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-probador" class="app-view">
+    <div class="tryon-view-container">
+      
+      <!-- Steps Progress Header -->
+      <div class="tryon-steps-header">
+        <div class="tryon-step-item completed">
+          <span>1. Elegí tu gorra</span>
+        </div>
+        <span class="tryon-step-arrow">→</span>
+        <div class="tryon-step-item active" id="ls-2">
+          <span>2. Subí tu foto</span>
+        </div>
+        <span class="tryon-step-arrow">→</span>
+        <div class="tryon-step-item" id="ls-3">
+          <span>3. Probátela</span>
+        </div>
+        <span class="tryon-step-arrow">→</span>
+        <div class="tryon-step-item" id="ls-4">
+          <span>4. Agregá al carrito</span>
+        </div>
+      </div>
+
+      <!-- Main Try-on Layout Grid -->
+      <div class="tryon-layout-grid">
+        
+        <!-- Left: Canvas Viewport Container -->
+        <div class="tryon-canvas-card">
+          <div class="tryon-canvas-topbar">
+            <button class="btn-restart-tryon" onclick="retryPhoto()">
+              Volver a empezar
+            </button>
+
+            <div class="tryon-top-actions">
+              <button class="tryon-action-icon-btn" title="Compartir" onclick="navigator.share ? navigator.share({title:'CAPFIT Tryon', url:window.location.href}) : alert('Link copiado')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
+                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"></path>
+                  <polyline points="16 6 12 2 8 6"></polyline>
+                  <line x1="12" y1="2" x2="12" y2="15"></line>
+                </svg>
+              </button>
+              
+              <button class="tryon-action-icon-btn" title="Descargar" onclick="const img=document.getElementById('result-img'); if(img.src){ const a=document.createElement('a'); a.href=img.src; a.download='capfit-tryon.jpg'; a.click(); }">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Camera & Result Display Box -->
+          <div class="tryon-viewport" id="camera-box">
+            <video id="video-feed" autoplay playsinline></video>
+            <canvas id="photo-canvas" style="display:none"></canvas>
+            <img id="result-img" alt="Resultado de probador IA" style="display:none">
+
+            <div class="cam-placeholder" id="cam-placeholder">
+              <div class="placeholder-hero-graphics">
+                <!-- Left annotation badge -->
+                <div class="annotation-badge-left">
+                  <span class="handwritten-text">Probate la gorra</span>
+                  <svg class="curved-arrow-svg" viewBox="0 0 45 25" fill="none" stroke="currentColor">
+                    <path d="M5 22 Q 22 24 38 8" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M30 6 L 40 7 L 38 16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+
+                <!-- Center Cap & Head Silhouette -->
+                <div class="center-head-silhouette">
+                  <!-- Sparkles -->
+                  <svg class="sparkles-svg" viewBox="0 0 160 170" fill="none">
+                    <path d="M22 35 L24 40 L29 42 L24 44 L22 49 L20 44 L15 42 L20 40 Z" fill="rgba(255,255,255,0.6)"/>
+                    <path d="M142 50 L143.5 53 L147 54.5 L143.5 56 L142 59 L140.5 56 L137 54.5 L140.5 53 Z" fill="rgba(255,255,255,0.6)"/>
+                    <path d="M38 100 L39 102 L41 103 L39 104 L38 106 L37 104 L35 103 L37 102 Z" fill="rgba(255,255,255,0.4)"/>
+                    <path d="M125 105 L126.5 108 L130 109 L126.5 110 L125 113 L123.5 110 L120 109 L123.5 108 Z" fill="rgba(255,255,255,0.4)"/>
+                  </svg>
+
+                  <!-- Head and Cap SVG -->
+                  <svg class="head-svg" viewBox="0 0 160 170" fill="none" stroke="currentColor">
+                    <!-- Cap Dome -->
+                    <path d="M 52 65 C 52 32, 108 32, 108 65 Z" stroke="rgba(255,255,255,0.85)" stroke-width="1.8" fill="rgba(255,255,255,0.03)"/>
+                    <!-- Cap Visor -->
+                    <path d="M 40 65 Q 80 52 120 65 Q 80 78 40 65 Z" stroke="rgba(255,255,255,0.95)" stroke-width="2" fill="rgba(255,255,255,0.08)"/>
+                    <!-- Cap seams -->
+                    <path d="M 80 34 L 80 58" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" stroke-dasharray="2 2"/>
+                    <path d="M 80 34 L 60 54" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                    <path d="M 80 34 L 100 54" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                    <!-- Cap top button -->
+                    <circle cx="80" cy="34" r="2.5" fill="rgba(255,255,255,0.9)"/>
+
+                    <!-- Head & shoulders dashed silhouette -->
+                    <path d="M 58 72 Q 48 98 48 118 C 48 135, 112 135, 112 118 Q 112 98 102 72" stroke="rgba(255,255,255,0.45)" stroke-width="1.8" stroke-dasharray="4 4" fill="none"/>
+                    <path d="M 48 124 Q 32 138 15 152" stroke="rgba(255,255,255,0.4)" stroke-width="1.8" stroke-dasharray="4 4"/>
+                    <path d="M 112 124 Q 128 138 145 152" stroke="rgba(255,255,255,0.4)" stroke-width="1.8" stroke-dasharray="4 4"/>
+                  </svg>
+                </div>
+
+                <!-- Right Side Guidelines inside preview -->
+                <div class="preview-right-tips">
+                  <div class="p-tip-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+                    <span>Buena iluminación</span>
+                  </div>
+                  <div class="p-tip-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M18 20a6 6 0 0 0-12 0"/></svg>
+                    <span>Mirar de frente</span>
+                  </div>
+                  <div class="p-tip-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a6 6 0 0 0-6 6c0 3.5 2.5 6 6 6s6-2.5 6-6a6 6 0 0 0-6-6z"/><path d="M6 10c0 4 3 8 6 10 3-2 6-6 6-10"/></svg>
+                    <span>Pelo retirado de la frente</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="placeholder-bottom-text">
+                <h4>Preparate para probarte <span class="green-text">tu gorra</span> favorita</h4>
+                <p>Activá la cámara o elegí una foto para comenzar</p>
+              </div>
+            </div>
+
+            <!-- Loading overlay during AI processing -->
+            <div class="tryon-loading-overlay" id="loading-overlay" style="display:none">
+              <div class="tryon-load-sparkle-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                  <polygon points="12,4 14.5,9.5 20,12 14.5,14.5 12,20 9.5,14.5 4,12 9.5,9.5" fill="currentColor"/>
+                </svg>
+              </div>
+
+              <div class="tryon-load-title">Generando tu imagen con IA...</div>
+              <div class="tryon-load-sub">Ajustando iluminación, ángulo y modelo de gorra para que se vea perfecta.</div>
+
+              <!-- Progress Bar Track -->
+              <div class="tryon-progress-container">
+                <div class="tryon-progress-track">
+                  <div class="tryon-progress-fill" id="tryon-progress-fill" style="width: 68%;"></div>
+                </div>
+                <span class="tryon-progress-pct" id="tryon-progress-pct">68%</span>
+              </div>
+
+              <!-- Steps checklist -->
+              <div class="tryon-steps-checklist" id="tryon-steps-checklist">
+                <div class="tryon-check-item done" id="chk-step-1">
+                  <span class="chk-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <span>Detectando rostro</span>
+                </div>
+                <div class="tryon-check-item done" id="chk-step-2">
+                  <span class="chk-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <span>Calculando perspectiva</span>
+                </div>
+                <div class="tryon-check-item done" id="chk-step-3">
+                  <span class="chk-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </span>
+                  <span>Ajustando iluminación</span>
+                </div>
+                <div class="tryon-check-item active" id="chk-step-4">
+                  <span class="chk-icon"><span class="spin-dot"></span></span>
+                  <span>Aplicando la gorra</span>
+                </div>
+                <div class="tryon-check-item" id="chk-step-5">
+                  <span class="chk-icon"><span class="empty-circle"></span></span>
+                  <span>Finalizando imagen</span>
+                </div>
+              </div>
+
+              <!-- AI Brain badge -->
+              <div class="tryon-ai-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M12 2a5 5 0 0 1 5 5c0 .6-.1 1.2-.3 1.7A4.5 4.5 0 0 1 19 13a4.5 4.5 0 0 1-3 4.2V19a3 3 0 0 1-6 0v-1.8A4.5 4.5 0 0 1 7 13a4.5 4.5 0 0 1 2.3-4.3C9.1 8.2 9 7.6 9 7a5 5 0 0 1 5-5z"/>
+                </svg>
+                <span>Analizamos más de <strong>120 puntos faciales</strong> para un ajuste preciso y realista.</span>
+              </div>
+            </div>
+
+
+          </div>
+
+          <!-- Consejos para mejores resultados (Matching Screenshot 2) -->
+          <div class="tryon-tips-card">
+            <div class="tryon-tips-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18h6m-5 3h4M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/>
+              </svg>
+              <span>Consejos para mejores resultados</span>
+            </div>
+            <div class="tryon-tips-grid">
+              <div class="tip-item">
+                <div class="tip-icon-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+                </div>
+                <span>Mirá de frente</span>
+              </div>
+              <div class="tip-item">
+                <div class="tip-icon-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                </div>
+                <span>Buena iluminación</span>
+              </div>
+              <div class="tip-item">
+                <div class="tip-icon-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a8 8 0 0 0-8 8c0 5 8 12 8 12s8-7 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <span>Pelo retirado de la frente</span>
+              </div>
+              <div class="tip-item">
+                <div class="tip-icon-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+                </div>
+                <span>Sin gorra ni lentes</span>
+              </div>
+              <div class="tip-item">
+                <div class="tip-icon-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <span>Fondo simple</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Camera trigger actions matching screenshot 2 style -->
+          <div class="tryon-camera-actions-wrap">
+            <button id="btn-activate" onclick="activateCamera()" class="btn-activate-camera-main">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <div class="btn-camera-text-col">
+                <strong>Activar cámara</strong>
+                <small>Sacá tu foto al instante</small>
+              </div>
+            </button>
+
+            <button id="btn-shoot" style="display:none" onclick="takePhoto()" class="btn-activate-camera-main" style="background:var(--accent-red)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+              <div class="btn-camera-text-col">
+                <strong>Tomar foto</strong>
+                <small>Capturar imagen ahora</small>
+              </div>
+            </button>
+
+            <div class="actions-divider-o">
+              <span class="divider-line"></span>
+              <span class="divider-text">o</span>
+              <span class="divider-line"></span>
+            </div>
+
+            <label class="btn-upload-gallery-sec">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>Elegir una foto de la galería</span>
+              <input type="file" accept="image/*" style="display:none" onchange="
+                if(this.files && this.files[0]){
+                  const reader = new FileReader();
+                  reader.onload = function(e){
+                    runVirtualTryOn(e.target.result, (Store.getGorraActiva() || {}).imgFrontal);
+                  };
+                  reader.readAsDataURL(this.files[0]);
+                }
+              ">
+            </label>
+          </div>
+
+          <!-- Error Message Box -->
+          <div class="error-box" id="error-box" style="display:none;position:static;margin-top:12px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <p id="error-msg">Ocurrió un error al procesar la imagen.</p>
+          </div>
+
+          <div class="tryon-success-banner">
+            ¡Así te queda! Se ve realista porque usamos IA entrenada para cada ángulo y tipo de rostro.
+          </div>
+        </div>
+
+        <!-- Right: Active Product Sidebar -->
+        <div class="tryon-sidebar-card">
+          <a href="#inicio" onclick="navigateToView('inicio')" class="btn-back-catalog">
+            ← Volver al catálogo
+          </a>
+
+          <div class="badge-pill badge-más-vendido" id="tryon-sidebar-badge" style="width:fit-content">
+            Más vendido
+          </div>
+
+          <div class="tryon-sidebar-preview-row">
+            <img id="tryon-sidebar-img" src="assets/gorras/Gorra_negra_frente.webp" alt="Gorra elegida" class="tryon-mini-cap-img">
+            <div class="tryon-item-info">
+              <h3 id="tryon-sidebar-title" class="tryon-item-title">Clásica Negra</h3>
+              <div id="tryon-sidebar-rating" class="tryon-item-rating">★ 4.9 (128 reseñas)</div>
+              <div id="tryon-sidebar-price" class="tryon-item-price">$24.900</div>
+            </div>
+          </div>
+
+          <div class="tryon-attributes-list" id="tryon-sidebar-details">
+            <div class="attr-item">Algodón premium</div>
+            <div class="attr-item">Ajuste regulable</div>
+            <div class="attr-item">Unisex</div>
+            <div class="attr-item">Logo bordado</div>
+          </div>
+
+          <div class="tryon-color-section">
+            <h5>Color:</h5>
+            <div class="product-card-colors" id="tryon-sidebar-colors">
+              <!-- Dynamically populated by updateTryOnSidebarUI() -->
+            </div>
+          </div>
+
+          <button class="btn-add-cart-large" onclick="
+            const currentItem = Store.getGorraActiva();
+            if(currentItem) {
+              Cart.addToCart(currentItem, 1);
+              navigateToView('carrito');
+            }
+          ">
+            AGREGAR AL CARRITO
+          </button>
+
+          <div class="tryon-secondary-btns-row">
+            <button class="btn-tryon-sec" onclick="navigateToView('inicio')">
+              PROBAR OTRA
+            </button>
+            <button class="btn-tryon-sec" onclick="alert('Detalles del producto:\n• Material: 100% Algodón\n• Ajuste regulable strapback\n• Marca: CAPFIT')">
+              VER DETALLES
+            </button>
+          </div>
+
+          <div style="font-size:.78rem;color:var(--gray-500);text-align:center;border-top:1px solid var(--gray-200);padding-top:16px">
+            Compra 100% segura. Cambios y devoluciones fáciles.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Recommended Carousel at bottom of Try-on -->
+      <div class="recommended-section" style="margin-top:48px">
+        <h3 class="recommended-title">También te puede interesar</h3>
+        <div class="recommended-grid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ══ FOOTER ══ -->
+  <footer>
+    <div class="footer-inner">
+      
+      <!-- Newsletter Box -->
+      <div class="newsletter-box">
+        <div class="newsletter-text">
+          <h3>Suscribite y recibí ofertas exclusivas</h3>
+          <p>Enterate primero de lanzamientos y promociones.</p>
+        </div>
+        <form class="newsletter-form" onsubmit="event.preventDefault(); showToast('¡Gracias por suscribirte!'); this.reset();">
+          <input type="email" placeholder="Tu correo electrónico..." required>
+          <button type="submit">SUSCRIBIRME</button>
+        </form>
+      </div>
+
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h2>CAPFIT</h2>
+          <p>Probadores virtuales de gorras y accesorios con IA. Comprá con confianza, probá primero.</p>
+          <div class="footer-social-row">
+            <a href="#" class="social-icon-btn" title="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+            </a>
+            <a href="#" class="social-icon-btn" title="TikTok">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12a4 4 0 104 4V4a5 5 0 005 5"></path></svg>
+            </a>
+            <a href="#" class="social-icon-btn" title="WhatsApp">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"></path></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="footer-col">
+          <h4>Ayuda</h4>
+          <ul>
+            <li><a href="#">Preguntas frecuentes</a></li>
+            <li><a href="#">Envíos y entregas</a></li>
+            <li><a href="#">Cambios y devoluciones</a></li>
+            <li><a href="#">Contacto</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Información</h4>
+          <ul>
+            <li><a href="#">Sobre nosotros</a></li>
+            <li><a href="#">Términos y condiciones</a></li>
+            <li><a href="#">Política de privacidad</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Medios de pago</h4>
+          <div style="font-weight:700;font-size:1.1rem;display:flex;flex-wrap:wrap;gap:12px;color:var(--gray-300)">
+            <span>VISA</span>
+            <span>Mastercard</span>
+            <span>MercadoPago</span>
+            <span>AMEX</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-copyright">
+        © 2026 CAPFIT. Todos los derechos reservados.
+      </div>
+
+    </div>
+  </footer>
+
+
+  <!-- ══ APPLICATION SCRIPTS ══ -->
+  <script src="js/config.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/catalogo.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/tryon.js"></script>
+  <script src="js/model3d.js"></script>
+  <script src="js/ui.js"></script>
 
 </body>
 </html>

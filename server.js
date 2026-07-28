@@ -35,6 +35,7 @@ const MIME = {
   '.glb':  'model/gltf-binary',
   '.gltf': 'model/gltf+json',
   '.ico':  'image/x-icon',
+  '.svg':  'image/svg+xml',
 };
 
 function readBody(req) {
@@ -303,7 +304,7 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('╔═══════════════════════════════════════╗');
   console.log('║         CAPFIT — Dev Server           ║');
