@@ -106,7 +106,27 @@
     "model3D": "assets/hat.glb",
     "detalles": ["Textil respirable", "Costuras reforzadas", "Cierre strapback de cuero", "Visera plana rígida"]
   },
-
+  {
+    "id": "bicampeon-10",
+    "tipo": "gorra",
+    "nombre": "BiCampeón 10",
+    "marca": "AFA",
+    "coleccion": "Argentina",
+    "precio": 29900,
+    "precioAnterior": 36000,
+    "badge": "Oferta",
+    "rating": 5.0,
+    "reviews": 210,
+    "stock": 5,
+    "colores": [
+      { "name": "Celeste y Blanco", "hex": "#75aadb" },
+      { "name": "Dorado", "hex": "#d4af37" }
+    ],
+    "imgPreview": "assets/gorras/messi_lateral.webp",
+    "imgFrontal": "assets/gorras/messi_frente.webp",
+    "model3D": "assets/hat.glb",
+    "detalles": ["Edición oficial BiCampeón", "Bordado conmemorativo número 10", "Parche termoadherido", "Ajuste perfecto"]
+  },
   {
     "id": "la-arana-9",
     "tipo": "gorra",
