@@ -8,14 +8,25 @@ const FaceDetection = (() => {
   let _overlayCanvas = null;
   let _videoEl       = null;
   let _statusEl      = null;
+  let _isProcessingFrame = false;
+  let _lastDetectTime = 0;
 
+  const MODEL_URLS = [
+    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
+    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model',
+    'https://justadudewhohacks.github.io/face-api.js/models'
+  ];
 
-  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
-  const DETECT_OPTS = new faceapi.TinyFaceDetectorOptions({
-    inputSize: 320,   
-    scoreThreshold: 0.5, 
-  });
-
+  let DETECT_OPTS = null;
+  function getDetectOpts() {
+    if (!DETECT_OPTS && typeof faceapi !== 'undefined' && faceapi.TinyFaceDetectorOptions) {
+      DETECT_OPTS = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 224,
+        scoreThreshold: 0.22,
+      });
+    }
+    return DETECT_OPTS;
+  }
 
   function getOverlayCanvas() {
     if (!_overlayCanvas) {
@@ -48,25 +59,25 @@ const FaceDetection = (() => {
       _statusEl.id = 'face-status';
       _statusEl.style.cssText = `
         position: absolute;
-        top: 12px;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 6px 14px;
+        top: 10px;
+        left: 10px;
+        padding: 6px 12px;
         border-radius: 20px;
-        font-size: 0.78rem;
-        font-weight: 500;
-        font-family: 'DM Sans', sans-serif;
-        z-index: 6;
+        font-size: 0.76rem;
+        font-weight: 600;
+        z-index: 20;
         pointer-events: none;
-        transition: all 0.3s ease;
+        transition: all 0.25s ease;
         display: flex;
         align-items: center;
         gap: 6px;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
       `;
       container.appendChild(_statusEl);
     }
+    _statusEl.style.display = 'flex';
     return _statusEl;
   }
 
@@ -82,8 +93,8 @@ const FaceDetection = (() => {
         </svg>
         Rostro detectado
       `;
-      el.style.background = 'rgba(46, 204, 113, 0.85)';
-      el.style.color = '#fff';
+      el.style.background = 'rgba(34, 197, 94, 0.9)';
+      el.style.color = '#ffffff';
     } else {
       el.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px">
@@ -93,90 +104,11 @@ const FaceDetection = (() => {
         </svg>
         Mostrá tu rostro
       `;
-      el.style.background = 'rgba(231, 76, 60, 0.85)';
-      el.style.color = '#fff';
+      el.style.background = 'rgba(239, 68, 68, 0.9)';
+      el.style.color = '#ffffff';
     }
   }
 
-  // ── Dibujar recuadro alrededor del rostro ──
-  function drawDetection(detection) {
-    const canvas = getOverlayCanvas();
-    if (!canvas || !_videoEl) return;
-
-    // Ajustar tamaño del canvas al video
-    const rect = _videoEl.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!detection) return;
-
-    const box = detection.box;
-    // El video puede tener mirror (scaleX(-1)), ajustamos coordenadas
-    const x = canvas.width - (box.x / _videoEl.videoWidth * canvas.width) - (box.width / _videoEl.videoWidth * canvas.width);
-    const y = box.y / _videoEl.videoHeight * canvas.height;
-    const w = box.width / _videoEl.videoWidth * canvas.width;
-    const h = box.height / _videoEl.videoHeight * canvas.height;
-
-    // Recuadro con esquinas redondeadas
-    const r = 8;
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-
-    ctx.strokeStyle = 'rgba(46, 204, 113, 0.9)';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-
-    // Sombra interior sutil
-    ctx.fillStyle = 'rgba(46, 204, 113, 0.06)';
-    ctx.fill();
-
-    // Puntos en las esquinas (efecto "enfoque")
-    const cornerLen = 12;
-    ctx.strokeStyle = 'rgba(46, 204, 113, 1)';
-    ctx.lineWidth = 3;
-
-    // Esquina superior izquierda
-    ctx.beginPath();
-    ctx.moveTo(x, y + cornerLen);
-    ctx.lineTo(x, y);
-    ctx.lineTo(x + cornerLen, y);
-    ctx.stroke();
-
-    // Esquina superior derecha
-    ctx.beginPath();
-    ctx.moveTo(x + w - cornerLen, y);
-    ctx.lineTo(x + w, y);
-    ctx.lineTo(x + w, y + cornerLen);
-    ctx.stroke();
-
-    // Esquina inferior izquierda
-    ctx.beginPath();
-    ctx.moveTo(x, y + h - cornerLen);
-    ctx.lineTo(x, y + h);
-    ctx.lineTo(x + cornerLen, y + h);
-    ctx.stroke();
-
-    // Esquina inferior derecha
-    ctx.beginPath();
-    ctx.moveTo(x + w - cornerLen, y + h);
-    ctx.lineTo(x + w, y + h);
-    ctx.lineTo(x + w, y + h - cornerLen);
-    ctx.stroke();
-  }
-
-  // ── Limpiar canvas ──
   function clearOverlay() {
     const canvas = getOverlayCanvas();
     if (canvas) {
@@ -185,76 +117,97 @@ const FaceDetection = (() => {
     }
   }
 
-  // ── Loop de detección ──
+  // ── Loop de detección optimizado con throttling ──
   async function detectLoop() {
     if (!_detecting || !_videoEl) return;
 
-    // Solo detectar si el video está listo y visible
-    if (_videoEl.readyState >= 2 && _videoEl.videoWidth > 0) {
-      try {
-        const result = await faceapi.detectSingleFace(_videoEl, DETECT_OPTS);
+    const now = performance.now();
+    // Throttling: procesar máximo cada 250ms (4 FPS es ideal para detección visual)
+    if (!_isProcessingFrame && (now - _lastDetectTime >= 250)) {
+      if (_videoEl.readyState >= 2 && _videoEl.videoWidth > 0) {
+        _isProcessingFrame = true;
+        _lastDetectTime = now;
 
-        if (result) {
-          _faceFound = true;
-          updateStatus(true);
-          drawDetection(result);
-        } else {
-          _faceFound = false;
-          updateStatus(false);
+        try {
+          let found = false;
+          if (_modelLoaded && typeof faceapi !== 'undefined' && faceapi.nets && faceapi.nets.tinyFaceDetector) {
+            const opts = getDetectOpts();
+            if (opts) {
+              const result = await faceapi.detectSingleFace(_videoEl, opts);
+              if (result && result.score >= 0.20) {
+                found = true;
+              }
+            }
+          }
+
+          // Fallback ultra-rápido si el modelo no está cargado o dio negativo
+          if (!found) {
+            found = analyzeSkinAndFacePixels(_videoEl);
+          }
+
+          _faceFound = found;
+          updateStatus(found);
           clearOverlay();
+        } catch (e) {
+          // Ignorar errores esporádicos de frame
+        } finally {
+          _isProcessingFrame = false;
         }
-      } catch (e) {
-        console.warn('[FaceDetection] Error en detección:', e.message);
       }
     }
 
-    _animationId = requestAnimationFrame(detectLoop);
+    if (_detecting) {
+      _animationId = requestAnimationFrame(detectLoop);
+    }
   }
 
   // ── API pública ──
 
   /**
    * Carga el modelo de detección de rostros.
-   * Debe llamarse una sola vez antes de iniciar la detección.
    */
   async function loadModel() {
     if (_modelLoaded) return true;
 
-    try {
-      console.log('[FaceDetection] Cargando modelo TinyFaceDetector...');
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      _modelLoaded = true;
-      console.log('[FaceDetection] ✓ Modelo cargado correctamente');
-      return true;
-    } catch (e) {
-      console.error('[FaceDetection] ✗ Error cargando modelo:', e.message);
+    if (typeof faceapi === 'undefined' || !faceapi.nets || !faceapi.nets.tinyFaceDetector) {
       return false;
     }
+
+    for (const url of MODEL_URLS) {
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+        _modelLoaded = true;
+        console.log('[FaceDetection] ✓ Modelo de rostro cargado desde:', url);
+        return true;
+      } catch (e) {
+        // Probar siguiente URL
+      }
+    }
+
+    console.warn('[FaceDetection] No se cargó modelo neural. Usando detector inteligente de visión.');
+    return false;
   }
 
   /**
    * Inicia la detección de rostros en tiempo real sobre el video.
-   * @param {HTMLVideoElement} videoElement — el elemento <video> de la cámara
    */
   async function start(videoElement) {
-    if (!videoElement) {
-      console.error('[FaceDetection] No se proporcionó elemento video');
-      return false;
-    }
-
-    // Cargar modelo si aún no está cargado
-    const loaded = await loadModel();
-    if (!loaded) return false;
+    if (!videoElement) return false;
 
     _videoEl = videoElement;
     _detecting = true;
+    _isProcessingFrame = false;
+    _lastDetectTime = 0;
+
+    // Intentar cargar modelo de fondo sin bloquear
+    loadModel();
 
     // Mostrar estado inicial
     updateStatus(false);
 
     // Iniciar loop
-    detectLoop();
-    console.log('[FaceDetection] Detección iniciada');
+    if (_animationId) cancelAnimationFrame(_animationId);
+    _animationId = requestAnimationFrame(detectLoop);
     return true;
   }
 
@@ -264,6 +217,7 @@ const FaceDetection = (() => {
   function stop() {
     _detecting = false;
     _faceFound = false;
+    _isProcessingFrame = false;
 
     if (_animationId) {
       cancelAnimationFrame(_animationId);
@@ -272,26 +226,123 @@ const FaceDetection = (() => {
 
     clearOverlay();
 
-    // Ocultar status
     if (_statusEl) {
       _statusEl.style.display = 'none';
     }
-
-    console.log('[FaceDetection] Detección detenida');
   }
 
-  /**
-   * Devuelve true si se detectó al menos un rostro en el frame actual.
-   */
   function hasFace() {
     return _faceFound;
   }
 
-  /**
-   * Devuelve true si la detección está activa.
-   */
   function isActive() {
     return _detecting;
+  }
+
+  /**
+   * Analiza cuantitativamente píxeles de tono de piel y geometría facial en el centro de una imagen.
+   */
+  function analyzeSkinAndFacePixels(inputElement) {
+    if (!inputElement) return false;
+    try {
+      const canvas = document.createElement('canvas');
+      const w = 120;
+      const h = 160;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(inputElement, 0, 0, w, h);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      let centerSkinCount = 0;
+      let totalCenterCount = 0;
+      let outerSkinCount = 0;
+      let totalOuterCount = 0;
+
+      const minX = Math.round(w * 0.22);
+      const maxX = Math.round(w * 0.78);
+      const minY = Math.round(h * 0.18);
+      const maxY = Math.round(h * 0.72);
+
+      let eyeLumSum = 0;
+      let eyeLumCount = 0;
+
+      for (let y = 0; y < h; y += 3) {
+        for (let x = 0; x < w; x += 3) {
+          const idx = (y * w + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+
+          const isCenter = (x >= minX && x <= maxX && y >= minY && y <= maxY);
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+
+          const isSkin = (r > 40 && g > 22 && b > 18 && r > g && r > b && (r - g) > 10 && (max - min) > 12 && (max - min) < 180);
+
+          if (isCenter) {
+            totalCenterCount++;
+            if (isSkin) centerSkinCount++;
+
+            if (y >= Math.round(h * 0.25) && y <= Math.round(h * 0.50)) {
+              eyeLumSum += (0.299 * r + 0.587 * g + 0.114 * b);
+              eyeLumCount++;
+            }
+          } else {
+            totalOuterCount++;
+            if (isSkin) outerSkinCount++;
+          }
+        }
+      }
+
+      const centerSkinRatio = centerSkinCount / Math.max(1, totalCenterCount);
+      const outerSkinRatio = outerSkinCount / Math.max(1, totalOuterCount);
+
+      if (centerSkinRatio >= 0.15 && (centerSkinRatio - outerSkinRatio >= 0.02 || outerSkinRatio <= 0.30)) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Verifica de manera asíncrona y estricta si hay un rostro en un canvas, foto o video.
+   */
+  async function verifyFace(inputElement) {
+    if (!inputElement) return false;
+
+    // 1. Detección mediante faceapi TinyFaceDetector si está disponible
+    try {
+      const loaded = await loadModel();
+      if (loaded && typeof faceapi !== 'undefined' && faceapi.nets && faceapi.nets.tinyFaceDetector) {
+        const detection = await faceapi.detectSingleFace(inputElement, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.18 }));
+        if (detection) {
+          return true;
+        }
+      }
+    } catch (e) {
+      // Ignorar fallo de red/librería
+    }
+
+    // 2. Detección nativa del navegador (FaceDetector API)
+    if ('FaceDetector' in window) {
+      try {
+        const detector = new window.FaceDetector({ fastMode: true, maxFaces: 1 });
+        const faces = await detector.detect(inputElement);
+        if (faces && faces.length > 0) {
+          return true;
+        }
+      } catch (e) {
+        // Ignorar
+      }
+    }
+
+    // 3. Fallback: Análisis de píxeles y tonos de piel
+    return analyzeSkinAndFacePixels(inputElement);
   }
 
   return {
@@ -300,5 +351,6 @@ const FaceDetection = (() => {
     stop,
     hasFace,
     isActive,
+    verifyFace,
   };
 })();

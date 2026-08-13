@@ -1,7 +1,44 @@
 
 let tryOnProgressInterval = null;
 
+function setTryOnProcessingState(isProcessing) {
+  const btnRestart = document.getElementById('btn-restart-tryon') || document.querySelector('.btn-restart-tryon');
+  const btnAct = document.getElementById('btn-activate');
+  const btnShoot = document.getElementById('btn-shoot');
+  const uploadLabel = document.querySelector('.btn-upload-gallery-sec');
+  const uploadInput = document.getElementById('tryon-gallery-input');
+  const liveTools = document.getElementById('cam-live-tools');
+  const guideOverlay = document.getElementById('camera-guide-overlay');
+
+  if (isProcessing) {
+    if (btnRestart) btnRestart.style.display = 'none';
+    if (btnAct) btnAct.style.display = 'none';
+    if (btnShoot) btnShoot.style.display = 'none';
+    if (uploadLabel) {
+      uploadLabel.style.pointerEvents = 'none';
+      uploadLabel.style.opacity = '0.4';
+    }
+    if (uploadInput) uploadInput.disabled = true;
+    if (liveTools) liveTools.style.display = 'none';
+    if (guideOverlay) guideOverlay.style.display = 'none';
+  } else {
+    if (btnRestart) btnRestart.style.display = 'inline-flex';
+    if (uploadLabel) {
+      uploadLabel.style.pointerEvents = 'auto';
+      uploadLabel.style.opacity = '1';
+    }
+    if (uploadInput) uploadInput.disabled = false;
+    const video = document.getElementById('video-feed');
+    if (video && video.style.display === 'block') {
+      if (btnShoot) btnShoot.style.display = 'inline-flex';
+    } else {
+      if (btnAct) btnAct.style.display = 'inline-flex';
+    }
+  }
+}
+
 function startTryOnProgress() {
+  setTryOnProcessingState(true);
   document.getElementById('loading-overlay').style.display = 'flex';
   const fill = document.getElementById('tryon-progress-fill');
   const pct = document.getElementById('tryon-progress-pct');
@@ -109,6 +146,7 @@ function setStep(n) {
 }
 
 function showError(msg) {
+  setTryOnProcessingState(false);
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'none';
   const errorMsg = document.getElementById('error-msg');
@@ -120,6 +158,7 @@ function showError(msg) {
 // Muestra la foto original sin editar como fallback
 function showPhotoFallback(photoDataURL) {
   console.warn('[tryon] Mostrando foto original como fallback');
+  setTryOnProcessingState(false);
   const ri = document.getElementById('result-img');
   if (!ri) return;
   ri.src = photoDataURL;
@@ -413,31 +452,31 @@ function mostrarResultado(imgURL) {
   const overlay = document.getElementById('loading-overlay');
   const ph = document.getElementById('cam-placeholder');
   const video = document.getElementById('video-feed');
+  const resActions = document.getElementById('tryon-result-actions');
+  const capNameEl = document.getElementById('buy-now-cap-name');
+
+  // Update cap name in buy-now card
+  const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+  if (capNameEl && item) {
+    const formattedPrice = typeof formatPrice === 'function' ? formatPrice(item.precio) : `$${item.precio}`;
+    capNameEl.textContent = `${item.nombre} · ${formattedPrice}`;
+  }
 
   // Asegurar que se oculten placeholders y cámara activa
   if (ph) ph.style.display = 'none';
   if (video) video.style.display = 'none';
 
-  ri.onload = () => {
+  const onResultReady = () => {
     console.log('[TRYON] Imagen cargada e insertada en DOM con éxito');
+    setTryOnProcessingState(false);
     if (overlay) overlay.style.display = 'none';
     if (ph) ph.style.display = 'none';
     if (video) video.style.display = 'none';
     ri.style.display = 'block';
-
-    // Show direct buy banner
-    const buyBanner = document.getElementById('buy-direct-banner');
-    if (buyBanner) {
-      const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
-      if (item) {
-        const titleEl = document.getElementById('buy-banner-title');
-        const priceEl = document.getElementById('buy-banner-price');
-        if (titleEl) titleEl.textContent = item.nombre;
-        if (priceEl) priceEl.textContent = '$' + Number(item.precio).toLocaleString('es-AR');
-      }
-      buyBanner.style.display = 'flex';
-    }
+    if (resActions) resActions.style.display = 'flex';
   };
+
+  ri.onload = onResultReady;
 
   ri.onerror = (err) => {
     console.warn('[TRYON] Error al cargar URL de imagen resultado:', err);
@@ -448,10 +487,147 @@ function mostrarResultado(imgURL) {
   ri.src = imgURL;
 
   if (ri.complete && ri.naturalWidth > 0) {
-    if (overlay) overlay.style.display = 'none';
-    if (ph) ph.style.display = 'none';
-    if (video) video.style.display = 'none';
-    ri.style.display = 'block';
+    onResultReady();
+  }
+}
+
+// ── Comprar gorra directo desde resultado ──
+function comprarGorraDirecto() {
+  const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
+  if (!item) {
+    alert('Seleccioná una gorra del catálogo.');
+    return;
+  }
+  if (window.Cart && Cart.addToCart) {
+    Cart.addToCart(item, 1);
+  }
+  if (typeof navigateToView === 'function') {
+    navigateToView('carrito');
+  }
+}
+
+// ── Marca de agua para descarga y compartir ──
+function createWatermarkedCanvas(imgSrc) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const w = img.naturalWidth || 800;
+      const h = img.naturalHeight || 1066;
+
+      const bannerHeight = Math.round(w * 0.16);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h + bannerHeight;
+
+      const ctx = canvas.getContext('2d');
+
+      // 1. Main Photo
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // 2. Footer Banner
+      const bannerY = h;
+      const grad = ctx.createLinearGradient(0, bannerY, 0, bannerY + bannerHeight);
+      grad.addColorStop(0, '#0f172a');
+      grad.addColorStop(1, '#020617');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, bannerY, w, bannerHeight);
+
+      // Accent Green Line
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(0, bannerY, w, Math.max(3, Math.round(w * 0.006)));
+
+      // 3. CAPFIT Brand Title
+      const padding = Math.round(w * 0.04);
+      ctx.font = `900 ${Math.round(w * 0.055)}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('CAPFIT', padding, bannerY + bannerHeight * 0.38);
+
+      // AI Badge
+      const capfitWidth = ctx.measureText('CAPFIT').width;
+      ctx.font = `700 ${Math.round(w * 0.026)}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('● PROBADOR VIRTUAL IA', padding + capfitWidth + Math.round(w * 0.03), bannerY + bannerHeight * 0.38);
+
+      // Active Cap Name & Web Domain Subtitle
+      const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : null;
+      const capName = item ? item.nombre : 'Gorra CapFit';
+
+      ctx.font = `600 ${Math.round(w * 0.03)}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.fillText(`${capName} · capfit.luofluck.tech`, padding, bannerY + bannerHeight * 0.72);
+
+      // Right watermark callout
+      ctx.textAlign = 'right';
+      ctx.font = `800 ${Math.round(w * 0.032)}px "Plus Jakarta Sans", sans-serif`;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillText('Probátela en vivo', w - padding, bannerY + bannerHeight * 0.55);
+
+      resolve(canvas);
+    };
+    img.onerror = (err) => reject(err);
+    img.src = imgSrc;
+  });
+}
+
+async function downloadWatermarkedResult() {
+  const ri = document.getElementById('result-img');
+  if (!ri || !ri.src) {
+    alert('No hay ninguna foto procesada para descargar.');
+    return;
+  }
+
+  try {
+    const canvas = await createWatermarkedCanvas(ri.src);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+    const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : null;
+    const filename = `capfit-${item ? item.id : 'tryon'}-ia.jpg`;
+
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (err) {
+    console.warn('[Watermark Download Error]', err);
+    const a = document.createElement('a');
+    a.href = ri.src;
+    a.download = 'capfit-tryon.jpg';
+    a.click();
+  }
+}
+
+async function shareWatermarkedResult() {
+  const ri = document.getElementById('result-img');
+  if (!ri || !ri.src) {
+    if (navigator.share) {
+      navigator.share({ title: 'CAPFIT Probador Virtual', url: window.location.href });
+    } else {
+      alert('Enlace copiado al portapapeles');
+    }
+    return;
+  }
+
+  try {
+    const canvas = await createWatermarkedCanvas(ri.src);
+    canvas.toBlob(async (blob) => {
+      if (blob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'capfit-tryon.jpg', { type: 'image/jpeg' })] })) {
+        const file = new File([blob], 'capfit-tryon.jpg', { type: 'image/jpeg' });
+        await navigator.share({
+          title: '¡Mirá cómo me queda esta gorra en CAPFIT!',
+          text: 'Me probé esta gorra con el probador virtual IA de CAPFIT.',
+          files: [file]
+        });
+      } else {
+        downloadWatermarkedResult();
+      }
+    }, 'image/jpeg', 0.92);
+  } catch (err) {
+    console.warn('[Watermark Share Error]', err);
+    downloadWatermarkedResult();
   }
 }
 
@@ -488,7 +664,7 @@ function processUploadedImage(file) {
     reader.onload = (e) => {
       const img = new Image();
       img.onerror = () => reject(new Error('No se pudo cargar la imagen. Verificá que el archivo sea una imagen válida.'));
-      img.onload = () => {
+      img.onload = async () => {
         try {
           const MAX_WIDTH = 576;
           const TARGET_RATIO = 4 / 3; // H/W = 4/3 (3:4 portrait)
@@ -519,11 +695,19 @@ function processUploadedImage(file) {
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
 
+          // Verificar si hay un rostro en la imagen subida
+          if (typeof FaceDetection !== 'undefined' && typeof FaceDetection.verifyFace === 'function') {
+            const hasFace = await FaceDetection.verifyFace(canvas);
+            if (!hasFace) {
+              return reject(new Error('⚠️ No detectamos ningún rostro en la foto seleccionada.\n\nPor favor, elegí una imagen donde se vea tu cara de frente con buena luz.'));
+            }
+          }
+
           // Compresión JPEG a 85% calidad
           const compressedDataURL = canvas.toDataURL('image/jpeg', 0.85);
           resolve(compressedDataURL);
         } catch (err) {
-          reject(new Error('Error al procesar y redimensionar la imagen en el cliente.'));
+          reject(err && err.message ? err : new Error('Error al procesar y redimensionar la imagen en el cliente.'));
         }
       };
       img.src = e.target.result;
@@ -551,6 +735,29 @@ async function handleGalleryUpload(input) {
 
   try {
     const compressedDataURL = await processUploadedImage(file);
+
+    // Verify face presence in the uploaded photo
+    const tempImg = new Image();
+    await new Promise((resolve, reject) => {
+      tempImg.onload = resolve;
+      tempImg.onerror = () => reject(new Error('No se pudo cargar la imagen seleccionada.'));
+      tempImg.src = compressedDataURL;
+    });
+
+    let faceFound = true;
+    if (typeof FaceDetection !== 'undefined' && typeof FaceDetection.verifyFace === 'function') {
+      faceFound = await FaceDetection.verifyFace(tempImg);
+    }
+
+    if (!faceFound) {
+      showCustomModal({
+        title: 'Rostro no detectado',
+        message: 'La foto subida no contiene un rostro claro. Por favor, elegí una foto donde te veas de frente.',
+        icon: 'face',
+        buttonText: 'Elegir otra foto'
+      });
+      return;
+    }
 
     // Detener cámara si estaba activa
     if (typeof FaceDetection !== 'undefined') {

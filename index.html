@@ -20,7 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   
   <!-- Face-API.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
 
@@ -468,27 +468,9 @@
         <!-- Left: Canvas Viewport Container -->
         <div class="tryon-canvas-card">
           <div class="tryon-canvas-topbar">
-            <button class="btn-restart-tryon" onclick="retryPhoto()">
+            <button class="btn-restart-tryon" id="btn-restart-tryon" onclick="retryPhoto()">
               Volver a empezar
             </button>
-
-            <div class="tryon-top-actions">
-              <button class="tryon-action-icon-btn" title="Compartir foto con marca CapFit" onclick="downloadOrShareWithWatermark('share')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
-                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"></path>
-                  <polyline points="16 6 12 2 8 6"></polyline>
-                  <line x1="12" y1="2" x2="12" y2="15"></line>
-                </svg>
-              </button>
-              
-              <button class="tryon-action-icon-btn" title="Descargar foto con marca CapFit" onclick="downloadOrShareWithWatermark('download')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-              </button>
-            </div>
           </div>
 
           <!-- Camera & Result Display Box -->
@@ -497,38 +479,36 @@
             <canvas id="photo-canvas" style="display:none"></canvas>
             <img id="result-img" alt="Resultado de probador IA" style="display:none">
 
-            <!-- Floating Camera Flip Button -->
-            <button id="cam-flip-btn" class="cam-flip-btn" title="Alternar cámara (Frontal/Trasera)" onclick="toggleCamera()" style="display:none">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 10c0-4.4-3.6-8-8-8s-8 3.6-8 8c0 2.2.9 4.2 2.3 5.7L4 18h5v-5l-1.8 1.8C6.1 13.5 5.5 11.8 5.5 10c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5c0 1.8-.7 3.5-1.8 4.7l1.1 1.1C19.1 14.2 20 12.2 20 10z"/>
+            <!-- Pose & Silhouette Visual Guide Overlay -->
+            <div id="camera-guide-overlay" class="camera-guide-overlay" style="display:none">
+              <svg class="camera-guide-svg" viewBox="0 0 300 400" fill="none">
+                <!-- Head contour -->
+                <ellipse cx="150" cy="175" rx="72" ry="92" stroke="#22c55e" stroke-width="2" stroke-dasharray="6 4"/>
+                <!-- Eye level line -->
+                <line x1="90" y1="165" x2="210" y2="165" stroke="rgba(255, 255, 255, 0.45)" stroke-width="1.2" stroke-dasharray="3 3"/>
+                <!-- Shoulders -->
+                <path d="M 78 265 Q 40 320 15 375 M 222 265 Q 260 320 285 375" stroke="rgba(255, 255, 255, 0.4)" stroke-width="1.8" stroke-dasharray="4 4"/>
               </svg>
-              <span>Voltear</span>
-            </button>
+            </div>
 
-            <!-- Pose / Visual Alignment Guide Overlay -->
-            <div id="cam-pose-guide" class="cam-pose-guide" style="display:none">
-              <svg viewBox="0 0 300 400" class="pose-svg" preserveAspectRatio="xMidYMid meet">
-                <!-- Cap Brim & Crown Outline -->
-                <path d="M 85 105 C 85 55, 215 55, 215 105 Z" stroke="rgba(16, 185, 129, 0.7)" stroke-width="2.5" stroke-dasharray="6 4" fill="none"/>
-                <path d="M 70 105 Q 150 82 230 105 Q 150 125 70 105 Z" stroke="rgba(16, 185, 129, 0.9)" stroke-width="2.5" fill="rgba(16, 185, 129, 0.05)"/>
-                <!-- Face Contour Oval -->
-                <ellipse cx="150" cy="205" rx="75" ry="100" stroke="rgba(255, 255, 255, 0.85)" stroke-width="2.5" stroke-dasharray="8 6" fill="none"/>
-                <!-- Eye Line Target Guide -->
-                <line x1="100" y1="185" x2="200" y2="185" stroke="rgba(255, 255, 255, 0.35)" stroke-width="1.5" stroke-dasharray="3 3"/>
-              </svg>
-              <div class="pose-guide-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
-                <span>Alineá tu rostro y gorra aquí</span>
+            <!-- Countdown Overlay (3, 2, 1...) -->
+            <div id="countdown-overlay" class="countdown-overlay" style="display:none">
+              <div class="countdown-card">
+                <div class="countdown-number" id="countdown-number">3</div>
+                <div class="countdown-label" id="countdown-label">¡Acomodate frente a la cámara!</div>
+                <button class="btn-cancel-countdown" onclick="cancelCountdown()">Cancelar</button>
               </div>
             </div>
 
-            <!-- Countdown Overlay -->
-            <div id="cam-countdown-overlay" class="cam-countdown-overlay" style="display:none">
-              <div class="countdown-circle">
-                <span id="countdown-num" class="countdown-num">3</span>
-              </div>
-              <button class="btn-skip-countdown" onclick="takePhoto(true)">
-                Capturar ya ⚡
+            <!-- Floating Live Camera Controls -->
+            <div id="cam-live-tools" class="cam-live-tools" style="display:none">
+              <button class="cam-live-btn" onclick="switchCamera()" title="Cambiar cámara (Frontal / Trasera)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M20 11A8 8 0 0 0 4.5 5.5M4 5v5h5"/><path d="M4 13a8 8 0 0 0 15.5 5.5M20 19v-5h-5"/></svg>
+                <span id="cam-live-switch-label">Voltear cámara</span>
+              </button>
+              <button class="cam-live-btn active" id="btn-toggle-guide" onclick="toggleCameraGuide()" title="Activar/Desactivar guía de pose">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+                <span>Guía</span>
               </button>
             </div>
 
@@ -643,6 +623,25 @@
 
           </div>
 
+          <!-- Direct Purchase & Watermark Download Actions on AI result -->
+          <div id="tryon-result-actions" class="tryon-result-actions" style="display:none">
+            <div class="tryon-buy-now-card">
+              <div class="buy-now-info">
+                <span class="buy-now-badge">✨ Resultado IA generado</span>
+                <strong id="buy-now-cap-name" class="buy-now-cap-name">Gorra Clásica Negra</strong>
+              </div>
+              <button class="btn-buy-now-direct" onclick="comprarGorraDirecto()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <span>Comprar esta gorra</span>
+              </button>
+            </div>
+
+            <button class="btn-download-watermark" onclick="downloadWatermarkedResult()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Descargar foto con marca CapFit</span>
+            </button>
+          </div>
+
           <!-- Consejos para mejores resultados (Matching Screenshot 2) -->
           <div class="tryon-tips-card">
             <div class="tryon-tips-header">
@@ -729,30 +728,6 @@
           <div class="tryon-success-banner">
             ¡Así te queda! Se ve realista porque usamos IA entrenada para cada ángulo y tipo de rostro.
           </div>
-
-          <!-- Direct Buy Action Banner on Result -->
-          <div id="buy-direct-banner" class="buy-direct-banner" style="display:none">
-            <div class="buy-banner-info">
-              <div class="buy-banner-badge">🎉 ¡Te queda espectacular!</div>
-              <div class="buy-banner-title-wrap">
-                <span id="buy-banner-title">Gorra Clásica</span>
-                <span id="buy-banner-price" class="buy-banner-price">$24.900</span>
-              </div>
-            </div>
-            <button class="btn-buy-direct-cart" onclick="
-              const currentItem = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
-              if (currentItem) {
-                Cart.addToCart(currentItem, 1);
-                if (window.navigateToView) navigateToView('carrito');
-              }
-            ">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
-                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
-              </svg>
-              <span>COMPRAR ESTA GORRA</span>
-            </button>
-          </div>
         </div>
 
         <!-- Right: Active Product Sidebar -->
@@ -826,6 +801,31 @@
   </main>
 
 
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 4: 404 NOT FOUND VIEW (#view-404)
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-404" class="app-view notfound-view">
+    <div class="notfound-bg-wrap">
+      <img 
+        src="https://btestdrxqtcsmfxduchw.supabase.co/storage/v1/object/public/Animaciones/Untitled%20folder/b66e278f-bb84-44ef-81af-cee4ca5b8038_0-ezgif.com-video-to-webp-converter.webp" 
+        onerror="this.onerror=null; this.src='assets/404-animated.webp';"
+        alt="Fondo 404 - Página no encontrada" 
+        class="notfound-bg-img"
+      />
+    </div>
+    <div class="notfound-overlay-content">
+      <div class="notfound-actions">
+        <button onclick="navigateToView('inicio')" class="btn-hero-primary">
+          Volver al Inicio
+        </button>
+        <button onclick="navigateToView('inicio'); Catalogo.resetFilters();" class="btn-hero-secondary">
+          Ver Catálogo
+        </button>
+      </div>
+    </div>
+  </main>
+
+
   <!-- ══ FOOTER ══ -->
   <footer>
     <div class="footer-inner">
@@ -847,7 +847,7 @@
           <h2>CAPFIT</h2>
           <p>Probadores virtuales de gorras y accesorios con IA. Comprá con confianza, probá primero.</p>
           <div class="footer-social-row">
-            <a href="https//instagram.com/luofluck" class="social-icon-btn" title="Instagram">
+            <a href="https://instagram.com/luofluck" class="social-icon-btn" title="Instagram">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
             </a>
             <a href="#" class="social-icon-btn" title="TikTok">
@@ -902,6 +902,7 @@
   <script src="js/store.js"></script>
   <script src="js/cart.js"></script>
   <script src="js/catalogo.js"></script>
+  <script src="js/face-detection.js"></script>
   <script src="js/camera.js"></script>
   <script src="js/tryon.js"></script>
   <script src="js/model3d.js"></script>

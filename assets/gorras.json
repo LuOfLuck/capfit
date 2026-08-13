@@ -106,7 +106,7 @@
     "model3D": "assets/hat.glb",
     "detalles": ["Textil respirable", "Costuras reforzadas", "Cierre strapback de cuero", "Visera plana rígida"]
   },
-
+ 
   {
     "id": "la-arana-9",
     "tipo": "gorra",

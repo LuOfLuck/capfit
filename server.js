@@ -297,7 +297,26 @@ const server = http.createServer(async (req, res) => {
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
 
   fs.readFile(filePath, (err, data) => {
-    if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('404: ' + reqPath); return; }
+    if (err) {
+      // Si la ruta no tiene extensión (o es /404), servimos index.html para que el router de la app muestre la vista 404 con header y footer
+      const ext = path.extname(reqPath);
+      if (!ext || reqPath === '/404') {
+        fs.readFile(path.join(__dirname, 'index.html'), (errIndex, indexData) => {
+          if (!errIndex) {
+            res.writeHead(200, { ...corsHeaders(), 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(indexData);
+            return;
+          }
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('404: ' + reqPath);
+        });
+        return;
+      }
+
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('404: ' + reqPath);
+      return;
+    }
     const mime = MIME[path.extname(filePath)] || 'application/octet-stream';
     res.writeHead(200, { ...corsHeaders(), 'Content-Type': mime });
     res.end(data);

@@ -11,6 +11,7 @@
   "routes": [
     { "src": "/api/gpt/edit", "dest": "/api/gpt.js" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/404", "dest": "/index.html" },
     { "src": "/(.*)", "dest": "/$1" }
   ]
 }

@@ -74,21 +74,38 @@ function actualizarBadgeGeneraciones() {
 
 // ── Cámara ──
 let mediaStream = null;
-let currentFacingMode = 'user';
-let isCountdownActive = false;
-let countdownTimer = null;
+let currentFacingMode = 'user'; // 'user' (frontal) | 'environment' (trasera)
+let cameraGuideEnabled = true;
+let countdownInterval = null;
 
 async function activateCamera() {
   try {
-    // Hide previous generated image, buy banner and error box
+    cancelCountdown();
+
+    if (typeof FaceDetection !== 'undefined') {
+      FaceDetection.stop();
+    }
+
+    const v = document.getElementById('video-feed');
+    if (v) {
+      v.pause();
+      v.srcObject = null;
+    }
+
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+
+    // Hide previous generated image, result actions and error box
     const resImg = document.getElementById('result-img');
     if (resImg) {
       resImg.style.display = 'none';
       resImg.src = '';
     }
 
-    const buyBanner = document.getElementById('buy-direct-banner');
-    if (buyBanner) buyBanner.style.display = 'none';
+    const resActions = document.getElementById('tryon-result-actions');
+    if (resActions) resActions.style.display = 'none';
 
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.style.display = 'none';
@@ -96,25 +113,46 @@ async function activateCamera() {
     const errBox = document.getElementById('error-box');
     if (errBox) errBox.style.display = 'none';
 
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacingMode, width: { ideal: 576 }, height: { ideal: 768 }, aspectRatio: { ideal: 0.75 } }
-    });
-    const v = document.getElementById('video-feed');
+    // High resolution video constraints with fallback chain for rear/front cameras
+    const isFront = (currentFacingMode === 'user');
+    const constraintList = [
+      { video: { facingMode: isFront ? 'user' : { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } } },
+      { video: { facingMode: isFront ? 'user' : 'environment', width: { ideal: 1280 }, height: { ideal: 960 } } },
+      { video: { facingMode: isFront ? 'user' : 'environment' } },
+      { video: true }
+    ];
+
+    let newStream = null;
+    for (const constraints of constraintList) {
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (newStream) break;
+      } catch (err) {
+        console.warn('[Camera] Constraint failed, trying next fallback:', err);
+      }
+    }
+
+    if (!newStream) {
+      throw new Error('No se pudo acceder al flujo de video de la cámara.');
+    }
+
+    mediaStream = newStream;
+
     if (!v) return;
     v.srcObject = mediaStream;
     v.style.display = 'block';
 
-    const ph = document.getElementById('cam-placeholder');
-    if (ph) ph.style.display = 'none';
+    // Mirror feed horizontally ONLY if using front camera ('user')
+    v.style.transform = isFront ? 'scaleX(-1)' : 'scaleX(1)';
 
-    const poseGuide = document.getElementById('cam-pose-guide');
-    if (poseGuide) {
-      poseGuide.style.display = 'flex';
-      poseGuide.style.opacity = '1';
+    try {
+      await v.play();
+    } catch (playErr) {
+      console.warn('[Camera] v.play() catch:', playErr);
     }
 
-    const flipBtn = document.getElementById('cam-flip-btn');
-    if (flipBtn) flipBtn.style.display = 'flex';
+    const ph = document.getElementById('cam-placeholder');
+    if (ph) ph.style.display = 'none';
 
     const btnAct = document.getElementById('btn-activate');
     if (btnAct) btnAct.style.display = 'none';
@@ -122,26 +160,53 @@ async function activateCamera() {
     const btnShoot = document.getElementById('btn-shoot');
     if (btnShoot) btnShoot.style.display = 'inline-flex';
 
-    v.onloadedmetadata = () => {
-      if (typeof FaceDetection !== 'undefined') {
-        FaceDetection.start(v);
-      }
-    };
+    // Show floating live camera tools & pose guide overlay
+    const liveTools = document.getElementById('cam-live-tools');
+    if (liveTools) liveTools.style.display = 'flex';
+
+    const guideOverlay = document.getElementById('camera-guide-overlay');
+    if (guideOverlay) guideOverlay.style.display = cameraGuideEnabled ? 'flex' : 'none';
+
+    // Update switch button label
+    const switchLabel = document.getElementById('cam-live-switch-label');
+    if (switchLabel) {
+      switchLabel.textContent = isFront ? 'Cámara trasera' : 'Cámara frontal';
+    }
+
+    if (typeof FaceDetection !== 'undefined') {
+      FaceDetection.start(v);
+    }
   } catch (e) {
-    console.warn('[Camera] No camera permission or failed to access:', e);
+    console.warn('[Camera] No camera permission or stream failed:', e);
+    alert('No se pudo acceder a la cámara. Verificá los permisos de tu navegador.');
   }
 }
 
-async function toggleCamera() {
+async function switchCamera() {
+  cancelCountdown();
   currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop());
-    mediaStream = null;
-  }
+  console.log('[Camera] Cambiando modo a:', currentFacingMode);
   await activateCamera();
 }
 
-function takePhoto(skipCountdown = false) {
+function toggleCameraGuide() {
+  cameraGuideEnabled = !cameraGuideEnabled;
+  const guideOverlay = document.getElementById('camera-guide-overlay');
+  const btnGuide = document.getElementById('btn-toggle-guide');
+  if (guideOverlay) {
+    guideOverlay.style.display = (cameraGuideEnabled && mediaStream) ? 'flex' : 'none';
+  }
+  if (btnGuide) {
+    if (cameraGuideEnabled) btnGuide.classList.add('active');
+    else btnGuide.classList.remove('active');
+  }
+}
+
+function takePhoto() {
+  startCountdownAndSnap();
+}
+
+async function startCountdownAndSnap() {
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
   if (!item) {
     alert('Primero elegí una gorra del catálogo.');
@@ -154,80 +219,80 @@ function takePhoto(skipCountdown = false) {
     return;
   }
 
-  if (skipCountdown) {
-    cancelCountdown();
-    executeTakePhoto(item);
+  // Pre-check face detection before starting countdown
+  const video = document.getElementById('video-feed');
+  let faceFound = false;
+
+  if (typeof FaceDetection !== 'undefined') {
+    if (FaceDetection.isActive() && FaceDetection.hasFace()) {
+      faceFound = true;
+    } else if (video && video.readyState >= 2) {
+      faceFound = await FaceDetection.verifyFace(video);
+    }
+  } else {
+    faceFound = true;
+  }
+
+  if (!faceFound) {
+    showCustomModal({
+      title: 'No detectamos tu rostro',
+      message: 'Por favor, ubicate bien de frente a la cámara dentro de la guía antes de tomar la foto.',
+      icon: 'face',
+      buttonText: 'Aceptar'
+    });
     return;
   }
 
-  if (isCountdownActive) return;
+  const overlay = document.getElementById('countdown-overlay');
+  const numEl = document.getElementById('countdown-number');
+  const labelEl = document.getElementById('countdown-label');
 
-  startCountdown(() => {
-    executeTakePhoto(item);
-  });
-}
-
-function startCountdown(onComplete) {
-  const overlay = document.getElementById('cam-countdown-overlay');
-  const numEl = document.getElementById('countdown-num');
   if (!overlay || !numEl) {
-    onComplete();
+    executeTakePhoto();
     return;
   }
 
-  isCountdownActive = true;
+  cancelCountdown();
+
   overlay.style.display = 'flex';
-
-  const poseGuide = document.getElementById('cam-pose-guide');
-  if (poseGuide) poseGuide.style.opacity = '0.3';
-
   let count = 3;
   numEl.textContent = count;
-  numEl.classList.remove('animate-pop');
-  void numEl.offsetWidth;
-  numEl.classList.add('animate-pop');
+  if (labelEl) labelEl.textContent = '¡Acomodate frente a la cámara!';
 
-  countdownTimer = setInterval(() => {
+  countdownInterval = setInterval(() => {
     count--;
     if (count > 0) {
       numEl.textContent = count;
-      numEl.classList.remove('animate-pop');
-      void numEl.offsetWidth;
-      numEl.classList.add('animate-pop');
+      numEl.classList.remove('pulse-anim');
+      void numEl.offsetWidth; // force CSS reflow for pulse animation
+      numEl.classList.add('pulse-anim');
     } else if (count === 0) {
-      numEl.textContent = '📸';
-      numEl.classList.remove('animate-pop');
-      void numEl.offsetWidth;
-      numEl.classList.add('animate-pop');
+      numEl.textContent = '¡Sonreí!';
+      if (labelEl) labelEl.textContent = 'Capturando...';
     } else {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
-      isCountdownActive = false;
-      overlay.style.display = 'none';
-      if (poseGuide) poseGuide.style.opacity = '1';
-      onComplete();
+      cancelCountdown();
+      executeTakePhoto();
     }
-  }, 850);
+  }, 900);
 }
 
 function cancelCountdown() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer);
-    countdownTimer = null;
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
   }
-  isCountdownActive = false;
-  const overlay = document.getElementById('cam-countdown-overlay');
+  const overlay = document.getElementById('countdown-overlay');
   if (overlay) overlay.style.display = 'none';
 }
 
-function executeTakePhoto(item) {
-  if (typeof FaceDetection !== 'undefined') {
-    FaceDetection.stop();
-  }
+async function executeTakePhoto() {
+  cancelCountdown();
 
   const video = document.getElementById('video-feed');
   const canvas = document.getElementById('photo-canvas');
   if (!video || !canvas) return;
+
+  const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
 
   const maxW = CONFIG.aiModel === 'gpt-image-2' ? 512 : 768;
   const videoW = video.videoWidth || 640;
@@ -254,15 +319,51 @@ function executeTakePhoto(item) {
 
   const ctx = canvas.getContext('2d');
   ctx.save();
-
-  // Flip horizontally only for front user camera
   if (currentFacingMode === 'user') {
     ctx.scale(-1, 1);
     ctx.drawImage(video, sx, sy, sWidth, sHeight, -canvasW, 0, canvasW, canvasH);
   } else {
+    ctx.scale(1, 1);
     ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvasW, canvasH);
   }
   ctx.restore();
+
+  // Check face detection before processing
+  let faceFound = true;
+  if (typeof FaceDetection !== 'undefined' && typeof FaceDetection.verifyFace === 'function') {
+    faceFound = await FaceDetection.verifyFace(canvas);
+  }
+
+  if (!faceFound) {
+    showCustomModal({
+      title: 'Rostro no detectado',
+      message: 'Por favor, ubicate bien de frente a la cámara con buena iluminación e intentá de nuevo.',
+      icon: 'face',
+      buttonText: 'Intentar de nuevo'
+    });
+
+    const liveTools = document.getElementById('cam-live-tools');
+    if (liveTools) liveTools.style.display = 'flex';
+
+    const guideOverlay = document.getElementById('camera-guide-overlay');
+    if (guideOverlay) guideOverlay.style.display = cameraGuideEnabled ? 'flex' : 'none';
+
+    if (typeof FaceDetection !== 'undefined') {
+      FaceDetection.start(video);
+    }
+    return;
+  }
+
+  if (typeof FaceDetection !== 'undefined') {
+    FaceDetection.stop();
+  }
+
+  // Hide live overlays when photo is valid
+  const guideOverlay = document.getElementById('camera-guide-overlay');
+  if (guideOverlay) guideOverlay.style.display = 'none';
+
+  const liveTools = document.getElementById('cam-live-tools');
+  if (liveTools) liveTools.style.display = 'none';
 
   const quality = CONFIG.aiModel === 'gpt-image-2' ? 0.75 : 0.80;
   const dataURL = canvas.toDataURL('image/jpeg', quality);
@@ -272,12 +373,6 @@ function executeTakePhoto(item) {
     mediaStream = null;
   }
   video.style.display = 'none';
-
-  const poseGuide = document.getElementById('cam-pose-guide');
-  if (poseGuide) poseGuide.style.display = 'none';
-
-  const flipBtn = document.getElementById('cam-flip-btn');
-  if (flipBtn) flipBtn.style.display = 'none';
 
   registrarGeneracion();
   actualizarBadgeGeneraciones();
@@ -293,6 +388,8 @@ function executeTakePhoto(item) {
 }
 
 function mostrarLimiteAlcanzado(tiempoStr) {
+  cancelCountdown();
+
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'none';
 
@@ -311,6 +408,10 @@ function mostrarLimiteAlcanzado(tiempoStr) {
 function retryPhoto() {
   cancelCountdown();
 
+  if (typeof setTryOnProcessingState === 'function') {
+    setTryOnProcessingState(false);
+  }
+
   if (typeof FaceDetection !== 'undefined') {
     FaceDetection.stop();
   }
@@ -326,17 +427,17 @@ function retryPhoto() {
     resImg.src = '';
   }
 
-  const buyBanner = document.getElementById('buy-direct-banner');
-  if (buyBanner) buyBanner.style.display = 'none';
+  const resActions = document.getElementById('tryon-result-actions');
+  if (resActions) resActions.style.display = 'none';
+
+  const guideOverlay = document.getElementById('camera-guide-overlay');
+  if (guideOverlay) guideOverlay.style.display = 'none';
+
+  const liveTools = document.getElementById('cam-live-tools');
+  if (liveTools) liveTools.style.display = 'none';
 
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'none';
-
-  const poseGuide = document.getElementById('cam-pose-guide');
-  if (poseGuide) poseGuide.style.display = 'none';
-
-  const flipBtn = document.getElementById('cam-flip-btn');
-  if (flipBtn) flipBtn.style.display = 'none';
 
   if (typeof stopTryOnProgress === 'function') {
     stopTryOnProgress();
@@ -361,122 +462,6 @@ function retryPhoto() {
   if (btnShoot) btnShoot.style.display = 'none';
 
   actualizarBadgeGeneraciones();
-}
-
-// ── Watermark & Direct Share/Download ──
-async function downloadOrShareWithWatermark(action) {
-  const resultImg = document.getElementById('result-img');
-  if (!resultImg || !resultImg.src || resultImg.style.display === 'none') {
-    alert('No hay una foto procesada lista para descargar o compartir.');
-    return;
-  }
-
-  const gorra = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
-  const capName = gorra ? gorra.nombre : 'Gorra CapFit';
-
-  try {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = resultImg.src;
-
-    await new Promise((resolve, reject) => {
-      if (img.complete && img.naturalWidth > 0) resolve();
-      else {
-        img.onload = resolve;
-        img.onerror = () => reject(new Error('Error al cargar la imagen'));
-      }
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth || 800;
-    canvas.height = img.naturalHeight || 1066;
-    const ctx = canvas.getContext('2d');
-
-    // 1. Draw image
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-    // 2. Draw stylish CapFit Watermark Bar at bottom
-    const barHeight = Math.round(canvas.height * 0.11);
-    const barY = canvas.height - barHeight;
-
-    const grad = ctx.createLinearGradient(0, barY - 30, 0, canvas.height);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.35, 'rgba(15, 23, 42, 0.78)');
-    grad.addColorStop(1, 'rgba(15, 23, 42, 0.96)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, barY - 30, canvas.width, barHeight + 30);
-
-    // Green accent divider line
-    ctx.fillStyle = '#10B981';
-    ctx.fillRect(0, barY - 2, canvas.width, 3);
-
-    // CapFit Brand title
-    const fontSize = Math.max(16, Math.round(canvas.width * 0.04));
-    ctx.font = `800 ${fontSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('CAPFIT', fontSize, barY + barHeight * 0.42);
-
-    // Subtitle / Cap name
-    const subSize = Math.max(11, Math.round(fontSize * 0.62));
-    ctx.font = `600 ${subSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.fillText(`Probador IA • ${capName}`, fontSize, barY + barHeight * 0.72);
-
-    // Domain tag right
-    ctx.font = `700 ${subSize}px "Plus Jakarta Sans", system-ui, sans-serif`;
-    ctx.fillStyle = '#10B981';
-    ctx.textAlign = 'right';
-    ctx.fillText('capfit.com', canvas.width - fontSize, barY + barHeight * 0.55);
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-
-    if (action === 'download') {
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `capfit-${capName.toLowerCase().replace(/\s+/g, '-')}-probador.jpg`;
-      a.click();
-    } else if (action === 'share') {
-      try {
-        const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `capfit-${capName.toLowerCase().replace(/\s+/g, '-')}.jpg`, { type: 'image/jpeg' });
-
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: `CapFit - Probador Virtual (${capName})`,
-            text: `¡Mirá cómo me queda la gorra ${capName} probada con IA en CapFit!`,
-            files: [file]
-          });
-        } else if (navigator.share) {
-          await navigator.share({
-            title: `CapFit - Probador Virtual (${capName})`,
-            text: `¡Mirá cómo me queda la gorra ${capName} probada con IA en CapFit! capfit.com`,
-            url: window.location.href
-          });
-        } else {
-          const a = document.createElement('a');
-          a.href = dataUrl;
-          a.download = `capfit-${capName.toLowerCase().replace(/\s+/g, '-')}-probador.jpg`;
-          a.click();
-          alert('Foto con marca CapFit descargada. ¡Ya podés compartirla en tus redes!');
-        }
-      } catch (shareErr) {
-        console.warn('Share error fallback to download:', shareErr);
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `capfit-${capName.toLowerCase().replace(/\s+/g, '-')}-probador.jpg`;
-        a.click();
-      }
-    }
-  } catch (err) {
-    console.warn('Error applying watermark:', err);
-    // Fallback: download direct image
-    const a = document.createElement('a');
-    a.href = resultImg.src;
-    a.download = `capfit-tryon.jpg`;
-    a.click();
-  }
 }
 
 window.addEventListener('DOMContentLoaded', actualizarBadgeGeneraciones);

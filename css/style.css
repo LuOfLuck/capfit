@@ -1585,7 +1585,13 @@ nav.main-nav {
   justify-content: center;
 }
 
-.tryon-viewport video,
+.tryon-viewport video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+}
+
 .tryon-viewport img {
   width: 100%;
   height: 100%;
@@ -3545,6 +3551,363 @@ footer {
 
 .mp-success-btn:hover {
   background: #1e293b;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CÁMARA: GUÍA DE POSE, CUENTA REGRESIVA Y MARCA DE AGUA
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Visual Pose Guide Overlay */
+.camera-guide-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-guide-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.guide-tag-pill {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+
+.guide-tag-pill svg {
+  color: #22c55e;
+}
+
+/* Floating Live Camera Tools & Status */
+.cam-live-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  display: flex;
+  gap: 6px;
+  max-width: 52%;
+}
+
+#face-status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 20;
+  max-width: 46%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 580px) {
+  .cam-live-tools {
+    top: 10px;
+    right: 10px;
+    bottom: auto;
+    gap: 4px;
+    max-width: 52%;
+  }
+
+  #face-status {
+    top: 10px;
+    left: 10px;
+    max-width: 46%;
+    padding: 5px 9px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .cam-live-btn {
+    padding: 5px 8px !important;
+    font-size: 0.70rem !important;
+    gap: 4px !important;
+  }
+}
+
+.cam-live-btn {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.cam-live-btn:hover {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: #10b981;
+}
+
+.cam-live-btn.active {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+/* Countdown Overlay */
+.countdown-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.countdown-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+}
+
+.countdown-number {
+  font-size: 5rem;
+  font-weight: 900;
+  color: #10b981;
+  text-shadow: 0 0 30px rgba(16, 185, 129, 0.6);
+  line-height: 1;
+}
+
+.countdown-number.pulse-anim {
+  animation: countdownPulse 0.8s ease-out;
+}
+
+@keyframes countdownPulse {
+  0% { transform: scale(1.4); opacity: 0.5; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.95); }
+}
+
+.countdown-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.btn-cancel-countdown {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  padding: 6px 18px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-countdown:hover {
+  background: rgba(239, 68, 68, 0.8);
+  border-color: #ef4444;
+}
+
+/* AI Result Actions & Direct Purchase Card */
+.tryon-result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.tryon-buy-now-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  flex-wrap: wrap;
+}
+
+.buy-now-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.buy-now-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #10b981;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.buy-now-cap-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.btn-buy-now-direct {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-buy-now-direct:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+}
+
+.btn-download-watermark {
+  background: #ffffff;
+  border: 1px solid var(--gray-300);
+  color: #0f172a;
+  padding: 12px 20px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.btn-download-watermark:hover {
+  background: #f8fafc;
+  border-color: #0f172a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ── 404 NOT FOUND FULL BACKGROUND VIEW STYLES ── */
+#view-404.notfound-view {
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: hidden;
+  background: #fbf8f5;
+}
+
+.notfound-bg-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.notfound-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+
+.notfound-overlay-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 600px;
+  padding: 0 20px 50px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.notfound-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.notfound-actions .btn-hero-primary,
+.notfound-actions .btn-hero-secondary {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 640px) {
+  #view-404.notfound-view {
+    min-height: calc(100vh - 90px);
+  }
+
+  .notfound-bg-img {
+    object-fit: cover;
+    object-position: center 30%;
+  }
+
+  .notfound-overlay-content {
+    padding: 0 16px 36px 16px;
+  }
+
+  .notfound-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .notfound-actions button {
+    width: 100%;
+  }
 }
 
 

@@ -17,12 +17,154 @@
     }, 2800);
   };
 
+  // Custom Modal Helper
+  window.showCustomModal = function(options = {}) {
+    const {
+      title = 'Atención',
+      message = '',
+      icon = 'warning',
+      buttonText = 'Entendido',
+      onClose = null
+    } = typeof options === 'string' ? { message: options } : options;
+
+    const existing = document.getElementById('custom-app-modal');
+    if (existing) existing.remove();
+
+    let iconSvg = '';
+    let bgColor = '#fff7ed';
+    let strokeColor = '#f59e0b';
+
+    if (icon === 'camera' || icon === 'face') {
+      bgColor = '#fef2f2';
+      strokeColor = '#ef4444';
+      iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="${strokeColor}" stroke-width="2" style="width:28px;height:28px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+    } else if (icon === 'info') {
+      bgColor = '#eff6ff';
+      strokeColor = '#3b82f6';
+      iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="${strokeColor}" stroke-width="2" style="width:28px;height:28px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+    } else {
+      bgColor = '#fff7ed';
+      strokeColor = '#f59e0b';
+      iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="${strokeColor}" stroke-width="2" style="width:28px;height:28px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'custom-app-modal';
+    backdrop.className = 'mp-modal-backdrop';
+    backdrop.style.zIndex = '10000';
+
+    backdrop.innerHTML = `
+      <div class="custom-modal-card" style="
+        background:#ffffff;
+        border-radius:24px;
+        padding:26px 22px;
+        width:100%;
+        max-width:390px;
+        text-align:center;
+        box-shadow:0 25px 50px -12px rgba(15, 23, 42, 0.35);
+        border:1px solid #f1f5f9;
+        animation: mpSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      ">
+        <div style="
+          width:56px;
+          height:56px;
+          border-radius:50%;
+          background:${bgColor};
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          margin:0 auto 16px auto;
+        ">
+          ${iconSvg}
+        </div>
+        <h3 style="font-size:1.15rem;font-weight:800;color:#0f172a;margin-bottom:8px;line-height:1.3">${title}</h3>
+        <p style="font-size:0.9rem;color:#475569;line-height:1.55;margin-bottom:22px;white-space:pre-line">${message}</p>
+        <button id="btn-close-custom-modal" style="
+          width:100%;
+          padding:12px 16px;
+          background:#0f172a;
+          color:#ffffff;
+          border:none;
+          border-radius:14px;
+          font-weight:700;
+          font-size:0.92rem;
+          cursor:pointer;
+          box-shadow:0 4px 12px rgba(15,23,42,0.15);
+          transition:transform 0.15s ease, background 0.15s ease;
+        ">${buttonText}</button>
+      </div>
+    `;
+
+    document.body.appendChild(backdrop);
+
+    const closeBtn = backdrop.querySelector('#btn-close-custom-modal');
+    const closeModal = () => {
+      backdrop.remove();
+      if (typeof onClose === 'function') onClose();
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeModal();
+    });
+
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.removeEventListener('keydown', handleEsc);
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+  };
+
+  // Override window.alert with custom modal
+  window.alert = function(msg) {
+    let title = 'Atención';
+    let icon = 'warning';
+    let cleanMsg = String(msg || '');
+
+    if (cleanMsg.includes('⚠️')) {
+      cleanMsg = cleanMsg.replace(/⚠️/g, '').trim();
+    }
+
+    const lower = cleanMsg.toLowerCase();
+    if (lower.includes('rostro')) {
+      title = 'Detección de rostro';
+      icon = 'face';
+    } else if (lower.includes('cámara')) {
+      title = 'Acceso a cámara';
+      icon = 'camera';
+    } else if (lower.includes('gorra') || lower.includes('catálogo')) {
+      title = 'Probar Gorra';
+      icon = 'info';
+    }
+
+    window.showCustomModal({
+      title,
+      message: cleanMsg,
+      icon,
+      buttonText: 'Entendido'
+    });
+  };
+
   // View Navigation Router
   window.navigateToView = function(viewName) {
     const views = document.querySelectorAll('.app-view');
     views.forEach(v => v.classList.remove('active-view'));
 
-    const target = document.getElementById(`view-${viewName}`);
+    let cleanName = (viewName || '').trim().replace(/^#\/?|^[/\\]+/, '');
+    if (!cleanName) cleanName = 'inicio';
+
+    let target = document.getElementById(`view-${cleanName}`);
+    if (!target) {
+      if (cleanName === '404' || cleanName.includes('404')) {
+        target = document.getElementById('view-404');
+      } else {
+        target = document.getElementById('view-404') || document.getElementById('view-inicio');
+        cleanName = target.id === 'view-404' ? '404' : 'inicio';
+      }
+    }
+
     if (target) {
       target.classList.add('active-view');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -31,15 +173,16 @@
     // Update active nav links
     document.querySelectorAll('.nav-links a').forEach(a => {
       a.classList.remove('active');
-      if (a.getAttribute('href') === `#${viewName}`) {
+      const href = a.getAttribute('href') || '';
+      if (href === `#${cleanName}` || href === `/${cleanName}`) {
         a.classList.add('active');
       }
     });
 
     // View specific initialization
-    if (viewName === 'carrito') {
+    if (cleanName === 'carrito') {
       renderCartView();
-    } else if (viewName === 'probador') {
+    } else if (cleanName === 'probador') {
       updateTryOnViewUI();
     }
   };
@@ -177,10 +320,26 @@
     window.updateTryOnSidebarUI();
   }
 
-  // Handle Hash Changes for URL navigation (#inicio, #probador, #carrito)
-  function handleHashChange() {
-    const hash = window.location.hash.replace('#', '') || 'inicio';
-    window.navigateToView(hash);
+  // Handle Hash & Path Changes for URL navigation
+  function handleRoute() {
+    const rawPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    const hash = window.location.hash.replace('#', '').trim();
+
+    let viewName = 'inicio';
+
+    if (hash) {
+      viewName = hash;
+    } else if (rawPath) {
+      if (rawPath === '404' || rawPath === '404.html') {
+        viewName = '404';
+      } else if (['inicio', 'probador', 'carrito'].includes(rawPath)) {
+        viewName = rawPath;
+      } else if (!rawPath.includes('.')) {
+        viewName = '404';
+      }
+    }
+
+    window.navigateToView(viewName);
   }
 
   // Initialize Scroll-triggered animations
@@ -209,9 +368,10 @@
       });
     });
 
-    // Hash router listener
-    window.addEventListener('hashchange', handleHashChange);
-    handleHashChange();
+    // Hash & Path router listeners
+    window.addEventListener('hashchange', handleRoute);
+    window.addEventListener('popstate', handleRoute);
+    handleRoute();
 
     // Init animations
     window.initScrollAnimations();
