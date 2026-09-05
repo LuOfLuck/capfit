@@ -190,7 +190,12 @@ const Catalogo = (() => {
 
     async init() {
       try {
-        const resp = await fetch('assets/gorras.json');
+        const storeId = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : '';
+        const url = storeId && storeId !== 'principal' ? `/api/products?store=${encodeURIComponent(storeId)}` : '/api/products';
+        let resp = await fetch(url).catch(() => null);
+        if (!resp || !resp.ok) {
+          resp = await fetch('assets/gorras.json');
+        }
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         _gorras = await resp.json();
         Store.setGorras(_gorras);
@@ -199,7 +204,7 @@ const Catalogo = (() => {
         applyFiltersAndSort();
 
         // Default set first product active
-        if (_gorras.length > 0) {
+        if (_gorras.length > 0 && !Store.getGorraActiva()) {
           Store.setGorraActiva(_gorras[0]);
         }
 
@@ -207,8 +212,12 @@ const Catalogo = (() => {
         this.renderRecommendedCarousels();
 
       } catch (e) {
-        console.error('[Catalogo] Error loading gorras.json:', e);
+        console.error('[Catalogo] Error loading products:', e);
       }
+    },
+
+    async reload() {
+      await this.init();
     },
 
     setSearch(query) {

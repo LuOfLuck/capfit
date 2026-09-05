@@ -1,6 +1,6 @@
 {
   "name": "CAPFIT",
-  "description": "Virtual cap and hat try-on web application with 3D models and AI try-on feature.",
+  "description": "Multi-tenant e-commerce platform for caps and hats with virtual 3D viewer, AI Try-On with monthly quota management, store subdomains, and backoffice management.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

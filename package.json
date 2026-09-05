@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@gradio/client": "^2.2.1",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "firebase": "^12.18.0"
   }
 }

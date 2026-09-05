@@ -1,0 +1,53 @@
+[
+  {
+    "id": "principal",
+    "subdomain": "capfit",
+    "fullDomain": "capfit.shop",
+    "name": "CAPFIT Oficial",
+    "tagline": "Gorras premium y probador virtual con IA",
+    "username": "admin",
+    "password": "capfit2026",
+    "ownerEmail": "admin@capfit.shop",
+    "plan": "Enterprise",
+    "aiMonthlyLimit": 100,
+    "aiGenerationsUsed": 12,
+    "aiCurrentPeriod": "2026-09",
+    "brandColor": "#111111",
+    "createdAt": "2026-09-03T21:21:28.480Z",
+    "active": true
+  },
+  {
+    "id": "tienda1",
+    "subdomain": "tienda1",
+    "fullDomain": "tienda1.capfit.shop",
+    "name": "StreetWear Caps",
+    "tagline": "Colecciones urbanas y de autor",
+    "username": "admin_tienda1",
+    "password": "tienda1pass",
+    "ownerEmail": "contacto@tienda1.com",
+    "plan": "Starter",
+    "aiMonthlyLimit": 100,
+    "aiGenerationsUsed": 26,
+    "aiCurrentPeriod": "2026-09",
+    "brandColor": "#0f172a",
+    "createdAt": "2026-09-03T21:21:28.480Z",
+    "active": true
+  },
+  {
+    "id": "tienda2",
+    "subdomain": "tienda2",
+    "fullDomain": "tienda2.capfit.shop",
+    "name": "Vintage Headwear",
+    "tagline": "Gorras retro y clásicas personalizadas",
+    "username": "admin_tienda2",
+    "password": "tienda2pass",
+    "ownerEmail": "hola@vintagecaps.com",
+    "plan": "Pro",
+    "aiMonthlyLimit": 100,
+    "aiGenerationsUsed": 100,
+    "aiCurrentPeriod": "2026-09",
+    "brandColor": "#7c2d12",
+    "createdAt": "2026-09-03T21:21:28.480Z",
+    "active": true
+  }
+]

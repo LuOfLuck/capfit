@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidStore(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.subdomain is string && data.subdomain.size() > 0 && data.subdomain.size() <= 64 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('aiMonthlyLimit' in data) || data.aiMonthlyLimit is number) &&
+             (!('aiGenerationsUsed' in data) || data.aiGenerationsUsed is number);
+    }
+
+    function isValidProduct(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.storeId is string && isValidId(data.storeId) &&
+             data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 120 &&
+             data.precio is number && data.precio >= 0 &&
+             (!('stock' in data) || (data.stock is number && data.stock >= 0));
+    }
+
+    function isValidOrder(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.storeId is string && isValidId(data.storeId) &&
+             data.total is number && data.total >= 0 &&
+             data.status is string && data.status.size() <= 40;
+    }
+
+    // Stores collection: public read for active stores, authenticated/admin writes
+    match /stores/{storeId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(storeId) && isValidStore(incoming());
+      allow update: if isSignedIn() && isValidId(storeId) && isValidStore(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    // Products collection: public read, validated writes per store
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isSignedIn() && isValidId(productId) && isValidProduct(incoming()) && incoming().storeId == existing().storeId;
+      allow delete: if isSignedIn() && isValidId(productId);
+    }
+
+    // Orders collection: public create (customer placing order), read/update for store admin
+    match /orders/{orderId} {
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if isValidId(orderId) && isValidOrder(incoming());
+      allow update: if isSignedIn() && isValidId(orderId) && isValidOrder(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    // AI Logs collection
+    match /ai_logs/{logId} {
+      allow get, list: if isSignedIn();
+      allow create: if isValidId(logId) && incoming().storeId is string;
+      allow update, delete: if false;
+    }
+  }
+}

@@ -184,6 +184,8 @@
       renderCartView();
     } else if (cleanName === 'probador') {
       updateTryOnViewUI();
+    } else if (cleanName === 'admin') {
+      if (window.AdminPanel) window.AdminPanel.init();
     }
   };
 
@@ -332,7 +334,7 @@
     } else if (rawPath) {
       if (rawPath === '404' || rawPath === '404.html') {
         viewName = '404';
-      } else if (['inicio', 'probador', 'carrito'].includes(rawPath)) {
+      } else if (['inicio', 'probador', 'carrito', 'admin'].includes(rawPath)) {
         viewName = rawPath;
       } else if (!rawPath.includes('.')) {
         viewName = '404';

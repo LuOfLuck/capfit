@@ -303,7 +303,8 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   const proxy = CONFIG.proxyBase;
-  console.log('[GPT2] Iniciando, proxy:', proxy);
+  const storeId = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : '';
+  console.log('[GPT2] Iniciando, proxy:', proxy, '| storeId:', storeId);
 
   setStep(2);
 
@@ -318,7 +319,7 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
     output_format: 'jpeg',
   };
 
-  const url = proxy + '/api/gpt/edit';
+  const url = `${proxy}/api/gpt/edit${storeId ? `?store=${encodeURIComponent(storeId)}` : ''}`;
   console.log('[GPT2] Fetching:', url);
 
   try {
@@ -329,6 +330,13 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
     });
 
     console.log('[GPT2] Response status:', resp.status);
+
+    if (resp.status === 429) {
+      let errData = {};
+      try { errData = await resp.json(); } catch(e) {}
+      const msg = errData.error || 'Esta tienda alcanzó su límite mensual de 100 fotos con IA.';
+      throw new Error(msg);
+    }
 
     setStep(3);
 
@@ -349,6 +357,13 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
       throw new Error('GPT-Image-2 no devolvió URL de imagen válida');
     }
 
+    // Sincronizar cuota de IA consumida
+    if (window.Store && Store.syncCurrentStore) {
+      Store.syncCurrentStore().then(() => {
+        if (window.updateTryOnQuotaUI) window.updateTryOnQuotaUI();
+      });
+    }
+
     setStep(4);
     mostrarResultado(imgURL);
     console.log('[GPT2] Resultado mostrado correctamente');
@@ -364,11 +379,12 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runFASHN(photoDataURL, garmentDataURI) {
   const proxy = CONFIG.proxyBase;
+  const storeId = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : '';
   const model = CONFIG.aiModel === 'fashn-v1.6'
     ? 'fal-ai/fashn/tryon/v1.6'
     : 'fal-ai/fashn/tryon/v1.5';
 
-  console.log('[FASHN] Iniciando try-on con modelo:', model);
+  console.log('[FASHN] Iniciando try-on con modelo:', model, '| storeId:', storeId);
   setStep(2);
 
   const payload = {
@@ -377,12 +393,19 @@ async function runFASHN(photoDataURL, garmentDataURI) {
     category: 'tops',
   };
 
-  const submitUrl = `${proxy}/api/fal/submit?model=${encodeURIComponent(model)}`;
+  const submitUrl = `${proxy}/api/fal/submit?model=${encodeURIComponent(model)}${storeId ? `&store=${encodeURIComponent(storeId)}` : ''}`;
   const submitResp = await fetch(submitUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+
+  if (submitResp.status === 429) {
+    let errData = {};
+    try { errData = await submitResp.json(); } catch(e) {}
+    const msg = errData.error || 'Esta tienda alcanzó su límite mensual de 100 fotos con IA.';
+    throw new Error(msg);
+  }
 
   if (!submitResp.ok) {
     const errTxt = await submitResp.text();
@@ -436,6 +459,13 @@ async function runFASHN(photoDataURL, garmentDataURI) {
   const imgURL = extractImageUrl(resultData);
   if (!imgURL) {
     throw new Error('No se encontró URL de imagen en el resultado de FASHN');
+  }
+
+  // Sincronizar cuota de IA consumida
+  if (window.Store && Store.syncCurrentStore) {
+    Store.syncCurrentStore().then(() => {
+      if (window.updateTryOnQuotaUI) window.updateTryOnQuotaUI();
+    });
   }
 
   setStep(4);
@@ -784,3 +814,69 @@ async function handleGalleryUpload(input) {
     showError(err.message || 'Error al procesar la imagen elegida.');
   }
 }
+
+// ── Control Visual de Cuota Mensual de IA por Tienda ──
+function updateTryOnQuotaUI() {
+  const quota = window.Store ? Store.getAiQuota() : null;
+  const store = window.Store ? Store.getCurrentStore() : null;
+  const quotaBanner = document.getElementById('tryon-store-quota-banner');
+  const btnAct = document.getElementById('btn-activate');
+  const btnShoot = document.getElementById('btn-shoot');
+  const uploadInput = document.getElementById('tryon-gallery-input');
+
+  if (!quota || !store) return;
+
+  const isExhausted = quota.remaining <= 0;
+
+  if (quotaBanner) {
+    if (isExhausted) {
+      quotaBanner.className = 'tryon-quota-badge exhausted';
+      quotaBanner.innerHTML = `
+        <div class="quota-badge-icon">⚠️</div>
+        <div class="quota-badge-info">
+          <strong>Límite mensual de ${quota.limit} pruebas con IA alcanzado</strong>
+          <span>Tienda "${store.name}" (${store.subdomain}.capfit.shop) · ${quota.used}/${quota.limit} usadas este mes (${quota.period}). El cupo se reinicia el 1° del próximo mes.</span>
+        </div>
+      `;
+      quotaBanner.style.display = 'flex';
+
+      // Desactivar botones de inicio
+      if (btnAct) {
+        btnAct.disabled = true;
+        btnAct.title = 'Límite mensual de IA alcanzado para esta tienda';
+        btnAct.style.opacity = '0.5';
+        btnAct.style.cursor = 'not-allowed';
+      }
+      if (uploadInput) uploadInput.disabled = true;
+    } else {
+      quotaBanner.className = 'tryon-quota-badge normal';
+      quotaBanner.innerHTML = `
+        <div class="quota-badge-icon">⚡</div>
+        <div class="quota-badge-info">
+          <strong>Tienda: ${store.name}</strong> (${store.subdomain}.capfit.shop) · 
+          <span><strong>${quota.remaining}</strong> de ${quota.limit} pruebas IA disponibles este mes</span>
+        </div>
+        <span class="quota-badge-plan">${store.plan || 'Starter'}</span>
+      `;
+      quotaBanner.style.display = 'flex';
+
+      if (btnAct) {
+        btnAct.disabled = false;
+        btnAct.title = '';
+        btnAct.style.opacity = '1';
+        btnAct.style.cursor = 'pointer';
+      }
+      if (uploadInput) uploadInput.disabled = false;
+    }
+  }
+}
+
+window.updateTryOnQuotaUI = updateTryOnQuotaUI;
+if (window.Store && Store.on) {
+  Store.on('store:synced', () => {
+    updateTryOnQuotaUI();
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(updateTryOnQuotaUI, 300);
+});

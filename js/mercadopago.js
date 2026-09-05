@@ -461,6 +461,55 @@ const MercadoPagoGateway = (() => {
         if (method === 'cash') methodNameStr = 'Efectivo (Rapipago / Pago Fácil)';
 
         document.getElementById('mp-receipt-method').textContent = methodNameStr;
+
+        // Persistir orden real en servidor y descontar stock automáticamente
+        try {
+          const { items } = getOrderData();
+          const holderName = document.getElementById('mp-card-holder')?.value?.trim();
+          const orderPayload = {
+            id: randomOrderNum,
+            customer: {
+              name: holderName || 'Cliente CAPFIT',
+              email: 'comprador@gmail.com',
+              phone: '+54 9 11 5240-8910',
+              address: 'Envío prioritario a domicilio',
+              city: 'Buenos Aires',
+              postalCode: '1425'
+            },
+            items: items.map(it => ({
+              id: it.product.id,
+              nombre: it.product.nombre,
+              color: it.selectedColor?.name || 'Único',
+              colorHex: it.selectedColor?.hex || '#111111',
+              quantity: it.quantity,
+              precio: it.product.precio,
+              imgPreview: it.product.imgPreview
+            })),
+            subtotal: total,
+            shipping: (window.Cart && window.Cart.getFreeShippingRemaining() === 0 ? 0 : 3500),
+            total: total,
+            paymentMethod: methodNameStr,
+            paymentStatus: method === 'cash' ? 'Pendiente' : 'Aprobado',
+            shippingStatus: 'Por preparar',
+            notes: ''
+          };
+
+          fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+          }).then(r => r.json()).then(data => {
+            if (data && data.ok) {
+              if (window.Catalogo) window.Catalogo.reload();
+              if (window.AdminPanel && window.AdminPanel.isLoggedIn()) {
+                window.AdminPanel.loadOrders();
+                window.AdminPanel.loadProducts();
+              }
+            }
+          }).catch(err => console.error('Error guardando orden en servidor:', err));
+        } catch (err) {
+          console.error('Error procesando datos del pedido:', err);
+        }
       }, 1800);
     },
 

@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "Store": {
+      "title": "Store",
+      "description": "Tenant store configuration, admin credentials, and monthly AI Try-On quota",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "subdomain": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 100 },
+        "tagline": { "type": "string", "maxLength": 200 },
+        "adminUsername": { "type": "string", "maxLength": 64 },
+        "adminPassword": { "type": "string", "maxLength": 64 },
+        "plan": { "type": "string", "maxLength": 50 },
+        "aiMonthlyLimit": { "type": "number" },
+        "aiGenerationsUsed": { "type": "number" },
+        "aiPeriod": { "type": "string", "maxLength": 20 },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["id", "subdomain", "name"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Cap, hat or accessory item in a store's catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "storeId": { "type": "string", "maxLength": 64 },
+        "nombre": { "type": "string", "maxLength": 120 },
+        "precio": { "type": "number" },
+        "precioAnterior": { "type": "number" },
+        "categoria": { "type": "string", "maxLength": 60 },
+        "tag": { "type": "string", "maxLength": 40 },
+        "stock": { "type": "number" },
+        "imagen": { "type": "string", "maxLength": 500 },
+        "descripcion": { "type": "string", "maxLength": 500 },
+        "color": { "type": "string", "maxLength": 60 },
+        "esNuevo": { "type": "boolean" },
+        "destacado": { "type": "boolean" },
+        "detalles": { "type": "array" }
+      },
+      "required": ["id", "storeId", "nombre", "precio"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Order placed by a customer in a store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "storeId": { "type": "string", "maxLength": 64 },
+        "customer": { "type": "object" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "subtotal": { "type": "number" },
+        "shippingCost": { "type": "number" },
+        "status": { "type": "string", "maxLength": 40 },
+        "paymentStatus": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["id", "storeId", "total", "status"]
+    },
+    "AILog": {
+      "title": "AILog",
+      "description": "Log record of AI try-on executions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "storeId": { "type": "string", "maxLength": 64 },
+        "model": { "type": "string", "maxLength": 80 },
+        "status": { "type": "string", "maxLength": 40 },
+        "timestamp": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["id", "storeId", "status"]
+    }
+  },
+  "firestore": {
+    "/stores/{storeId}": {
+      "schema": "Store",
+      "description": "Multi-tenant stores collection"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Products catalog collection partitioned by storeId"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Store customer orders"
+    },
+    "/ai_logs/{logId}": {
+      "schema": "AILog",
+      "description": "AI virtual try-on usage logs"
+    }
+  }
+}

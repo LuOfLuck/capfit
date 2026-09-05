@@ -1,6 +1,0 @@
-{
-  "name": "CAPFIT",
-  "description": "Virtual cap and hat try-on web application with 3D models and AI try-on feature.",
-  "requestFramePermissions": ["camera"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
