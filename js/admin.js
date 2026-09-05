@@ -7,27 +7,34 @@ const AdminPanel = (() => {
   const STORE_NAME_KEY = 'capfit_admin_store_name';
   const SUBDOMAIN_KEY = 'capfit_admin_subdomain';
 
+  const USER_EMAIL_KEY = 'capfit_user_email';
+  const USER_NAME_KEY = 'capfit_user_name';
+
   let _products = [];
   let _orders = [];
   let _activeTab = 'catalogo'; // 'catalogo' | 'pedidos' | 'nuevo' | 'tiendas'
   let _productSearch = '';
   let _productStockFilter = 'todos'; // 'todos' | 'bajo' | 'agotado' | 'disponible'
+  let _productTypeFilter = 'todos'; // 'todos' | 'gorra' | 'anteojos' | 'gorro'
   let _orderSearch = '';
   let _orderPaymentFilter = 'todos';
   let _orderShippingFilter = 'todos';
   let _editingProduct = null;
 
-  // Multi-tenant & SaaS State
-  let _adminRole = sessionStorage.getItem(ROLE_KEY) || 'store_owner';
-  let _currentStoreId = sessionStorage.getItem(STORE_ID_KEY) || (window.Store && Store.getCurrentStoreId ? Store.getCurrentStoreId() : 'principal');
-  let _currentStoreName = sessionStorage.getItem(STORE_NAME_KEY) || 'CAPFIT Store';
-  let _currentSubdomain = sessionStorage.getItem(SUBDOMAIN_KEY) || 'tienda1';
+  // Multi-tenant, SaaS & Firebase Auth State
+  let _adminRole = sessionStorage.getItem(ROLE_KEY) || sessionStorage.getItem('capfit_role') || 'store_owner';
+  let _currentStoreId = sessionStorage.getItem(STORE_ID_KEY) || sessionStorage.getItem('capfit_store_id') || (window.Store && Store.getCurrentStoreId ? Store.getCurrentStoreId() : 'principal');
+  let _currentStoreName = sessionStorage.getItem(STORE_NAME_KEY) || sessionStorage.getItem('capfit_store_name') || 'CAPFIT Store';
+  let _currentSubdomain = sessionStorage.getItem(SUBDOMAIN_KEY) || sessionStorage.getItem('capfit_store_subdomain') || 'tienda1';
+  let _userEmail = sessionStorage.getItem(USER_EMAIL_KEY) || '';
+  let _userName = sessionStorage.getItem(USER_NAME_KEY) || '';
+  let _portalTab = 'login'; // 'login' | 'register'
   let _aiQuota = null;
   let _allStores = [];
   let _loginMode = 'store'; // 'store' | 'superadmin'
 
   function isLoggedIn() {
-    return !!sessionStorage.getItem(SESSION_KEY);
+    return !!(sessionStorage.getItem(SESSION_KEY) || sessionStorage.getItem('capfit_session'));
   }
 
   function getStoreQuery() {
@@ -54,7 +61,174 @@ const AdminPanel = (() => {
     }
   }
 
-  // ── Authentication ──
+  // ── Firebase Auth & Store Owner Methods ──
+  async function loginWithGoogle() {
+    const errorEl = document.getElementById('admin-login-error');
+    if (errorEl) errorEl.style.display = 'none';
+
+    const btn = document.getElementById('btn-google-auth');
+    const originalContent = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span style="display:flex;align-items:center;justify-content:center;gap:8px">⏳ Conectando con Google...</span>`;
+    }
+
+    try {
+      if (!window.CapfitAuth) throw new Error('Módulo Firebase Auth no está listo. Recargá la página.');
+      const user = await CapfitAuth.signInWithGoogle();
+      const verifyRes = await CapfitAuth.verifySessionWithBackend(user);
+
+      if (verifyRes.verified) {
+        _adminRole = verifyRes.role || 'store_owner';
+        _currentStoreId = verifyRes.storeId || 'principal';
+        _currentStoreName = verifyRes.storeName || 'Mi Tienda';
+        _currentSubdomain = verifyRes.subdomain || 'tienda1';
+        _userEmail = user.email || '';
+        _userName = user.displayName || '';
+
+        sessionStorage.setItem(SESSION_KEY, verifyRes.token);
+        sessionStorage.setItem(ROLE_KEY, _adminRole);
+        sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
+        sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
+        sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
+        sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
+        sessionStorage.setItem(USER_NAME_KEY, _userName);
+
+        if (window.showToast) window.showToast(`¡Bienvenido al Backoffice, ${_userName || _userEmail}!`);
+        render();
+      } else if (verifyRes.needRegisterStore) {
+        _portalTab = 'register';
+        renderLoginView();
+        const regEmailInput = document.getElementById('reg-owner-email');
+        const regNameInput = document.getElementById('reg-owner-name');
+        if (regEmailInput) regEmailInput.value = user.email || '';
+        if (regNameInput) regNameInput.value = user.displayName || '';
+
+        const infoEl = document.getElementById('admin-login-info');
+        if (infoEl) {
+          infoEl.textContent = `¡Cuenta Google verificada (${user.email})! Ahora indicá el nombre de tu tienda para finalizar el alta.`;
+          infoEl.style.display = 'block';
+        }
+      }
+    } catch (err) {
+      console.error('Error Google Sign-In:', err);
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Error al autenticar con Google';
+        errorEl.style.display = 'block';
+      } else {
+        alert(err.message);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+      }
+    }
+  }
+
+  async function loginWithFirebaseEmail(email, password) {
+    const errorEl = document.getElementById('admin-login-error');
+    if (errorEl) errorEl.style.display = 'none';
+
+    try {
+      if (!window.CapfitAuth) throw new Error('Módulo Firebase Auth no está disponible.');
+      const user = await CapfitAuth.signInWithEmail(email, password);
+      const verifyRes = await CapfitAuth.verifySessionWithBackend(user);
+
+      if (verifyRes.verified) {
+        _adminRole = verifyRes.role || 'store_owner';
+        _currentStoreId = verifyRes.storeId || 'principal';
+        _currentStoreName = verifyRes.storeName || 'Mi Tienda';
+        _currentSubdomain = verifyRes.subdomain || 'tienda1';
+        _userEmail = user.email || '';
+        _userName = user.displayName || '';
+
+        sessionStorage.setItem(SESSION_KEY, verifyRes.token);
+        sessionStorage.setItem(ROLE_KEY, _adminRole);
+        sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
+        sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
+        sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
+        sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
+        sessionStorage.setItem(USER_NAME_KEY, _userName);
+
+        if (window.showToast) window.showToast('¡Sesión de dueño iniciada!');
+        render();
+      } else if (verifyRes.needRegisterStore) {
+        _portalTab = 'register';
+        renderLoginView();
+        const regEmailInput = document.getElementById('reg-owner-email');
+        if (regEmailInput) regEmailInput.value = user.email || '';
+      }
+    } catch (err) {
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Error de autenticación';
+        errorEl.style.display = 'block';
+      } else {
+        alert(err.message);
+      }
+    }
+  }
+
+  async function registerNewStoreOwner(data) {
+    const errorEl = document.getElementById('admin-register-error');
+    if (errorEl) errorEl.style.display = 'none';
+
+    const btn = document.getElementById('btn-register-submit');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span>⏳ Creando tienda en Firebase...</span>`;
+    }
+
+    try {
+      if (!window.CapfitAuth) throw new Error('Módulo Firebase Auth no disponible.');
+
+      let user = CapfitAuth.getCurrentUser();
+      if (!user) {
+        user = await CapfitAuth.registerWithEmail(data.email, data.password);
+      }
+
+      const regRes = await CapfitAuth.registerStoreForOwner({
+        storeName: data.storeName,
+        subdomain: data.subdomain,
+        plan: data.plan || 'Starter',
+        tagline: data.tagline || `Tienda oficial ${data.storeName}`,
+        firebaseUser: user
+      });
+
+      _adminRole = 'store_owner';
+      _currentStoreId = regRes.storeId;
+      _currentStoreName = regRes.storeName;
+      _currentSubdomain = regRes.subdomain;
+      _userEmail = user.email || '';
+      _userName = user.displayName || data.storeName;
+
+      sessionStorage.setItem(SESSION_KEY, regRes.token);
+      sessionStorage.setItem(ROLE_KEY, _adminRole);
+      sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
+      sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
+      sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
+      sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
+      sessionStorage.setItem(USER_NAME_KEY, _userName);
+
+      if (window.showToast) window.showToast(`¡Tienda "${data.storeName}" creada con éxito!`);
+      render();
+    } catch (err) {
+      console.error('Error registrando tienda:', err);
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Error al registrar tienda';
+        errorEl.style.display = 'block';
+      } else {
+        alert(err.message);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Crear Tienda y Abrir Backoffice →</span>`;
+      }
+    }
+  }
+
+  // ── Traditional Fallback Authentication ──
   async function login(username, password, storeId = null) {
     const errorEl = document.getElementById('admin-login-error');
     if (errorEl) errorEl.style.display = 'none';
@@ -80,12 +254,14 @@ const AdminPanel = (() => {
       _currentStoreId = data.storeId || 'principal';
       _currentStoreName = data.storeName || (data.role === 'superadmin' ? 'Plataforma CAPFIT' : 'Mi Tienda');
       _currentSubdomain = data.subdomain || 'tienda1';
+      _userEmail = payload.username.includes('@') ? payload.username : `${payload.username}@capfit.shop`;
 
       sessionStorage.setItem(SESSION_KEY, data.token || 'valid');
       sessionStorage.setItem(ROLE_KEY, _adminRole);
       sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
       sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
       sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
+      sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
 
       if (window.showToast) {
         window.showToast(data.message || '¡Sesión de administración iniciada!');
@@ -101,13 +277,25 @@ const AdminPanel = (() => {
     }
   }
 
-  function logout() {
+  async function logout() {
+    if (window.CapfitAuth && CapfitAuth.signOutUser) {
+      await CapfitAuth.signOutUser().catch(() => {});
+    }
     sessionStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(ROLE_KEY);
     sessionStorage.removeItem(STORE_ID_KEY);
     sessionStorage.removeItem(STORE_NAME_KEY);
     sessionStorage.removeItem(SUBDOMAIN_KEY);
+    sessionStorage.removeItem(USER_EMAIL_KEY);
+    sessionStorage.removeItem(USER_NAME_KEY);
+    sessionStorage.removeItem('capfit_session');
+    sessionStorage.removeItem('capfit_role');
+    sessionStorage.removeItem('capfit_store_id');
+    sessionStorage.removeItem('capfit_store_subdomain');
+    sessionStorage.removeItem('capfit_store_name');
     _adminRole = 'store_owner';
+    _userEmail = '';
+    _userName = '';
     if (window.showToast) window.showToast('Sesión de administrador cerrada');
     render();
   }
@@ -328,6 +516,11 @@ const AdminPanel = (() => {
 
   // ── RENDERERS ──
 
+  function setPortalTab(tab) {
+    _portalTab = tab;
+    renderLoginView();
+  }
+
   function setLoginMode(mode) {
     _loginMode = mode;
     renderLoginView();
@@ -341,89 +534,271 @@ const AdminPanel = (() => {
     submitLogin();
   }
 
+  function submitRegisterStoreOwner() {
+    const nameEl = document.getElementById('reg-owner-name');
+    const emailEl = document.getElementById('reg-owner-email');
+    const passEl = document.getElementById('reg-owner-pass');
+    const storeNameEl = document.getElementById('reg-store-name');
+    const subdomEl = document.getElementById('reg-store-subdomain');
+    const planEl = document.getElementById('reg-store-plan');
+
+    const name = nameEl ? nameEl.value.trim() : '';
+    const email = emailEl ? emailEl.value.trim() : '';
+    const pass = passEl ? passEl.value.trim() : '';
+    const storeName = storeNameEl ? storeNameEl.value.trim() : '';
+    const subdomain = subdomEl ? subdomEl.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') : '';
+    const plan = planEl ? planEl.value : 'Starter';
+
+    const errBox = document.getElementById('admin-register-error');
+    if (errBox) errBox.style.display = 'none';
+
+    if (!storeName) {
+      if (errBox) { errBox.textContent = 'Por favor ingresá el nombre de tu tienda.'; errBox.style.display = 'block'; }
+      return;
+    }
+    if (!subdomain || subdomain.length < 3) {
+      if (errBox) { errBox.textContent = 'El subdominio debe tener al menos 3 caracteres alfanuméricos.'; errBox.style.display = 'block'; }
+      return;
+    }
+
+    const currentUser = window.CapfitAuth ? CapfitAuth.getCurrentUser() : null;
+    if (!currentUser && (!email || !pass)) {
+      if (errBox) { errBox.textContent = 'Por favor ingresá tu email y una contraseña de al menos 6 caracteres.'; errBox.style.display = 'block'; }
+      return;
+    }
+
+    registerNewStoreOwner({
+      name,
+      email,
+      password: pass,
+      storeName,
+      subdomain,
+      plan
+    });
+  }
+
   function renderLoginView() {
     const container = document.getElementById('admin-content-area');
     if (!container) return;
 
+    const isLoginTab = _portalTab === 'login';
     const isStoreMode = _loginMode === 'store';
+    const currentUser = window.CapfitAuth ? CapfitAuth.getCurrentUser() : null;
 
     container.innerHTML = `
-      <div class="admin-login-card" style="max-width:500px">
-        <div class="admin-login-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-        </div>
+      <div class="admin-login-card" style="max-width:540px;margin:24px auto;padding:28px 24px;background:#ffffff;border-radius:20px;box-shadow:0 12px 35px -8px rgba(15,23,42,0.12);border:1px solid #e2e8f0">
         
-        <!-- Toggle Store Owner vs SuperAdmin -->
-        <div style="display:flex;gap:8px;background:#f1f5f9;padding:4px;border-radius:10px;margin-bottom:18px;width:100%">
-          <button type="button" class="admin-tab-btn ${isStoreMode ? 'active' : ''}" style="flex:1;justify-content:center;padding:8px 12px;font-size:0.8rem;border:none" onclick="AdminPanel.setLoginMode('store')">
-            🏪 Dueño de Tienda
+        <!-- Header Subdominio Oficial account.capfit.store -->
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#0f172a;color:#ffffff;padding:8px 14px;border-radius:12px;margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:9px;height:9px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8"></span>
+            <strong style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:0.4px;font-size:0.85rem">account.capfit.store</strong>
+          </div>
+          <span style="background:#1e293b;padding:2px 9px;border-radius:999px;font-size:0.68rem;color:#94a3b8;font-weight:600">Portal de Dueños</span>
+        </div>
+
+        <!-- Alerta de Contexto Claro: Dueño vs Cliente Comprador -->
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:20px;display:flex;gap:10px;align-items:flex-start">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" style="width:20px;height:20px;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div style="font-size:0.78rem;color:#1e40af;line-height:1.45">
+            <strong>Exclusivo para Socios y Dueños de Tienda:</strong> Este panel es para configurar tu marca, catálogo y ventas. Tus clientes compradores adquieren gorras desde tu tienda pública (<code style="background:#dbeafe;padding:1px 4px;border-radius:4px">[tienda].capfit.shop</code>).
+          </div>
+        </div>
+
+        <!-- Pestañas Principales: Iniciar Sesión vs Registrar Tienda -->
+        <div style="display:flex;gap:6px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:22px">
+          <button type="button" class="admin-tab-btn ${isLoginTab ? 'active' : ''}" style="flex:1;justify-content:center;padding:10px 14px;font-size:0.85rem;border:none;font-weight:600" onclick="AdminPanel.setPortalTab('login')">
+            🔑 Iniciar Sesión
           </button>
-          <button type="button" class="admin-tab-btn ${!isStoreMode ? 'active' : ''}" style="flex:1;justify-content:center;padding:8px 12px;font-size:0.8rem;border:none" onclick="AdminPanel.setLoginMode('superadmin')">
-            👑 SuperAdmin SaaS
+          <button type="button" class="admin-tab-btn ${!isLoginTab ? 'active' : ''}" style="flex:1;justify-content:center;padding:10px 14px;font-size:0.85rem;border:none;font-weight:600" onclick="AdminPanel.setPortalTab('register')">
+            ✨ Registrar Mi Tienda
           </button>
         </div>
 
-        <span class="admin-login-badge">${isStoreMode ? 'Acceso a tu Tienda y Catálogo' : 'Control Central Multitienda'}</span>
-        <h2 class="admin-login-title">${isStoreMode ? 'Ingreso para Dueño de Tienda' : 'Consola Maestra CAPFIT'}</h2>
-        <p class="admin-login-desc">${isStoreMode ? 'Accedé con tu usuario y contraseña de tienda para gestionar tus gorras, stock y controlar tu cupo mensual de IA.' : 'Acceso administrativo central para supervisar todas las tiendas creadas en *.capfit.shop y asignar planes.'}</p>
+        ${isLoginTab ? `
+          <!-- ── TAB 1: INICIAR SESIÓN (FIREBASE AUTH) ── -->
+          <div class="admin-login-header" style="text-align:center;margin-bottom:20px">
+            <span class="admin-login-badge" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0">🔥 Firebase Auth Activo</span>
+            <h2 class="admin-login-title" style="font-size:1.35rem;margin-top:6px">Ingreso al Backoffice</h2>
+            <p class="admin-login-desc" style="font-size:0.85rem">Accedé con tu cuenta de Google o correo para gestionar tu catálogo, pedidos y cupo de IA.</p>
+          </div>
 
-        <form class="admin-login-form" onsubmit="event.preventDefault(); AdminPanel.submitLogin();">
-          ${isStoreMode ? `
+          <div id="admin-login-info" class="admin-info-box" style="display:none;margin-bottom:14px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:10px 14px;border-radius:8px;font-size:0.8rem"></div>
+
+          <!-- Botón de Firebase Auth con Google -->
+          <button type="button" id="btn-google-auth" class="admin-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:10px;font-weight:600;font-size:0.92rem;color:#1e293b;cursor:pointer;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:16px" onclick="AdminPanel.loginWithGoogle()">
+            <svg style="width:20px;height:20px" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <span>Continuar con Google</span>
+          </button>
+
+          <!-- Divisor -->
+          <div style="display:flex;align-items:center;gap:12px;margin:18px 0;color:#94a3b8;font-size:0.75rem;font-weight:600;text-transform:uppercase">
+            <div style="flex:1;height:1px;background:#e2e8f0"></div>
+            <span>o con correo y contraseña</span>
+            <div style="flex:1;height:1px;background:#e2e8f0"></div>
+          </div>
+
+          <form class="admin-login-form" onsubmit="event.preventDefault(); AdminPanel.submitFirebaseEmailLogin();">
             <div class="admin-field-group">
-              <label for="admin-user-input">Usuario de Tienda</label>
-              <input type="text" id="admin-user-input" placeholder="Ej: admin_tienda1" required autocomplete="username">
+              <label for="admin-email-input">Correo Electrónico del Dueño</label>
+              <input type="email" id="admin-email-input" placeholder="ejemplo@tumail.com" required autocomplete="email">
             </div>
-          ` : ''}
 
-          <div class="admin-field-group">
-            <label for="admin-pass-input">${isStoreMode ? 'Contraseña de Tienda' : 'Clave Maestra de SuperAdmin'}</label>
-            <div class="admin-input-wrap">
-              <input type="password" id="admin-pass-input" placeholder="••••••••" required autocomplete="current-password">
-              <button type="button" class="admin-toggle-pass" onclick="AdminPanel.togglePasswordVisibility()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="admin-pass-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <div class="admin-field-group">
+              <label for="admin-pass-input">Contraseña</label>
+              <div class="admin-input-wrap">
+                <input type="password" id="admin-pass-input" placeholder="••••••••" required autocomplete="current-password">
+                <button type="button" class="admin-toggle-pass" onclick="AdminPanel.togglePasswordVisibility()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="admin-pass-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div id="admin-login-error" class="admin-error-box" style="display:none"></div>
+
+            <button type="submit" class="admin-btn-primary full-width" id="btn-admin-submit-login">
+              Iniciar Sesión en Backoffice
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </form>
+
+          <!-- 1-Click Fast Login Demos para Evaluación Rápida -->
+          <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--gray-200);width:100%">
+            <div style="font-size:0.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;margin-bottom:8px;text-align:center">
+              ⚡ Accesos de Demostración Inmediata:
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('store'); setTimeout(() => AdminPanel.fillDemoLogin('admin_tienda1', 'tienda1pass'), 50);">
+                <span>🏪 <strong>Tienda 1</strong> (StreetWear Caps)</span>
+                <small style="color:#059669">Cupo activo (26/100)</small>
+              </button>
+              <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('store'); setTimeout(() => AdminPanel.fillDemoLogin('admin_tienda2', 'tienda2pass'), 50);">
+                <span>⚠️ <strong>Tienda 2</strong> (Urban Vintage)</span>
+                <small style="color:#dc2626">Cupo agotado (100/100)</small>
+              </button>
+              <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('superadmin'); setTimeout(() => AdminPanel.fillDemoLogin('', 'capfit2026'), 50);">
+                <span>👑 <strong>SuperAdmin CAPFIT</strong></span>
+                <small style="color:#2563eb">Gestionar red SaaS</small>
               </button>
             </div>
           </div>
+        ` : `
+          <!-- ── TAB 2: REGISTRAR NUEVA TIENDA ── -->
+          <div class="admin-login-header" style="text-align:center;margin-bottom:18px">
+            <span class="admin-login-badge" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">🚀 Nueva Tienda Multitenant</span>
+            <h2 class="admin-login-title" style="font-size:1.35rem;margin-top:6px">Creá tu Marca en CAPFIT</h2>
+            <p class="admin-login-desc" style="font-size:0.85rem">Tu marca tendrá su propio catálogo, probador virtual con IA y subdominio exclusivo.</p>
+          </div>
 
-          <div id="admin-login-error" class="admin-error-box" style="display:none"></div>
+          <!-- Si el usuario ya se autenticó con Google -->
+          ${currentUser ? `
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+              <span style="font-size:1.2rem">✅</span>
+              <div style="font-size:0.82rem;color:#166534">
+                Autenticado como: <strong>${currentUser.email}</strong><br>
+                <small>Asociaremos tu nueva tienda a este usuario en Firebase Auth.</small>
+              </div>
+            </div>
+          ` : `
+            <button type="button" class="admin-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 16px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:10px;font-weight:600;font-size:0.88rem;color:#1e293b;cursor:pointer;margin-bottom:16px" onclick="AdminPanel.loginWithGoogle()">
+              <svg style="width:18px;height:18px" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span>Autenticar con Google en 1-Click</span>
+            </button>
+          `}
 
-          <button type="submit" class="admin-btn-primary full-width" id="btn-admin-submit-login">
-            Ingresar al Panel
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <form class="admin-login-form" onsubmit="event.preventDefault(); AdminPanel.submitRegisterStoreOwner();">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="admin-field-group">
+                <label for="reg-owner-name">Tu Nombre / Marca</label>
+                <input type="text" id="reg-owner-name" placeholder="Ej: Mateo Cap" value="${currentUser ? (currentUser.displayName || '') : ''}" required>
+              </div>
+              <div class="admin-field-group">
+                <label for="reg-owner-email">Correo Electrónico</label>
+                <input type="email" id="reg-owner-email" placeholder="contacto@marca.com" value="${currentUser ? currentUser.email : ''}" ${currentUser ? 'readonly' : 'required'}>
+              </div>
+            </div>
+
+            ${!currentUser ? `
+              <div class="admin-field-group">
+                <label for="reg-owner-pass">Contraseña de Administrador</label>
+                <input type="password" id="reg-owner-pass" placeholder="Mínimo 6 caracteres" required autocomplete="new-password">
+              </div>
+            ` : ''}
+
+            <div class="admin-field-group">
+              <label for="reg-store-name">Nombre Comercial de la Tienda</label>
+              <input type="text" id="reg-store-name" placeholder="Ej: Urban Streetwear" required oninput="AdminPanel.syncSubdomainSuggestion(this.value)">
+            </div>
+
+            <div class="admin-field-group">
+              <label for="reg-store-subdomain">Subdominio Deseado</label>
+              <div style="display:flex;align-items:center;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:0 12px">
+                <input type="text" id="reg-store-subdomain" placeholder="urban" required style="border:none;background:transparent;padding:10px 0;width:100%;font-family:monospace;font-weight:600" oninput="AdminPanel.updateSubdomainPreview(this.value)">
+                <span style="color:#64748b;font-weight:600;font-size:0.85rem;white-space:nowrap">.capfit.shop</span>
+              </div>
+              <div id="subdomain-live-preview" style="font-size:0.75rem;color:#0284c7;margin-top:4px">
+                URL de tus clientes: <strong>https://urban.capfit.shop</strong>
+              </div>
+            </div>
+
+            <div class="admin-field-group">
+              <label for="reg-store-plan">Plan de Servicio</label>
+              <select id="reg-store-plan" class="admin-select-status" style="width:100%;padding:10px 12px">
+                <option value="Starter">Starter (100 pruebas virtuales IA/mes) - Gratuito</option>
+                <option value="Pro">Pro (300 pruebas virtuales IA/mes) - Popular</option>
+                <option value="Enterprise">Enterprise (Pruebas IA Ilimitadas)</option>
+              </select>
+            </div>
+
+            <div id="admin-register-error" class="admin-error-box" style="display:none"></div>
+
+            <button type="submit" class="admin-btn-primary full-width" id="btn-register-submit" style="margin-top:10px">
+              Crear Tienda y Abrir Backoffice →
+            </button>
+          </form>
+        `}
+
+        <div class="admin-login-back" style="margin-top:20px;text-align:center">
+          <button onclick="navigateToView('inicio')" class="admin-btn-link" style="font-size:0.85rem;color:#64748b;background:none;border:none;cursor:pointer">
+            ← Volver al catálogo de compras
           </button>
-        </form>
-
-        <!-- 1-Click Fast Login Demos -->
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-200);width:100%">
-          <div style="font-size:0.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;margin-bottom:8px;text-align:center">
-            🚀 Accesos Rápidos de Demostración:
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('store'); setTimeout(() => AdminPanel.fillDemoLogin('admin_tienda1', 'tienda1pass'), 50);">
-              <span>🏪 <strong>Tienda 1</strong> (StreetWear Caps)</span>
-              <small style="color:#059669">Cupo activo (26/100)</small>
-            </button>
-            <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('store'); setTimeout(() => AdminPanel.fillDemoLogin('admin_tienda2', 'tienda2pass'), 50);">
-              <span>⚠️ <strong>Tienda 2</strong> (Urban Vintage)</span>
-              <small style="color:#dc2626">Cupo agotado (100/100)</small>
-            </button>
-            <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('superadmin'); setTimeout(() => AdminPanel.fillDemoLogin('', 'capfit2026'), 50);">
-              <span>👑 <strong>SuperAdmin CAPFIT</strong></span>
-              <small style="color:#2563eb">Gestionar red SaaS</small>
-            </button>
-          </div>
         </div>
 
-        <div class="admin-login-back">
-          <button onclick="navigateToView('inicio')" class="admin-btn-link">
-            ← Volver a la tienda
-          </button>
-        </div>
       </div>
     `;
+  }
+
+  function syncSubdomainSuggestion(storeName) {
+    const subdomInput = document.getElementById('reg-store-subdomain');
+    if (!subdomInput) return;
+    const clean = (storeName || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
+    subdomInput.value = clean;
+    updateSubdomainPreview(clean);
+  }
+
+  function updateSubdomainPreview(val) {
+    const prev = document.getElementById('subdomain-live-preview');
+    if (!prev) return;
+    const clean = (val || 'tu-tienda').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    prev.innerHTML = `URL de tus clientes: <strong>https://${clean || 'tu-tienda'}.capfit.shop</strong>`;
+  }
+
+  function submitFirebaseEmailLogin() {
+    const emailEl = document.getElementById('admin-email-input');
+    const passEl = document.getElementById('admin-pass-input');
+    const email = emailEl ? emailEl.value.trim() : '';
+    const pass = passEl ? passEl.value.trim() : '';
+    loginWithFirebaseEmail(email, pass);
   }
 
   function renderMetrics() {
@@ -541,15 +916,23 @@ const AdminPanel = (() => {
       <!-- Admin Top Navigation Bar -->
       <div class="admin-topbar">
         <div class="admin-topbar-left">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="admin-badge-status">
               <span class="pulse-dot"></span>
               ${isSuper ? '👑 SuperAdmin SaaS' : '🏪 Dueño de Tienda'}
             </div>
-            <span class="saas-store-domain">${_currentSubdomain}.capfit.shop</span>
-            <span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:0.72rem;padding:3px 8px;border-radius:999px;font-weight:600" title="Base de Datos Cloud Firebase Firestore Activa">
-              🔥 Firebase Firestore
+            <span style="background:#0f172a;color:#38bdf8;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-family:monospace;font-weight:700" title="Portal de Configuración de Dueños">
+              account.capfit.store
             </span>
+            <span class="saas-store-domain" title="Subdominio público de tus clientes">${_currentSubdomain}.capfit.shop</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:0.72rem;padding:3px 8px;border-radius:999px;font-weight:600" title="Base de Datos Cloud Firebase Firestore & Auth Activos">
+              🔥 Firebase Firestore & Auth
+            </span>
+            ${_userEmail ? `
+              <span style="display:inline-flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-weight:600">
+                👤 ${_userEmail}
+              </span>
+            ` : ''}
           </div>
           <h2 class="admin-main-heading">${_currentStoreName}</h2>
         </div>
@@ -933,11 +1316,39 @@ const AdminPanel = (() => {
   function renderCatalogTab(container) {
     container.innerHTML = `
       <div class="admin-panel-card">
+        <!-- Store Database Sync Banner -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:1.15rem">🔥</span>
+            <div>
+              <div style="font-size:0.83rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px">
+                <span>Base de Datos del Cliente: Firebase Firestore</span>
+                <span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700">PERSISTENCIA ACTIVA</span>
+              </div>
+              <div style="font-size:0.73rem;color:var(--gray-500);margin-top:2px">
+                Ruta aislada: <code>/stores/${_currentStoreId}/products</code> · Gorras, anteojos y accesorios guardados por cliente.
+              </div>
+            </div>
+          </div>
+          <button class="admin-btn-sec-sm" onclick="AdminPanel.syncCatalogToFirestore()" title="Forzar sincronización de este catálogo en Firestore" style="display:inline-flex;align-items:center;gap:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Sincronizar con Firestore
+          </button>
+        </div>
+
         <div class="admin-card-header-actions">
           <div class="admin-search-filter-row">
             <div class="admin-search-input-wrap">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input type="text" id="admin-prod-search" placeholder="Buscar por nombre, marca o colección..." value="${_productSearch}" oninput="AdminPanel.filterProducts(this.value)">
+            </div>
+            <div class="admin-filter-select-wrap">
+              <select id="admin-type-filter-select" onchange="AdminPanel.filterType(this.value)">
+                <option value="todos" ${_productTypeFilter === 'todos' ? 'selected' : ''}>Todos los tipos</option>
+                <option value="gorra" ${_productTypeFilter === 'gorra' ? 'selected' : ''}>🧢 Gorras</option>
+                <option value="anteojos" ${_productTypeFilter === 'anteojos' ? 'selected' : ''}>🕶️ Anteojos</option>
+                <option value="gorro" ${_productTypeFilter === 'gorro' ? 'selected' : ''}>🧶 Gorros / Beanies</option>
+              </select>
             </div>
             <div class="admin-filter-select-wrap">
               <select id="admin-stock-filter-select" onchange="AdminPanel.filterStock(this.value)">
@@ -950,7 +1361,7 @@ const AdminPanel = (() => {
           </div>
           <button class="admin-btn-primary" onclick="AdminPanel.openNewProductModal()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Agregar Gorra
+            + Nuevo Producto
           </button>
         </div>
 
@@ -978,6 +1389,17 @@ const AdminPanel = (() => {
       );
     }
 
+    // Filter type
+    if (_productTypeFilter !== 'todos') {
+      list = list.filter(p => {
+        const t = (p.tipo || p.categoria || 'gorra').toLowerCase();
+        if (_productTypeFilter === 'anteojos') {
+          return t === 'anteojos' || t === 'anteojo';
+        }
+        return t === _productTypeFilter;
+      });
+    }
+
     // Filter stock
     if (_productStockFilter === 'bajo') {
       list = list.filter(p => (p.stock !== undefined && p.stock <= 5 && p.stock > 0));
@@ -991,8 +1413,8 @@ const AdminPanel = (() => {
       tableWrap.innerHTML = `
         <div class="admin-empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-          <h4>No se encontraron gorras</h4>
-          <p>Probá cambiando los términos de búsqueda o filtros.</p>
+          <h4>No se encontraron productos</h4>
+          <p>Probá cambiando los términos de búsqueda o los filtros de tipo y stock.</p>
         </div>
       `;
       return;
@@ -1024,11 +1446,15 @@ const AdminPanel = (() => {
               stockLabel = `Crítico (${stockVal})`;
             }
 
+            const isAnteojos = p.tipo === 'anteojos' || p.tipo === 'anteojo';
+            const isGorro = p.tipo === 'gorro';
+            const typeLabel = isAnteojos ? '🕶️ Anteojos' : (isGorro ? '🧶 Gorro' : '🧢 Gorra');
+
             return `
               <tr id="admin-row-${p.id}">
                 <td>
                   <div class="admin-thumb-box" onclick="AdminPanel.triggerPhotoUpload('${p.id}')" title="Clic para cambiar foto">
-                    <img src="${p.imgPreview || 'assets/gorras/Gorra_negra_frente.webp'}" alt="${p.nombre}">
+                    <img src="${p.imgPreview || (isAnteojos ? 'assets/anteojos/ant_arg.png' : 'assets/gorras/Gorra_negra_frente.webp')}" alt="${p.nombre}">
                     <span class="thumb-edit-overlay">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                     </span>
@@ -1038,7 +1464,7 @@ const AdminPanel = (() => {
                   <div class="admin-product-cell-info">
                     <strong class="prod-cell-name">${p.nombre}</strong>
                     <div class="prod-cell-sub">
-                      <span>${p.marca || 'CAPFIT'}</span> • <span>${p.coleccion || 'Urbana'}</span> • <small class="text-mono">${p.id}</small>
+                      <span style="font-weight:600;color:var(--gray-800)">${typeLabel}</span> • <span>${p.marca || 'CAPFIT'}</span> • <span>${p.coleccion || 'Urbana'}</span> • <small class="text-mono">${p.id}</small>
                     </div>
                   </div>
                 </td>
@@ -1702,20 +2128,29 @@ const AdminPanel = (() => {
       return;
     }
 
+    const isAnteojos = type === 'anteojos' || type === 'anteojo';
+    let finalImg = imgUrl;
+    if ((!finalImg || finalImg.includes('Gorra_negra')) && isAnteojos) {
+      finalImg = 'assets/anteojos/ant_arg.png';
+    }
+    const defaultDetails = isAnteojos
+      ? ['Protección UV400', 'Marco resistente y liviano', 'Cristales polarizados', 'Incluye estuche']
+      : ['Algodón premium', 'Ajuste regulable', 'Unisex'];
+
     const payload = {
       nombre: name,
       marca: brand,
       coleccion: collec,
       tipo: type,
+      categoria: type,
       precio: price,
       precioAnterior: prevPrice,
       stock: stock,
       badge: badge,
-      imgPreview: imgUrl,
-      imgFrontal: imgUrl,
+      imgPreview: finalImg,
+      imgFrontal: finalImg,
       colores: colores.length > 0 ? colores : [{ name: 'Negro', hex: '#111111' }],
-      detalles: detalles.length > 0 ? detalles : ['Algodón premium', 'Ajuste regulable', 'Unisex'],
-      model3D: 'assets/hat.glb'
+      detalles: detalles.length > 0 ? detalles : defaultDetails
     };
 
     try {
@@ -1727,12 +2162,12 @@ const AdminPanel = (() => {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Error al guardar producto');
 
-      if (window.showToast) window.showToast(`¡"${name}" agregado exitosamente al catálogo!`);
+      if (window.showToast) window.showToast(`¡"${name}" guardado en la base de datos de la tienda!`);
       await refreshData();
       if (window.Catalogo) window.Catalogo.reload();
       switchTab('catalogo');
     } catch (e) {
-      alert('No se pudo guardar la gorra: ' + e.message);
+      alert('No se pudo guardar el producto: ' + e.message);
     }
   }
 
@@ -1776,6 +2211,24 @@ const AdminPanel = (() => {
   function filterStock(stockType) {
     _productStockFilter = stockType;
     renderProductsTable();
+  }
+
+  function filterType(type) {
+    _productTypeFilter = type;
+    renderProductsTable();
+  }
+
+  async function syncCatalogToFirestore() {
+    try {
+      if (window.showToast) window.showToast('Sincronizando con base de datos en la nube...');
+      const res = await fetch(`/api/admin/products/sync${getStoreQuery()}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error en sincronización');
+      if (window.showToast) window.showToast(`¡${data.count || _products.length} productos guardados en Firestore para ${_currentStoreName}!`);
+      await refreshData();
+    } catch (e) {
+      alert('Error sincronizando con Firestore: ' + e.message);
+    }
   }
 
   function filterOrders(searchStr) {
@@ -1828,6 +2281,14 @@ const AdminPanel = (() => {
     login,
     logout,
     submitLogin,
+    loginWithGoogle,
+    loginWithFirebaseEmail,
+    submitFirebaseEmailLogin,
+    registerNewStoreOwner,
+    submitRegisterStoreOwner,
+    setPortalTab,
+    syncSubdomainSuggestion,
+    updateSubdomainPreview,
     setLoginMode,
     fillDemoLogin,
     switchActiveStore,
@@ -1843,6 +2304,8 @@ const AdminPanel = (() => {
     loadStoreQuota,
     filterProducts,
     filterStock,
+    filterType,
+    syncCatalogToFirestore,
     filterOrders,
     filterOrderPayment,
     filterOrderShipping,

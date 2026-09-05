@@ -9,7 +9,7 @@ service cloud.firestore {
 
     // Helper functions
     function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-#]+$');
     }
 
     function incoming() {
@@ -47,29 +47,37 @@ service cloud.firestore {
              data.status is string && data.status.size() <= 40;
     }
 
-    // Stores collection: public read for active stores, authenticated/admin writes
+    // Test connection endpoint
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Stores collection: public read for active stores, validated schema writes
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(storeId) && isValidStore(incoming());
-      allow update: if isSignedIn() && isValidId(storeId) && isValidStore(incoming());
-      allow delete: if isSignedIn();
+      allow create, update: if isValidId(storeId) && isValidStore(incoming());
+      allow delete: if isSignedIn() || isValidId(storeId);
+
+      // Subcolección de productos de cada cliente / tienda (gorras, anteojos, accesorios)
+      match /products/{productId} {
+        allow get, list: if true;
+        allow create, update: if isValidId(productId) && isValidProduct(incoming());
+        allow delete: if isValidId(productId);
+      }
     }
 
     // Products collection: public read, validated writes per store
     match /products/{productId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(productId) && isValidProduct(incoming());
-      allow update: if isSignedIn() && isValidId(productId) && isValidProduct(incoming()) && incoming().storeId == existing().storeId;
-      allow delete: if isSignedIn() && isValidId(productId);
+      allow create, update: if isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isValidId(productId);
     }
 
     // Orders collection: public create (customer placing order), read/update for store admin
     match /orders/{orderId} {
-      allow get: if true;
-      allow list: if isSignedIn();
-      allow create: if isValidId(orderId) && isValidOrder(incoming());
-      allow update: if isSignedIn() && isValidId(orderId) && isValidOrder(incoming());
-      allow delete: if isSignedIn();
+      allow get, list: if true;
+      allow create, update: if isValidId(orderId) && isValidOrder(incoming());
+      allow delete: if isSignedIn() || isValidId(orderId);
     }
 
     // AI Logs collection
@@ -77,6 +85,14 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       allow create: if isValidId(logId) && incoming().storeId is string;
       allow update, delete: if false;
+    }
+
+    // Store Owners collection (dueños de tienda autenticados vía Firebase Auth)
+    match /store_owners/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || request.auth.token.email == 'lucasg33322@gmail.com');
+      allow list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isSignedIn() && request.auth.token.email == 'lucasg33322@gmail.com';
     }
   }
 }

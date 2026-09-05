@@ -104,11 +104,70 @@ async function saveStore(store) {
   }
 }
 
-// ── CRUD PRODUCTS ──
-async function getProductsByStore(storeId) {
+async function deleteStore(storeId) {
   try {
+    const storeRef = doc(db, 'stores', String(storeId));
+    await deleteDoc(storeRef);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `stores/${storeId}`);
+    return false;
+  }
+}
+
+// ── CRUD PRODUCTS ──
+function sanitizeProduct(p, storeId) {
+  const sId = storeId || p.storeId || 'principal';
+  const prodId = String(p.id || `prod_${Date.now()}`);
+  return {
+    id: prodId,
+    storeId: sId,
+    nombre: String(p.nombre || 'Producto sin nombre'),
+    tipo: String(p.tipo || p.categoria || 'gorra').toLowerCase(),
+    categoria: String(p.categoria || p.tipo || 'gorra'),
+    marca: String(p.marca || 'CAPFIT'),
+    coleccion: String(p.coleccion || 'Urbana'),
+    precio: Number(p.precio) || 0,
+    precioAnterior: p.precioAnterior !== null && p.precioAnterior !== undefined && p.precioAnterior !== '' ? Number(p.precioAnterior) : null,
+    stock: p.stock !== undefined && p.stock !== null ? Number(p.stock) : 10,
+    badge: p.badge || null,
+    tag: p.badge || p.tag || '',
+    imgPreview: p.imgPreview || p.imgFrontal || p.imagen || '',
+    imgFrontal: p.imgFrontal || p.imgPreview || p.imagen || '',
+    imagen: p.imagen || p.imgPreview || p.imgFrontal || '',
+    colores: Array.isArray(p.colores) ? p.colores : [{ name: 'Negro', hex: '#111111' }],
+    color: (p.colores && p.colores[0] && p.colores[0].name) || p.color || 'Varios',
+    detalles: Array.isArray(p.detalles) ? p.detalles : ['Calidad premium', 'Garantía oficial'],
+    descripcion: Array.isArray(p.detalles) ? p.detalles.join(', ') : (p.descripcion || ''),
+    esNuevo: Boolean(p.badge && p.badge.toLowerCase().includes('nuevo')),
+    destacado: Boolean(p.rating && p.rating >= 4.9),
+    rating: p.rating ? Number(p.rating) : 4.9,
+    reviews: p.reviews ? Number(p.reviews) : 50,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+async function getProductsByStore(storeId) {
+  const sId = storeId || 'principal';
+  try {
+    // 1. Intentar leer de la subcolección dedicada de la tienda: /stores/{storeId}/products
+    const subCol = collection(db, 'stores', sId, 'products');
+    const snap = await getDocs(subCol);
+    if (!snap.empty) {
+      const items = [];
+      snap.forEach(docSnap => {
+        items.push(docSnap.data());
+      });
+      return items;
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, `stores/${sId}/products`);
+  }
+
+  try {
+    // 2. Fallback: leer de la colección /products particionada por storeId
     const col = collection(db, 'products');
-    const q = query(col, where('storeId', '==', storeId));
+    const q = query(col, where('storeId', '==', sId));
     const snapshot = await getDocs(q);
     const products = [];
     snapshot.forEach(docSnap => {
@@ -121,26 +180,77 @@ async function getProductsByStore(storeId) {
   }
 }
 
-async function saveProduct(product) {
+async function saveProduct(product, storeId) {
+  const clean = sanitizeProduct(product, storeId);
+  const sId = clean.storeId;
+  const prodId = clean.id;
+  const compositeId = `${sId}__${prodId}`;
+
+  let okSub = false;
+  let okGlobal = false;
+
+  // 1. Guardar en la base de datos de cada cliente: /stores/{storeId}/products/{productId}
   try {
-    const prodRef = doc(db, 'products', String(product.id));
-    await setDoc(prodRef, product, { merge: true });
-    return true;
+    const storeProdRef = doc(db, 'stores', sId, 'products', prodId);
+    await setDoc(storeProdRef, clean, { merge: true });
+    okSub = true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `products/${product.id}`);
-    return false;
+    handleFirestoreError(err, OperationType.WRITE, `stores/${sId}/products/${prodId}`);
   }
+
+  // 2. Guardar en la colección global particionada: /products/{compositeId}
+  try {
+    const globalProdRef = doc(db, 'products', compositeId);
+    await setDoc(globalProdRef, clean, { merge: true });
+    okGlobal = true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `products/${compositeId}`);
+  }
+
+  return okSub || okGlobal;
 }
 
-async function deleteProduct(productId) {
+async function deleteProduct(productId, storeId) {
+  const sId = storeId || 'principal';
+  const prodId = String(productId);
+  const compositeId = `${sId}__${prodId}`;
+
+  // 1. Eliminar de la subcolección de la tienda
   try {
-    const prodRef = doc(db, 'products', String(productId));
-    await deleteDoc(prodRef);
-    return true;
+    const storeProdRef = doc(db, 'stores', sId, 'products', prodId);
+    await deleteDoc(storeProdRef);
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `products/${productId}`);
-    return false;
+    handleFirestoreError(err, OperationType.DELETE, `stores/${sId}/products/${prodId}`);
   }
+
+  // 2. Eliminar de la colección global
+  try {
+    const globalProdRef = doc(db, 'products', compositeId);
+    await deleteDoc(globalProdRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `products/${compositeId}`);
+  }
+
+  // 3. Eliminar de legacy /products/{prodId}
+  try {
+    const legacyRef = doc(db, 'products', prodId);
+    await deleteDoc(legacyRef);
+  } catch (_) {}
+
+  return true;
+}
+
+async function syncAllStoreProducts(storeId, products) {
+  if (!Array.isArray(products) || products.length === 0) return { ok: true, count: 0 };
+  const sId = storeId || 'principal';
+  let synced = 0;
+  for (const p of products) {
+    try {
+      const res = await saveProduct(p, sId);
+      if (res) synced++;
+    } catch (_) {}
+  }
+  return { ok: true, count: synced, total: products.length, storeId: sId };
 }
 
 // ── CRUD ORDERS ──
@@ -182,6 +292,17 @@ async function updateOrder(orderId, updates) {
   }
 }
 
+async function deleteOrder(orderId) {
+  try {
+    const orderRef = doc(db, 'orders', String(orderId));
+    await deleteDoc(orderRef);
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `orders/${orderId}`);
+    return false;
+  }
+}
+
 // ── AUDIT AI LOGS ──
 async function logAITryOn(logData) {
   try {
@@ -199,6 +320,32 @@ async function logAITryOn(logData) {
   }
 }
 
+// ── STORE OWNERS (ADMIN USERS) ──
+async function saveStoreOwner(owner) {
+  try {
+    const ref = doc(db, 'store_owners', owner.uid);
+    await setDoc(ref, {
+      ...owner,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `store_owners/${owner.uid}`);
+    return false;
+  }
+}
+
+async function getStoreOwner(uid) {
+  try {
+    const ref = doc(db, 'store_owners', uid);
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() : null;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `store_owners/${uid}`);
+    return null;
+  }
+}
+
 module.exports = {
   db,
   app,
@@ -208,11 +355,16 @@ module.exports = {
   getConnectionStatus: () => ({ isConnected, connectionError, databaseId: firebaseConfig.firestoreDatabaseId }),
   getStores,
   saveStore,
+  deleteStore,
   getProductsByStore,
   saveProduct,
   deleteProduct,
+  syncAllStoreProducts,
   getOrdersByStore,
   saveOrder,
   updateOrder,
-  logAITryOn
+  deleteOrder,
+  logAITryOn,
+  saveStoreOwner,
+  getStoreOwner
 };

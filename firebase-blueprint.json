@@ -22,23 +22,33 @@
     },
     "Product": {
       "title": "Product",
-      "description": "Cap, hat or accessory item in a store's catalog",
+      "description": "Cap (gorra), sunglasses (anteojos), hat or accessory item in a client store catalog",
       "type": "object",
       "properties": {
         "id": { "type": "string", "maxLength": 64 },
         "storeId": { "type": "string", "maxLength": 64 },
+        "tipo": { "type": "string", "maxLength": 40 },
         "nombre": { "type": "string", "maxLength": 120 },
+        "marca": { "type": "string", "maxLength": 60 },
+        "coleccion": { "type": "string", "maxLength": 60 },
         "precio": { "type": "number" },
         "precioAnterior": { "type": "number" },
         "categoria": { "type": "string", "maxLength": 60 },
         "tag": { "type": "string", "maxLength": 40 },
+        "badge": { "type": "string", "maxLength": 40 },
         "stock": { "type": "number" },
         "imagen": { "type": "string", "maxLength": 500 },
+        "imgPreview": { "type": "string", "maxLength": 500 },
+        "imgFrontal": { "type": "string", "maxLength": 500 },
         "descripcion": { "type": "string", "maxLength": 500 },
         "color": { "type": "string", "maxLength": 60 },
+        "colores": { "type": "array" },
         "esNuevo": { "type": "boolean" },
         "destacado": { "type": "boolean" },
-        "detalles": { "type": "array" }
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "detalles": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 40 }
       },
       "required": ["id", "storeId", "nombre", "precio"]
     },
@@ -72,12 +82,31 @@
         "timestamp": { "type": "string", "maxLength": 40 }
       },
       "required": ["id", "storeId", "status"]
+    },
+    "StoreOwner": {
+      "title": "StoreOwner",
+      "description": "Store owner administrator user authenticated via Firebase Auth",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 120 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "maxLength": 40 },
+        "storeId": { "type": "string", "maxLength": 64 },
+        "subdomain": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["uid", "email", "role"]
     }
   },
   "firestore": {
     "/stores/{storeId}": {
       "schema": "Store",
       "description": "Multi-tenant stores collection"
+    },
+    "/stores/{storeId}/products/{productId}": {
+      "schema": "Product",
+      "description": "Store products subcollection dedicated to each client store (gorras, anteojos, accesorios)"
     },
     "/products/{productId}": {
       "schema": "Product",
@@ -90,6 +119,10 @@
     "/ai_logs/{logId}": {
       "schema": "AILog",
       "description": "AI virtual try-on usage logs"
+    },
+    "/store_owners/{userId}": {
+      "schema": "StoreOwner",
+      "description": "Store owner profile and store association"
     }
   }
 }

@@ -17,7 +17,7 @@ const path  = require('path');
 const url   = require('url');
 
 const StoreManager = require('./src/store-manager');
-StoreManager.initDefaultStores();
+StoreManager.init().catch(err => console.error('StoreManager init error:', err));
 
 const PORT = 3000;
 
@@ -56,30 +56,6 @@ function corsHeaders() {
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   };
-}
-
-const GORRAS_FILE = path.join(__dirname, 'assets', 'gorras.json');
-const ORDERS_FILE = path.join(__dirname, 'assets', 'orders.json');
-
-function readJsonFile(filePath, defaultVal = []) {
-  try {
-    if (!fs.existsSync(filePath)) return defaultVal;
-    const content = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(content);
-  } catch (e) {
-    console.error('Error leyendo ' + filePath, e.message);
-    return defaultVal;
-  }
-}
-
-function writeJsonFile(filePath, data) {
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-    return true;
-  } catch (e) {
-    console.error('Error escribiendo ' + filePath, e.message);
-    return false;
-  }
 }
 
 function sendJson(res, statusCode, data) {
@@ -403,7 +379,7 @@ async function appHandler(req, res) {
     return;
   }
 
-  // 1. POST /api/admin/login (Login SuperAdmin o Dueño de Tienda)
+  // 1. POST /api/admin/login (Login SuperAdmin o Dueño de Tienda tradicional / compatibilidad)
   if (reqPath === '/api/admin/login' && req.method === 'POST') {
     try {
       const raw = await readBody(req);
@@ -463,6 +439,117 @@ async function appHandler(req, res) {
       });
     } catch (e) {
       sendJson(res, 400, { ok: false, error: 'Datos de login inválidos: ' + e.message });
+    }
+    return;
+  }
+
+  // 1.05 POST /api/admin/auth/firebase-verify (Verificación Firebase Auth para Dueño de Tienda y SuperAdmin)
+  if (reqPath === '/api/admin/auth/firebase-verify' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const { uid, email, displayName, photoURL } = JSON.parse(raw.toString() || '{}');
+      if (!uid || !email) {
+        sendJson(res, 400, { ok: false, error: 'Datos de Firebase Auth incompletos (uid y email requeridos).' });
+        return;
+      }
+
+      const cleanEmail = email.toLowerCase().trim();
+      const superadminEmail = (process.env.SUPERADMIN_EMAIL || 'lucasg33322@gmail.com').toLowerCase().trim();
+
+      // Caso A: SuperAdmin de la plataforma
+      if (cleanEmail === superadminEmail || cleanEmail === 'admin@capfit.shop') {
+        const defaultStore = StoreManager.getStoreById('principal') || StoreManager.getAllStores()[0];
+        sendJson(res, 200, {
+          ok: true,
+          role: 'superadmin',
+          storeId: defaultStore ? defaultStore.id : 'principal',
+          subdomain: defaultStore ? defaultStore.subdomain : 'capfit',
+          storeName: 'CAPFIT Platform Admin',
+          token: `capfit_superadmin_fb_${uid}_${Date.now()}`,
+          user: { uid, email: cleanEmail, displayName: displayName || 'SuperAdmin', photoURL },
+          message: 'Autenticación exitosa como SuperAdministrador de la plataforma CAPFIT'
+        });
+        return;
+      }
+
+      // Caso B: Dueño de una o más tiendas
+      const ownedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid });
+      if (ownedStores && ownedStores.length > 0) {
+        const store = ownedStores[0];
+        StoreManager.linkStoreOwner({
+          storeId: store.id,
+          uid,
+          email: cleanEmail,
+          displayName: displayName || store.name,
+          role: 'store_owner'
+        });
+
+        sendJson(res, 200, {
+          ok: true,
+          role: 'store_owner',
+          storeId: store.id,
+          subdomain: store.subdomain,
+          storeName: store.name,
+          plan: store.plan,
+          stores: ownedStores.map(s => ({ id: s.id, name: s.name, subdomain: s.subdomain, plan: s.plan })),
+          token: `capfit_owner_fb_${uid}_${Date.now()}`,
+          user: { uid, email: cleanEmail, displayName: displayName || store.name, photoURL },
+          message: `Bienvenido a tu tienda ${store.name} (${store.subdomain}.capfit.shop)`
+        });
+        return;
+      }
+
+      // Caso C: Usuario autenticado pero aún no tiene tienda registrada como dueño
+      sendJson(res, 200, {
+        ok: false,
+        code: 'NO_STORE_REGISTERED',
+        error: 'Tu usuario está autenticado con Firebase Auth, pero aún no tiene una tienda registrada como Dueño.',
+        user: { uid, email: cleanEmail, displayName, photoURL }
+      });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 1.06 POST /api/admin/auth/firebase-register (Registro de nueva tienda para Dueño vía Firebase Auth)
+  if (reqPath === '/api/admin/auth/firebase-register' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const { uid, email, displayName, storeName, subdomain, plan, tagline } = JSON.parse(raw.toString() || '{}');
+      if (!uid || !email) {
+        sendJson(res, 400, { ok: false, error: 'Se requiere cuenta Firebase Auth válida (uid y email).' });
+        return;
+      }
+      if (!subdomain || !storeName) {
+        sendJson(res, 400, { ok: false, error: 'El nombre de la tienda y el subdominio son obligatorios.' });
+        return;
+      }
+
+      const cleanEmail = email.toLowerCase().trim();
+      const newStore = StoreManager.createStore({
+        subdomain,
+        name: storeName,
+        username: subdomain.toLowerCase().replace(/[^a-z0-9]/g, ''),
+        ownerEmail: cleanEmail,
+        ownerUid: uid,
+        plan: plan || 'Starter',
+        tagline: tagline || `Tienda oficial de gorras de ${storeName}`
+      });
+
+      sendJson(res, 201, {
+        ok: true,
+        role: 'store_owner',
+        storeId: newStore.id,
+        subdomain: newStore.subdomain,
+        storeName: newStore.name,
+        plan: newStore.plan,
+        store: newStore,
+        token: `capfit_owner_fb_${uid}_${Date.now()}`,
+        message: `¡Tienda "${newStore.name}" creada exitosamente! Subdominio: ${newStore.subdomain}.capfit.shop`
+      });
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
     }
     return;
   }
@@ -561,9 +648,17 @@ async function appHandler(req, res) {
         finalId = `${baseId}-${counter++}`;
       }
 
+      const isAnteojos = p.tipo === 'anteojos' || p.tipo === 'anteojo';
+      const defaultImg = isAnteojos ? 'assets/anteojos/ant_arg.png' : 'assets/gorras/Gorra_negra_frente.webp';
+      const defaultDetails = isAnteojos
+        ? ['Protección UV400', 'Marco resistente y liviano', 'Cristales polarizados', 'Incluye estuche']
+        : ['Algodón premium', 'Ajuste regulable', 'Unisex'];
+
       const newProduct = {
         id: finalId,
+        storeId: targetStoreId,
         tipo: p.tipo || 'gorra',
+        categoria: p.categoria || p.tipo || 'gorra',
         nombre: p.nombre.trim(),
         marca: p.marca ? p.marca.trim() : (currentStore.name || 'CAPFIT'),
         coleccion: p.coleccion ? p.coleccion.trim() : 'Urbana',
@@ -576,17 +671,16 @@ async function appHandler(req, res) {
         colores: Array.isArray(p.colores) && p.colores.length > 0
           ? p.colores
           : [{ name: 'Negro', hex: '#111111' }],
-        imgPreview: p.imgPreview || 'assets/gorras/Gorra_negra_frente.webp',
-        imgFrontal: p.imgFrontal || p.imgPreview || 'assets/gorras/Gorra_negra_frente.webp',
-        model3D: p.model3D || 'assets/hat.glb',
+        imgPreview: p.imgPreview || defaultImg,
+        imgFrontal: p.imgFrontal || p.imgPreview || defaultImg,
         detalles: Array.isArray(p.detalles) && p.detalles.length > 0
           ? p.detalles
-          : ['Algodón premium', 'Ajuste regulable', 'Unisex']
+          : defaultDetails
       };
 
       products.unshift(newProduct);
       StoreManager.writeStoreProducts(targetStoreId, products);
-      sendJson(res, 201, { ok: true, product: newProduct });
+      sendJson(res, 201, { ok: true, product: newProduct, message: 'Producto guardado en la base de datos de la tienda' });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
     }
@@ -608,10 +702,14 @@ async function appHandler(req, res) {
       }
 
       const p = products[idx];
+      p.storeId = targetStoreId;
       if (updates.nombre !== undefined) p.nombre = updates.nombre.trim();
       if (updates.marca !== undefined) p.marca = updates.marca.trim();
       if (updates.coleccion !== undefined) p.coleccion = updates.coleccion.trim();
-      if (updates.tipo !== undefined) p.tipo = updates.tipo;
+      if (updates.tipo !== undefined) {
+        p.tipo = updates.tipo;
+        p.categoria = updates.tipo;
+      }
       if (updates.precio !== undefined) p.precio = Number(updates.precio);
       if (updates.precioAnterior !== undefined) {
         p.precioAnterior = updates.precioAnterior ? Number(updates.precioAnterior) : null;
@@ -621,32 +719,40 @@ async function appHandler(req, res) {
       if (updates.colores !== undefined && Array.isArray(updates.colores)) p.colores = updates.colores;
       if (updates.imgPreview !== undefined) p.imgPreview = updates.imgPreview;
       if (updates.imgFrontal !== undefined) p.imgFrontal = updates.imgFrontal;
-      if (updates.model3D !== undefined) p.model3D = updates.model3D;
       if (updates.detalles !== undefined && Array.isArray(updates.detalles)) p.detalles = updates.detalles;
 
       products[idx] = p;
       StoreManager.writeStoreProducts(targetStoreId, products);
-      sendJson(res, 200, { ok: true, product: p });
+      sendJson(res, 200, { ok: true, product: p, message: 'Producto actualizado en la base de datos de la tienda' });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
     }
     return;
   }
 
-  // 5. DELETE /api/admin/products/:id (Eliminar producto de la tienda)
+  // 4.1 POST /api/admin/products/sync (Sincronización forzada con Firestore para la tienda)
+  if (reqPath === '/api/admin/products/sync' && req.method === 'POST') {
+    try {
+      const targetStoreId = qs.store || currentStore.id;
+      const resSync = await StoreManager.syncStoreProductsToFirestore(targetStoreId);
+      sendJson(res, 200, { ok: true, ...resSync, message: `Catálogo de "${targetStoreId}" sincronizado en Firestore` });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 5. DELETE /api/admin/products/:id (Eliminar producto de la tienda y de Firestore)
   if (reqPath.startsWith('/api/admin/products/') && req.method === 'DELETE') {
     try {
       const targetId = decodeURIComponent(reqPath.replace('/api/admin/products/', ''));
       const targetStoreId = qs.store || currentStore.id;
-      let products = StoreManager.readStoreProducts(targetStoreId);
-      const initialCount = products.length;
-      products = products.filter(p => p.id !== targetId);
-      if (products.length === initialCount) {
+      const ok = StoreManager.deleteStoreProduct(targetStoreId, targetId);
+      if (!ok) {
         sendJson(res, 404, { ok: false, error: 'Producto no encontrado' });
         return;
       }
-      StoreManager.writeStoreProducts(targetStoreId, products);
-      sendJson(res, 200, { ok: true, message: 'Producto eliminado con éxito' });
+      sendJson(res, 200, { ok: true, message: 'Producto eliminado con éxito de la base de datos de la tienda' });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
     }
@@ -782,9 +888,9 @@ async function appHandler(req, res) {
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // Si la ruta no tiene extensión (o es /404 o /admin), servimos index.html para que el router de la app muestre la vista
+      // Si la ruta no tiene extensión (o es /404, /admin o /account), servimos index.html para que el router de la app muestre la vista
       const ext = path.extname(reqPath);
-      if (!ext || reqPath === '/404' || reqPath === '/admin') {
+      if (!ext || reqPath === '/404' || reqPath === '/admin' || reqPath === '/account') {
         fs.readFile(path.join(__dirname, 'index.html'), (errIndex, indexData) => {
           if (!errIndex) {
             res.writeHead(200, { ...corsHeaders(), 'Content-Type': 'text/html; charset=utf-8' });

@@ -154,6 +154,7 @@
 
     let cleanName = (viewName || '').trim().replace(/^#\/?|^[/\\]+/, '');
     if (!cleanName) cleanName = 'inicio';
+    if (cleanName === 'account' || cleanName === 'portal-duenos') cleanName = 'admin';
 
     let target = document.getElementById(`view-${cleanName}`);
     if (!target) {
@@ -174,7 +175,7 @@
     document.querySelectorAll('.nav-links a').forEach(a => {
       a.classList.remove('active');
       const href = a.getAttribute('href') || '';
-      if (href === `#${cleanName}` || href === `/${cleanName}`) {
+      if (href === `#${cleanName}` || href === `/${cleanName}` || (cleanName === 'admin' && (href === '#account' || href === '/account'))) {
         a.classList.add('active');
       }
     });
@@ -326,16 +327,31 @@
   function handleRoute() {
     const rawPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
     const hash = window.location.hash.replace('#', '').trim();
+    const host = (window.location.hostname || '').toLowerCase();
+    const search = window.location.search || '';
 
     let viewName = 'inicio';
 
-    if (hash) {
+    // Detección del subdominio del portal de dueños (account.capfit.store)
+    const isAccountPortal = (
+      host === 'account.capfit.store' ||
+      host.startsWith('account.') ||
+      search.includes('account=true') ||
+      search.includes('subdomain=account') ||
+      rawPath === 'account' ||
+      hash === 'account' ||
+      hash === 'portal-duenos'
+    );
+
+    if (isAccountPortal) {
+      viewName = 'admin';
+    } else if (hash) {
       viewName = hash;
     } else if (rawPath) {
       if (rawPath === '404' || rawPath === '404.html') {
         viewName = '404';
-      } else if (['inicio', 'probador', 'carrito', 'admin'].includes(rawPath)) {
-        viewName = rawPath;
+      } else if (['inicio', 'probador', 'carrito', 'admin', 'account'].includes(rawPath)) {
+        viewName = rawPath === 'account' ? 'admin' : rawPath;
       } else if (!rawPath.includes('.')) {
         viewName = '404';
       }

@@ -194,9 +194,11 @@ const Catalogo = (() => {
         const url = storeId && storeId !== 'principal' ? `/api/products?store=${encodeURIComponent(storeId)}` : '/api/products';
         let resp = await fetch(url).catch(() => null);
         if (!resp || !resp.ok) {
-          resp = await fetch('assets/gorras.json');
+          // Reintento en caso de carga inicial
+          await new Promise(r => setTimeout(r, 400));
+          resp = await fetch(url).catch(() => null);
         }
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp || !resp.ok) throw new Error(`HTTP ${resp ? resp.status : 'Network error'}`);
         _gorras = await resp.json();
         Store.setGorras(_gorras);
 
@@ -266,9 +268,6 @@ const Catalogo = (() => {
 
       if (window.updateTryOnSidebarUI) {
         window.updateTryOnSidebarUI(g);
-      }
-      if (window.cargar3D) {
-        window.cargar3D(g.model3D);
       }
 
       // Navigate to try-on view

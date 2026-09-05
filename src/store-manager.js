@@ -1,23 +1,21 @@
-const fs = require('fs');
-const path = require('path');
+/**
+ * CAPFIT Multi-Tenant SaaS Store Manager
+ * 100% Cloud Persistence powered by Firebase Firestore.
+ * No local disk JSON dependency.
+ */
 
 let FirebaseDb = null;
 try {
   FirebaseDb = require('./firebase-db');
 } catch (e) {
-  console.warn('Firebase DB no cargado:', e.message);
+  console.warn('Firebase DB no disponible en StoreManager:', e.message);
 }
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const STORES_FILE = path.join(DATA_DIR, 'stores.json');
-const STORES_DATA_DIR = path.join(DATA_DIR, 'stores');
-const TEMPLATE_PRODUCTS_FILE = path.join(__dirname, '..', 'assets', 'gorras.json');
-const TEMPLATE_ORDERS_FILE = path.join(__dirname, '..', 'assets', 'orders.json');
-
-function ensureDirectories() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(STORES_DATA_DIR)) fs.mkdirSync(STORES_DATA_DIR, { recursive: true });
-}
+// In-Memory Cloud-Synced Cache for instantaneous response and high performance
+let cachedStores = [];
+const cachedProducts = new Map(); // storeId -> Array of products
+const cachedOrders = new Map();   // storeId -> Array of orders
+let isInitialized = false;
 
 function getCurrentPeriod() {
   const d = new Date();
@@ -26,11 +24,98 @@ function getCurrentPeriod() {
   return `${y}-${m}`;
 }
 
-function initDefaultStores() {
-  ensureDirectories();
-  if (!fs.existsSync(STORES_FILE)) {
-    const currentPeriod = getCurrentPeriod();
-    const defaultStores = [
+/**
+ * Cargar todos los datos de las tiendas, productos y órdenes directamente desde Firebase Firestore
+ */
+async function init() {
+  try {
+    if (!FirebaseDb) {
+      console.warn('⚠️ FirebaseDb no disponible, usando memoria volatil.');
+      return;
+    }
+
+    await FirebaseDb.testConnection();
+    console.log('🔄 Sincronizando catálogo y tiendas directamente desde Firebase Firestore...');
+
+    // 1. Cargar todas las tiendas desde Firestore (/stores)
+    const dbStores = await FirebaseDb.getStores();
+    if (Array.isArray(dbStores) && dbStores.length > 0) {
+      cachedStores = dbStores.map(st => ({
+        id: st.id,
+        subdomain: st.subdomain || st.id,
+        fullDomain: st.fullDomain || `${st.subdomain || st.id}.capfit.shop`,
+        name: st.name || `Tienda ${st.id}`,
+        tagline: st.tagline || '',
+        username: st.username || st.adminUsername || `admin_${st.id}`,
+        password: st.password || st.adminPassword || 'capfit2026',
+        ownerEmail: st.ownerEmail || `admin@${st.subdomain || st.id}.shop`,
+        ownerUid: st.ownerUid || null,
+        plan: st.plan || 'Starter',
+        aiMonthlyLimit: st.aiMonthlyLimit !== undefined ? Number(st.aiMonthlyLimit) : 100,
+        aiGenerationsUsed: st.aiGenerationsUsed !== undefined ? Number(st.aiGenerationsUsed) : 0,
+        aiCurrentPeriod: st.aiPeriod || st.aiCurrentPeriod || getCurrentPeriod(),
+        brandColor: st.brandColor || '#111111',
+        createdAt: st.createdAt || new Date().toISOString(),
+        active: st.active !== undefined ? Boolean(st.active) : true
+      }));
+      console.log(`✅ ${cachedStores.length} tiendas cargadas desde Firebase Firestore:`, cachedStores.map(s => s.id));
+    } else {
+      console.log('ℹ️ No se encontraron tiendas en Firestore. Creando tienda principal predeterminada en Firestore...');
+      const defaultPrincipal = {
+        id: 'principal',
+        subdomain: 'capfit',
+        fullDomain: 'capfit.shop',
+        name: 'CAPFIT Oficial',
+        tagline: 'Gorras premium y probador virtual con IA',
+        username: 'admin',
+        password: process.env.ADMIN_PASSWORD || 'capfit2026',
+        ownerEmail: 'admin@capfit.shop',
+        plan: 'Enterprise',
+        aiMonthlyLimit: 100,
+        aiGenerationsUsed: 12,
+        aiCurrentPeriod: getCurrentPeriod(),
+        brandColor: '#111111',
+        createdAt: new Date().toISOString(),
+        active: true
+      };
+      await FirebaseDb.saveStore(defaultPrincipal);
+      cachedStores = [defaultPrincipal];
+    }
+
+    // 2. Cargar productos y órdenes para cada tienda desde Firestore
+    for (const store of cachedStores) {
+      const sId = store.id;
+      // Cargar productos de /stores/{sId}/products y fallback /products
+      try {
+        const prods = await FirebaseDb.getProductsByStore(sId);
+        cachedProducts.set(sId, Array.isArray(prods) ? prods : []);
+      } catch (err) {
+        console.warn(`Nota cargando productos de tienda ${sId} desde Firestore:`, err.message);
+        cachedProducts.set(sId, []);
+      }
+
+      // Cargar órdenes de /orders
+      try {
+        const orders = await FirebaseDb.getOrdersByStore(sId);
+        cachedOrders.set(sId, Array.isArray(orders) ? orders : []);
+      } catch (err) {
+        console.warn(`Nota cargando órdenes de tienda ${sId} desde Firestore:`, err.message);
+        cachedOrders.set(sId, []);
+      }
+    }
+
+    isInitialized = true;
+    console.log('🚀 Base de datos Firestore inicializada y activa como ÚNICA fuente de datos.');
+  } catch (error) {
+    console.error('Error al inicializar StoreManager con Firestore:', error);
+  }
+}
+
+// Fallback sincronizado si init() aún no completó
+function getAllStores() {
+  if (cachedStores.length === 0) {
+    // Tiendas base en memoria hasta que cargue la promesa de Firestore
+    return [
       {
         id: 'principal',
         subdomain: 'capfit',
@@ -43,114 +128,14 @@ function initDefaultStores() {
         plan: 'Enterprise',
         aiMonthlyLimit: 100,
         aiGenerationsUsed: 12,
-        aiCurrentPeriod: currentPeriod,
+        aiCurrentPeriod: getCurrentPeriod(),
         brandColor: '#111111',
-        createdAt: new Date().toISOString(),
-        active: true
-      },
-      {
-        id: 'tienda1',
-        subdomain: 'tienda1',
-        fullDomain: 'tienda1.capfit.shop',
-        name: 'StreetWear Caps',
-        tagline: 'Colecciones urbanas y de autor',
-        username: 'admin_tienda1',
-        password: 'tienda1pass',
-        ownerEmail: 'contacto@tienda1.com',
-        plan: 'Starter',
-        aiMonthlyLimit: 100,
-        aiGenerationsUsed: 26,
-        aiCurrentPeriod: currentPeriod,
-        brandColor: '#0f172a',
-        createdAt: new Date().toISOString(),
-        active: true
-      },
-      {
-        id: 'tienda2',
-        subdomain: 'tienda2',
-        fullDomain: 'tienda2.capfit.shop',
-        name: 'Vintage Headwear',
-        tagline: 'Gorras retro y clásicas personalizadas',
-        username: 'admin_tienda2',
-        password: 'tienda2pass',
-        ownerEmail: 'hola@vintagecaps.com',
-        plan: 'Pro',
-        aiMonthlyLimit: 100,
-        aiGenerationsUsed: 98,
-        aiCurrentPeriod: currentPeriod,
-        brandColor: '#7c2d12',
         createdAt: new Date().toISOString(),
         active: true
       }
     ];
-    fs.writeFileSync(STORES_FILE, JSON.stringify(defaultStores, null, 2), 'utf8');
-
-    // Inicializar datos para cada tienda
-    defaultStores.forEach(st => initStoreDataFiles(st.id));
   }
-}
-
-function initStoreDataFiles(storeId) {
-  ensureDirectories();
-  const storeFolder = path.join(STORES_DATA_DIR, storeId);
-  if (!fs.existsSync(storeFolder)) fs.mkdirSync(storeFolder, { recursive: true });
-
-  const pFile = path.join(storeFolder, 'products.json');
-  const oFile = path.join(storeFolder, 'orders.json');
-
-  if (!fs.existsSync(pFile)) {
-    if (fs.existsSync(TEMPLATE_PRODUCTS_FILE)) {
-      const template = JSON.parse(fs.readFileSync(TEMPLATE_PRODUCTS_FILE, 'utf8'));
-      fs.writeFileSync(pFile, JSON.stringify(template, null, 2), 'utf8');
-    } else {
-      fs.writeFileSync(pFile, '[]', 'utf8');
-    }
-  }
-
-  if (!fs.existsSync(oFile)) {
-    if (storeId === 'principal' && fs.existsSync(TEMPLATE_ORDERS_FILE)) {
-      const template = JSON.parse(fs.readFileSync(TEMPLATE_ORDERS_FILE, 'utf8'));
-      fs.writeFileSync(oFile, JSON.stringify(template, null, 2), 'utf8');
-    } else {
-      fs.writeFileSync(oFile, '[]', 'utf8');
-    }
-  }
-}
-
-function getAllStores() {
-  initDefaultStores();
-  try {
-    const raw = fs.readFileSync(STORES_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('Error leyendo stores.json:', e);
-    return [];
-  }
-}
-
-function saveStores(stores) {
-  ensureDirectories();
-  fs.writeFileSync(STORES_FILE, JSON.stringify(stores, null, 2), 'utf8');
-
-  // Sincronizar en segundo plano con Firebase Firestore
-  if (FirebaseDb && typeof FirebaseDb.saveStore === 'function') {
-    stores.forEach(st => {
-      FirebaseDb.saveStore({
-        id: st.id,
-        subdomain: st.subdomain,
-        name: st.name,
-        tagline: st.tagline || '',
-        adminUsername: st.username,
-        adminPassword: st.password,
-        plan: st.plan || 'Starter',
-        aiMonthlyLimit: st.aiMonthlyLimit || 100,
-        aiGenerationsUsed: st.aiGenerationsUsed || 0,
-        aiPeriod: st.aiCurrentPeriod || getCurrentPeriod(),
-        active: Boolean(st.active),
-        createdAt: st.createdAt || new Date().toISOString()
-      }).catch(err => console.warn('Firestore store sync note:', err.message));
-    });
-  }
+  return cachedStores;
 }
 
 function getStoreById(id) {
@@ -165,17 +150,16 @@ function getStoreBySubdomain(subdomain) {
 }
 
 function resolveStoreFromRequest(req) {
-  initDefaultStores();
   const host = (req.headers.host || '').toLowerCase();
-  
-  // 1. Detección por headers explícitos
+
+  // 1. Headers explícitos
   const headerStore = req.headers['x-store-id'] || req.headers['x-store-subdomain'];
   if (headerStore) {
     const s = getStoreById(headerStore) || getStoreBySubdomain(headerStore);
     if (s) return s;
   }
 
-  // 2. Detección por query string (?store=tienda1 o ?tienda=tienda1)
+  // 2. Query string (?store=tienda1 o ?tienda=tienda1)
   try {
     const urlObj = new URL(req.url, `http://${host || 'localhost'}`);
     const qsStore = urlObj.searchParams.get('store') || urlObj.searchParams.get('tienda');
@@ -185,13 +169,23 @@ function resolveStoreFromRequest(req) {
     }
   } catch (_) {}
 
-  // 3. Detección por subdominio en el Host header
-  // Ejemplos: "tienda1.capfit.shop", "tienda2.capfit.shop", "tienda1.localhost:3000"
+  // 3. Subdominio en Host header
   const hostWithoutPort = host.split(':')[0];
   const parts = hostWithoutPort.split('.');
-  if (parts.length >= 3) {
+  if (parts.length >= 2) {
     const sub = parts[0];
-    if (sub !== 'www' && sub !== 'api' && sub !== 'ais-dev' && sub !== 'ais-pre') {
+    if (sub === 'account') {
+      return {
+        id: 'account_portal',
+        subdomain: 'account',
+        fullDomain: 'account.capfit.store',
+        name: 'Portal Dueños de Tienda CAPFIT',
+        tagline: 'Gestión y Backoffice para Socios',
+        isAccountPortal: true,
+        active: true
+      };
+    }
+    if (parts.length >= 3 && sub !== 'www' && sub !== 'api' && sub !== 'ais-dev' && sub !== 'ais-pre') {
       const s = getStoreBySubdomain(sub);
       if (s) return s;
     }
@@ -201,87 +195,136 @@ function resolveStoreFromRequest(req) {
   return getStoreById('principal') || getAllStores()[0];
 }
 
-function getStoreProductsPath(storeId) {
-  initStoreDataFiles(storeId);
-  return path.join(STORES_DATA_DIR, storeId, 'products.json');
-}
-
-function getStoreOrdersPath(storeId) {
-  initStoreDataFiles(storeId);
-  return path.join(STORES_DATA_DIR, storeId, 'orders.json');
-}
-
-function readStoreProducts(storeId) {
-  const filePath = getStoreProductsPath(storeId);
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (e) {
-    return [];
-  }
-}
-
-function writeStoreProducts(storeId, products) {
-  const filePath = getStoreProductsPath(storeId);
-  fs.writeFileSync(filePath, JSON.stringify(products, null, 2), 'utf8');
-
-  // Sincronizar productos en Firestore
-  if (FirebaseDb && typeof FirebaseDb.saveProduct === 'function') {
-    products.forEach(p => {
-      FirebaseDb.saveProduct({
-        id: String(p.id),
-        storeId: storeId,
-        nombre: p.nombre || '',
-        precio: Number(p.precio) || 0,
-        precioAnterior: p.precioAnterior ? Number(p.precioAnterior) : null,
-        categoria: p.tipo || 'gorra',
-        tag: p.badge || '',
-        stock: p.stock !== undefined ? Number(p.stock) : 10,
-        imagen: p.imgPreview || p.imgFrontal || '',
-        descripcion: (p.detalles || []).join(', '),
-        color: (p.colores && p.colores[0] && p.colores[0].name) || 'Varios',
-        esNuevo: Boolean(p.badge && p.badge.toLowerCase().includes('nuevo')),
-        destacado: Boolean(p.rating && p.rating >= 4.9),
-        detalles: Array.isArray(p.detalles) ? p.detalles : []
-      }).catch(err => console.warn('Firestore product sync note:', err.message));
+function saveStores(stores) {
+  cachedStores = stores;
+  if (FirebaseDb && typeof FirebaseDb.saveStore === 'function') {
+    stores.forEach(st => {
+      FirebaseDb.saveStore({
+        id: st.id,
+        subdomain: st.subdomain,
+        fullDomain: st.fullDomain || `${st.subdomain}.capfit.shop`,
+        name: st.name,
+        tagline: st.tagline || '',
+        username: st.username,
+        password: st.password,
+        ownerEmail: st.ownerEmail || '',
+        ownerUid: st.ownerUid || null,
+        plan: st.plan || 'Starter',
+        aiMonthlyLimit: st.aiMonthlyLimit !== undefined ? Number(st.aiMonthlyLimit) : 100,
+        aiGenerationsUsed: st.aiGenerationsUsed !== undefined ? Number(st.aiGenerationsUsed) : 0,
+        aiPeriod: st.aiCurrentPeriod || getCurrentPeriod(),
+        brandColor: st.brandColor || '#111111',
+        active: Boolean(st.active),
+        createdAt: st.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }).catch(err => console.warn('Firestore store sync note:', err.message));
     });
   }
 }
 
-function readStoreOrders(storeId) {
-  const filePath = getStoreOrdersPath(storeId);
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (e) {
-    return [];
+// ── PRODUCTOS (DIRECTO A FIRESTORE) ──
+
+function readStoreProducts(storeId) {
+  const sId = storeId || 'principal';
+  return cachedProducts.get(sId) || [];
+}
+
+async function fetchStoreProductsFromDb(storeId) {
+  const sId = storeId || 'principal';
+  if (FirebaseDb && typeof FirebaseDb.getProductsByStore === 'function') {
+    try {
+      const prods = await FirebaseDb.getProductsByStore(sId);
+      cachedProducts.set(sId, prods);
+      return prods;
+    } catch (e) {
+      console.warn(`Error refrescando productos de ${sId} desde Firestore:`, e.message);
+    }
+  }
+  return readStoreProducts(sId);
+}
+
+function writeStoreProducts(storeId, products) {
+  const sId = storeId || 'principal';
+  cachedProducts.set(sId, products);
+
+  if (FirebaseDb && typeof FirebaseDb.saveProduct === 'function') {
+    products.forEach(p => {
+      FirebaseDb.saveProduct({
+        ...p,
+        id: String(p.id),
+        storeId: sId
+      }, sId).catch(err => console.warn(`Firestore save product error (${sId}/${p.id}):`, err.message));
+    });
   }
 }
 
-function writeStoreOrders(storeId, orders) {
-  const filePath = getStoreOrdersPath(storeId);
-  fs.writeFileSync(filePath, JSON.stringify(orders, null, 2), 'utf8');
+function deleteStoreProduct(storeId, productId) {
+  const sId = storeId || 'principal';
+  let products = readStoreProducts(sId);
+  const initialLen = products.length;
+  products = products.filter(p => String(p.id) !== String(productId));
+  cachedProducts.set(sId, products);
 
-  // Sincronizar órdenes en Firestore
+  if (FirebaseDb && typeof FirebaseDb.deleteProduct === 'function') {
+    FirebaseDb.deleteProduct(productId, sId).catch(err => console.warn(`Firestore delete product error (${sId}/${productId}):`, err.message));
+  }
+  return products.length !== initialLen;
+}
+
+function syncStoreProductsToFirestore(storeId) {
+  const sId = storeId || 'principal';
+  const products = readStoreProducts(sId);
+  if (FirebaseDb && typeof FirebaseDb.syncAllStoreProducts === 'function') {
+    return FirebaseDb.syncAllStoreProducts(sId, products);
+  }
+  return Promise.resolve({ ok: true, count: products.length });
+}
+
+// ── ÓRDENES (DIRECTO A FIRESTORE) ──
+
+function readStoreOrders(storeId) {
+  const sId = storeId || 'principal';
+  return cachedOrders.get(sId) || [];
+}
+
+async function fetchStoreOrdersFromDb(storeId) {
+  const sId = storeId || 'principal';
+  if (FirebaseDb && typeof FirebaseDb.getOrdersByStore === 'function') {
+    try {
+      const orders = await FirebaseDb.getOrdersByStore(sId);
+      cachedOrders.set(sId, orders);
+      return orders;
+    } catch (e) {
+      console.warn(`Error refrescando órdenes de ${sId} desde Firestore:`, e.message);
+    }
+  }
+  return readStoreOrders(sId);
+}
+
+function writeStoreOrders(storeId, orders) {
+  const sId = storeId || 'principal';
+  cachedOrders.set(sId, orders);
+
   if (FirebaseDb && typeof FirebaseDb.saveOrder === 'function') {
     orders.forEach(o => {
       FirebaseDb.saveOrder({
         id: String(o.id),
-        storeId: storeId,
+        storeId: sId,
         customer: o.customer || {},
         items: Array.isArray(o.items) ? o.items : [],
         total: Number(o.total) || 0,
         subtotal: Number(o.subtotal) || 0,
         shippingCost: Number(o.shipping) || 0,
-        status: o.shippingStatus || 'Por preparar',
+        status: o.shippingStatus || o.status || 'Por preparar',
         paymentStatus: o.paymentStatus || 'Aprobado',
-        createdAt: o.date || new Date().toISOString()
-      }).catch(err => console.warn('Firestore order sync note:', err.message));
+        createdAt: o.date || o.createdAt || new Date().toISOString()
+      }).catch(err => console.warn('Firestore order sync error:', err.message));
     });
   }
 }
 
-/**
- * Control de cuota mensual de IA con reinicio automático cada mes
- */
+// ── CUOTA MENSUAL DE IA EN FIRESTORE ──
+
 function checkAndDeductAiCredit(storeId) {
   const stores = getAllStores();
   const idx = stores.findIndex(s => s.id === storeId || s.subdomain === storeId);
@@ -292,7 +335,6 @@ function checkAndDeductAiCredit(storeId) {
   const store = stores[idx];
   const currentPeriod = getCurrentPeriod();
 
-  // Reinicio automático de cuota mensual al cambiar de mes
   if (store.aiCurrentPeriod !== currentPeriod) {
     store.aiCurrentPeriod = currentPeriod;
     store.aiGenerationsUsed = 0;
@@ -317,11 +359,9 @@ function checkAndDeductAiCredit(storeId) {
     };
   }
 
-  // Descontar 1 generación
   store.aiGenerationsUsed = used + 1;
   saveStores(stores);
 
-  // Registrar auditoría de IA en Firestore
   if (FirebaseDb && typeof FirebaseDb.logAITryOn === 'function') {
     FirebaseDb.logAITryOn({
       storeId: store.id,
@@ -345,9 +385,6 @@ function checkAndDeductAiCredit(storeId) {
   };
 }
 
-/**
- * Obtener estado de cuota de IA sin descontar
- */
 function getAiQuotaStatus(storeId) {
   const stores = getAllStores();
   const store = stores.find(s => s.id === storeId || s.subdomain === storeId);
@@ -374,10 +411,9 @@ function getAiQuotaStatus(storeId) {
   };
 }
 
-/**
- * Crear nueva tienda
- */
-function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit, ownerEmail, brandColor }) {
+// ── GESTIÓN DE TIENDAS (DIRECTO A FIRESTORE) ──
+
+function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit, ownerEmail, ownerUid, tagline, brandColor }) {
   const stores = getAllStores();
   const cleanSub = (subdomain || '')
     .toLowerCase()
@@ -401,10 +437,11 @@ function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit
     subdomain: cleanSub,
     fullDomain: `${cleanSub}.capfit.shop`,
     name: (name || `Tienda ${cleanSub}`).trim(),
-    tagline: 'Tienda de gorras personalizada',
+    tagline: (tagline || 'Tienda de gorras personalizada').trim(),
     username: cleanUser,
     password: (password || '123456').trim(),
     ownerEmail: (ownerEmail || `contacto@${cleanSub}.com`).trim(),
+    ownerUid: ownerUid || null,
     plan: plan || 'Starter',
     aiMonthlyLimit: aiMonthlyLimit ? Number(aiMonthlyLimit) : 100,
     aiGenerationsUsed: 0,
@@ -416,14 +453,62 @@ function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit
 
   stores.push(newStore);
   saveStores(stores);
-  initStoreDataFiles(newStore.id);
+
+  // Inicializar productos de la tienda clonando catálogo de la principal en Firestore
+  const principalProds = readStoreProducts('principal');
+  if (principalProds.length > 0) {
+    writeStoreProducts(newStore.id, principalProds);
+  } else {
+    cachedProducts.set(newStore.id, []);
+  }
+  cachedOrders.set(newStore.id, []);
+
+  if (ownerUid) {
+    linkStoreOwner({
+      storeId: newStore.id,
+      uid: ownerUid,
+      email: newStore.ownerEmail,
+      displayName: newStore.name,
+      role: 'store_owner'
+    });
+  }
 
   return newStore;
 }
 
-/**
- * Actualizar configuración / plan / cuota de una tienda
- */
+function findStoresByOwner({ email, uid }) {
+  const stores = getAllStores();
+  const cleanEmail = (email || '').toLowerCase().trim();
+  return stores.filter(s => {
+    if (uid && s.ownerUid === uid) return true;
+    if (cleanEmail && s.ownerEmail && s.ownerEmail.toLowerCase() === cleanEmail) return true;
+    return false;
+  });
+}
+
+function linkStoreOwner({ storeId, uid, email, displayName, role }) {
+  const stores = getAllStores();
+  const store = stores.find(s => s.id === storeId || s.subdomain === storeId);
+  if (store) {
+    if (uid) store.ownerUid = uid;
+    if (email) store.ownerEmail = email;
+    saveStores(stores);
+  }
+
+  if (FirebaseDb && typeof FirebaseDb.saveStoreOwner === 'function') {
+    FirebaseDb.saveStoreOwner({
+      uid,
+      email: email || '',
+      displayName: displayName || (store ? store.name : ''),
+      role: role || 'store_owner',
+      storeId: store ? store.id : (storeId || ''),
+      subdomain: store ? store.subdomain : '',
+      createdAt: new Date().toISOString()
+    }).catch(err => console.warn('Firestore store owner sync note:', err.message));
+  }
+  return store;
+}
+
 function updateStore(id, updates) {
   const stores = getAllStores();
   const idx = stores.findIndex(s => s.id === id || s.subdomain === id);
@@ -453,30 +538,37 @@ function getDatabaseInfo() {
 
   return {
     provider: 'Firebase Firestore',
-    edition: 'Enterprise Free Tier / Spark',
+    edition: 'Enterprise Cloud DB',
     projectId: 'applied-sunlight-dgtt6',
     databaseId: 'ai-studio-capfit-89d6a925-ec0e-426b-9d91-c793f721e963',
     connected: status.isConnected,
-    collections: ['stores', 'products', 'orders', 'ai_logs'],
+    storageType: '100% Cloud Database (Firestore)',
+    collections: ['stores', 'products', 'orders', 'ai_logs', 'store_owners'],
     multiTenant: true,
     statusText: status.isConnected ? 'Conectada y Operativa' : 'Verificando enlace'
   };
 }
 
 module.exports = {
-  initDefaultStores,
+  init,
   getAllStores,
   getStoreById,
   getStoreBySubdomain,
   resolveStoreFromRequest,
   readStoreProducts,
+  fetchStoreProductsFromDb,
   writeStoreProducts,
+  deleteStoreProduct,
+  syncStoreProductsToFirestore,
   readStoreOrders,
+  fetchStoreOrdersFromDb,
   writeStoreOrders,
   checkAndDeductAiCredit,
   getAiQuotaStatus,
   createStore,
   updateStore,
   getCurrentPeriod,
-  getDatabaseInfo
+  getDatabaseInfo,
+  findStoresByOwner,
+  linkStoreOwner
 };

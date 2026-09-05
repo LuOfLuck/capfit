@@ -62,14 +62,6 @@ let gorraActiva  = null;     // gorra seleccionada actualmente...
 ...
 ```
 
-### model3d.js
-**Ruta:** `js/model3d.js`
-**Líneas:** 1
-**Descripción:** Archivo JavaScript
-```js
-...
-```
-
 ### piropos.js
 **Ruta:** `js/piropos.js`
 **Líneas:** 24
@@ -134,17 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
   --black: #0a0a0a;...
 ```
 
-## JSON Files
+## Database & Persistence
+El catálogo de productos, órdenes y configuración de tiendas se gestiona 100% en la nube mediante **Firebase Firestore** (`stores`, `products`, `orders`, `ai_logs`, `store_owners`), sin dependencia de archivos JSON locales.
 
-### gorras.json
-**Ruta:** `gorras.json`
-**Líneas:** 38
-**Descripción:** Archivo JSON
-```json
-[
-  {
-    "id": "clasica-negra",...
-```
+## JSON Files
 
 ### package.json
 **Ruta:** `package.json`

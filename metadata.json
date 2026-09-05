@@ -1,6 +1,6 @@
 {
   "name": "CAPFIT",
-  "description": "Multi-tenant e-commerce platform for caps and hats with virtual 3D viewer, AI Try-On with monthly quota management, store subdomains, and backoffice management.",
+  "description": "Multi-tenant e-commerce platform for caps, sunglasses and accessories with AI Try-On, monthly quota management, store subdomains, and backoffice management.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -5,7 +5,6 @@ window.formatPrecio = function(n) {
 window.formatPrice = window.formatPrecio;
 
 const CONFIG = {
-  model3D:    'assets/hat.glb',
   whatsapp:   '5491138607910',      // ← tu número sin + ni espacios
   whatsappMsg:'Hola! Vi una gorra en CAPFIT y me encantó. ¡Quiero comprarla!',
 
