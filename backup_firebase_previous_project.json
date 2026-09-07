@@ -1,0 +1,1603 @@
+{
+  "stores": [
+    {
+      "tagline": "Tienda oficial Prendakxp",
+      "aiMonthlyLimit": 100,
+      "active": true,
+      "username": "prendakxp",
+      "updatedAt": "2026-09-05T18:14:24.633Z",
+      "name": "Prendakxp",
+      "plan": "Starter",
+      "aiGenerationsUsed": 0,
+      "subdomain": "prendakxp",
+      "createdAt": "2026-09-05T17:18:36.244Z",
+      "id": "prendakxp",
+      "ownerUid": null,
+      "password": "123456",
+      "ownerEmail": "dav1342gf@gmail.com",
+      "aiPeriod": "2026-09",
+      "fullDomain": "prendakxp.capfit.shop",
+      "brandColor": "#111111"
+    },
+    {
+      "brandColor": "#111111",
+      "password": "capfit2026",
+      "fullDomain": "capfit.shop",
+      "aiPeriod": "2026-09",
+      "subdomain": "capfit",
+      "ownerEmail": "admin@capfit.shop",
+      "ownerUid": null,
+      "plan": "Enterprise",
+      "id": "principal",
+      "createdAt": "2026-09-05T19:46:21.847Z",
+      "name": "CAPFIT Oficial",
+      "adminPassword": "capfit2026",
+      "aiGenerationsUsed": 12,
+      "active": true,
+      "username": "admin",
+      "tagline": "Gorras premium y probador virtual con IA",
+      "adminUsername": "admin",
+      "aiCurrentPeriod": "2026-09",
+      "aiMonthlyLimit": 100,
+      "updatedAt": "2026-09-05T18:14:24.633Z"
+    },
+    {
+      "createdAt": "2026-09-03T21:21:28.480Z",
+      "plan": "Starter",
+      "subdomain": "tienda1",
+      "name": "StreetWear Caps",
+      "aiMonthlyLimit": 100,
+      "ownerEmail": "contacto@tienda1.com",
+      "aiGenerationsUsed": 26,
+      "fullDomain": "tienda1.capfit.shop",
+      "brandColor": "#0f172a",
+      "ownerUid": null,
+      "aiPeriod": "2026-09",
+      "tagline": "Colecciones urbanas y de autor",
+      "password": "tienda1pass",
+      "active": true,
+      "updatedAt": "2026-09-05T18:14:24.633Z",
+      "id": "tienda1",
+      "username": "admin_tienda1"
+    },
+    {
+      "fullDomain": "tienda2.capfit.shop",
+      "brandColor": "#7c2d12",
+      "username": "admin_tienda2",
+      "ownerEmail": "hola@vintagecaps.com",
+      "tagline": "Gorras retro y clásicas personalizadas",
+      "updatedAt": "2026-09-05T18:14:24.633Z",
+      "id": "tienda2",
+      "plan": "Pro",
+      "name": "Vintage Headwear",
+      "active": true,
+      "password": "tienda2pass",
+      "aiPeriod": "2026-09",
+      "aiMonthlyLimit": 100,
+      "ownerUid": null,
+      "aiGenerationsUsed": 100,
+      "subdomain": "tienda2",
+      "createdAt": "2026-09-03T21:21:28.480Z"
+    }
+  ],
+  "products": [
+    {
+      "categoria": "anteojo",
+      "color": "Negro / Plata",
+      "nombre": "Aviador Albiceleste",
+      "descripcion": "Protección UV400 categoría 3, Patillas flexibles antideslizantes, Diseño ergonómico confort, Garantía de 6 meses",
+      "id": "anteojo-clasico-banda",
+      "tag": "Nuevo",
+      "imgFrontal": "assets/anteojos/band.webp",
+      "colores": [
+        {
+          "name": "Negro / Plata",
+          "hex": "#111111"
+        },
+        {
+          "hex": "#c0c0c0",
+          "name": "Plata"
+        }
+      ],
+      "esNuevo": true,
+      "storeId": "prendakxp",
+      "badge": "Nuevo",
+      "rating": 4.7,
+      "imagen": "assets/anteojos/band.webp",
+      "marca": "CAPFIT",
+      "coleccion": "Urbana",
+      "tipo": "anteojo",
+      "destacado": false,
+      "reviews": 31,
+      "imgPreview": "assets/anteojos/band.webp",
+      "stock": 10,
+      "detalles": [
+        "Protección UV400 categoría 3",
+        "Patillas flexibles antideslizantes",
+        "Diseño ergonómico confort",
+        "Garantía de 6 meses"
+      ],
+      "precio": 19900,
+      "precioAnterior": null,
+      "updatedAt": "2026-09-05T17:45:11.631Z"
+    },
+    {
+      "categoria": "anteojo",
+      "precioAnterior": 22000,
+      "descripcion": "Protección UV400, Marco metálico liviano, Cristales polarizados, Incluye estuche rígido y paño",
+      "color": "Plata / Celeste",
+      "precio": 18900,
+      "esNuevo": false,
+      "marca": "CAPFIT",
+      "colores": [
+        {
+          "hex": "#c0c0c0",
+          "name": "Plata / Celeste"
+        },
+        {
+          "name": "Oro",
+          "hex": "#d4af37"
+        }
+      ],
+      "storeId": "prendakxp",
+      "badge": "Oferta",
+      "imgPreview": "assets/anteojos/ant_arg.png",
+      "nombre": "Sol de Mayo",
+      "detalles": [
+        "Protección UV400",
+        "Marco metálico liviano",
+        "Cristales polarizados",
+        "Incluye estuche rígido y paño"
+      ],
+      "coleccion": "Argentina",
+      "id": "anteojo-sol-de-mayo",
+      "destacado": false,
+      "reviews": 42,
+      "updatedAt": "2026-09-05T17:45:11.545Z",
+      "stock": 6,
+      "imagen": "assets/anteojos/ant_arg.png",
+      "tag": "Oferta",
+      "imgFrontal": "assets/anteojos/ant_arg.png",
+      "rating": 4.8,
+      "tipo": "anteojo"
+    },
+    {
+      "reviews": 74,
+      "destacado": true,
+      "imagen": "assets/gorras/Gorra_azul_lateral.webp",
+      "coleccion": "Urbana",
+      "color": "Azul Marino",
+      "rating": 4.9,
+      "descripcion": "Garbardina resistente, Bordado frontal en relieve, Cierre ajustable, Edición limitada",
+      "nombre": "Azul Navy",
+      "detalles": [
+        "Garbardina resistente",
+        "Bordado frontal en relieve",
+        "Cierre ajustable",
+        "Edición limitada"
+      ],
+      "precioAnterior": 34900,
+      "marca": "CAPFIT",
+      "updatedAt": "2026-09-05T17:45:11.113Z",
+      "badge": "Oferta",
+      "imgPreview": "assets/gorras/Gorra_azul_lateral.webp",
+      "precio": 28900,
+      "tag": "Oferta",
+      "categoria": "gorra",
+      "tipo": "gorra",
+      "id": "azul-navy",
+      "esNuevo": false,
+      "colores": [
+        {
+          "name": "Azul Marino",
+          "hex": "#1a2a4a"
+        },
+        {
+          "hex": "#0d1b2a",
+          "name": "Azul Noche"
+        },
+        {
+          "name": "Gris",
+          "hex": "#4a5568"
+        }
+      ],
+      "storeId": "prendakxp",
+      "stock": 4,
+      "imgFrontal": "assets/gorras/Gorra_azul_frente.webp"
+    },
+    {
+      "nombre": "Beige Minimal",
+      "categoria": "gorra",
+      "colores": [
+        {
+          "name": "Beige",
+          "hex": "#c8b093"
+        },
+        {
+          "hex": "#6b4c1e",
+          "name": "Marrón"
+        }
+      ],
+      "esNuevo": true,
+      "storeId": "prendakxp",
+      "stock": 8,
+      "rating": 4.8,
+      "imgFrontal": "assets/gorras/Agila_frente.webp",
+      "descripcion": "Algodón peinado 100%, Hebilla metálica, Visera curva, Unisex",
+      "imagen": "assets/gorras/Agila_lateral.webp",
+      "destacado": false,
+      "color": "Beige",
+      "tipo": "gorra",
+      "tag": "Nuevo",
+      "reviews": 96,
+      "coleccion": "Urbana",
+      "precioAnterior": null,
+      "id": "beige-minimal",
+      "updatedAt": "2026-09-05T17:45:11.022Z",
+      "badge": "Nuevo",
+      "detalles": [
+        "Algodón peinado 100%",
+        "Hebilla metálica",
+        "Visera curva",
+        "Unisex"
+      ],
+      "precio": 24900,
+      "imgPreview": "assets/gorras/Agila_lateral.webp",
+      "marca": "Minimal"
+    },
+    {
+      "color": "Celeste y Blanco",
+      "colores": [
+        {
+          "hex": "#75aadb",
+          "name": "Celeste y Blanco"
+        },
+        {
+          "hex": "#d4af37",
+          "name": "Dorado"
+        }
+      ],
+      "rating": 5,
+      "precioAnterior": 36000,
+      "categoria": "gorra",
+      "esNuevo": false,
+      "imgFrontal": "assets/gorras/messi_frente.webp",
+      "imagen": "assets/gorras/messi_lateral.webp",
+      "storeId": "prendakxp",
+      "badge": "Oferta",
+      "id": "bicampeon-10",
+      "tag": "Oferta",
+      "nombre": "BiCampeón 10",
+      "detalles": [
+        "Edición oficial BiCampeón",
+        "Bordado conmemorativo número 10",
+        "Parche termoadherido",
+        "Ajuste perfecto"
+      ],
+      "marca": "AFA",
+      "descripcion": "Edición oficial BiCampeón, Bordado conmemorativo número 10, Parche termoadherido, Ajuste perfecto",
+      "destacado": true,
+      "precio": 29900,
+      "tipo": "gorra",
+      "coleccion": "Argentina",
+      "imgPreview": "assets/gorras/messi_lateral.webp",
+      "reviews": 210,
+      "updatedAt": "2026-09-05T17:45:11.380Z",
+      "stock": 5
+    },
+    {
+      "detalles": [
+        "Textil respirable",
+        "Costuras reforzadas",
+        "Cierre strapback de cuero",
+        "Visera plana rígida"
+      ],
+      "imgFrontal": "assets/gorras/blanca_frente.png",
+      "reviews": 37,
+      "updatedAt": "2026-09-05T17:45:11.299Z",
+      "precio": 24900,
+      "color": "Blanco",
+      "tipo": "gorra",
+      "descripcion": "Textil respirable, Costuras reforzadas, Cierre strapback de cuero, Visera plana rígida",
+      "badge": "Nuevo",
+      "destacado": false,
+      "id": "blanca-classic",
+      "marca": "CAPFIT",
+      "coleccion": "Urbana",
+      "imgPreview": "assets/gorras/blanca_lateral.png",
+      "rating": 4.7,
+      "precioAnterior": null,
+      "imagen": "assets/gorras/blanca_lateral.png",
+      "stock": 7,
+      "tag": "Nuevo",
+      "nombre": "Blanca Classic",
+      "colores": [
+        {
+          "name": "Blanco",
+          "hex": "#f5f5f5"
+        },
+        {
+          "name": "Negro Visera",
+          "hex": "#111111"
+        }
+      ],
+      "esNuevo": true,
+      "categoria": "gorra",
+      "storeId": "prendakxp"
+    },
+    {
+      "categoria": "gorra",
+      "stock": 6,
+      "reviews": 128,
+      "imgFrontal": "assets/gorras/Gorra_negra_frente.webp",
+      "tag": "Más vendido",
+      "detalles": [
+        "Algodón premium",
+        "Ajuste regulable",
+        "Unisex",
+        "Logo bordado"
+      ],
+      "precio": 24900,
+      "id": "clasica-negra",
+      "marca": "CAPFIT",
+      "destacado": true,
+      "badge": "Más vendido",
+      "nombre": "Clásica Negra",
+      "coleccion": "Urbana",
+      "descripcion": "Algodón premium, Ajuste regulable, Unisex, Logo bordado",
+      "storeId": "prendakxp",
+      "updatedAt": "2026-09-05T17:45:10.935Z",
+      "imgPreview": "assets/gorras/Gorra_negra_frente.webp",
+      "imagen": "assets/gorras/Gorra_negra_frente.webp",
+      "esNuevo": false,
+      "colores": [
+        {
+          "name": "Negro",
+          "hex": "#111111"
+        },
+        {
+          "name": "Gris",
+          "hex": "#777777"
+        },
+        {
+          "hex": "#f5f5f5",
+          "name": "Blanco"
+        }
+      ],
+      "precioAnterior": null,
+      "rating": 4.9,
+      "tipo": "gorra",
+      "color": "Negro"
+    },
+    {
+      "storeId": "prendakxp",
+      "tag": "Especial",
+      "esNuevo": false,
+      "categoria": "gorra",
+      "imgFrontal": "assets/gorras/messi_dorada_frente.webp",
+      "colores": [
+        {
+          "hex": "#111111",
+          "name": "Negro/Dorado"
+        },
+        {
+          "name": "Oro",
+          "hex": "#c8a020"
+        }
+      ],
+      "descripcion": "Bordado en hilo dorado premium, Estructura rígida de alta densidad, Banda interior absorbente, Caja coleccionable",
+      "detalles": [
+        "Bordado en hilo dorado premium",
+        "Estructura rígida de alta densidad",
+        "Banda interior absorbente",
+        "Caja coleccionable"
+      ],
+      "stock": 3,
+      "id": "edicion-premium",
+      "precio": 33900,
+      "precioAnterior": null,
+      "coleccion": "Edición Especial",
+      "marca": "CAPFIT",
+      "imgPreview": "assets/gorras/messi_dorada_lateral.webp",
+      "nombre": "Edición Premium",
+      "badge": "Especial",
+      "destacado": true,
+      "imagen": "assets/gorras/messi_dorada_lateral.webp",
+      "tipo": "gorra",
+      "rating": 5,
+      "color": "Negro/Dorado",
+      "updatedAt": "2026-09-05T17:45:11.193Z",
+      "reviews": 53
+    },
+    {
+      "precioAnterior": null,
+      "esNuevo": true,
+      "id": "la-arana-9",
+      "nombre": "La Araña 9",
+      "colores": [
+        {
+          "hex": "#1c3d5a",
+          "name": "Azul Albiceleste"
+        },
+        {
+          "name": "Blanco",
+          "hex": "#ffffff"
+        }
+      ],
+      "storeId": "prendakxp",
+      "descripcion": "Diseño exclusivo Araña 9, Visera curva pro, Tejido liviano antihumedad, Etiqueta holográfica de autenticidad",
+      "detalles": [
+        "Diseño exclusivo Araña 9",
+        "Visera curva pro",
+        "Tejido liviano antihumedad",
+        "Etiqueta holográfica de autenticidad"
+      ],
+      "color": "Azul Albiceleste",
+      "marca": "AFA",
+      "categoria": "gorra",
+      "imgFrontal": "assets/gorras/julian_frente.webp",
+      "imagen": "assets/gorras/julian_lateral.webp",
+      "badge": "Nuevo",
+      "rating": 4.9,
+      "tag": "Nuevo",
+      "updatedAt": "2026-09-05T17:45:11.466Z",
+      "precio": 27900,
+      "coleccion": "Argentina",
+      "imgPreview": "assets/gorras/julian_lateral.webp",
+      "stock": 9,
+      "reviews": 88,
+      "destacado": true,
+      "tipo": "gorra"
+    },
+    {
+      "categoria": "anteojo",
+      "precio": 19900,
+      "esNuevo": true,
+      "detalles": [
+        "Protección UV400 categoría 3",
+        "Patillas flexibles antideslizantes",
+        "Diseño ergonómico confort",
+        "Garantía de 6 meses"
+      ],
+      "imgPreview": "assets/anteojos/band.webp",
+      "color": "Negro / Plata",
+      "colores": [
+        {
+          "hex": "#111111",
+          "name": "Negro / Plata"
+        },
+        {
+          "name": "Plata",
+          "hex": "#c0c0c0"
+        }
+      ],
+      "storeId": "principal",
+      "marca": "CAPFIT",
+      "precioAnterior": null,
+      "id": "anteojo-clasico-banda",
+      "badge": "Nuevo",
+      "tag": "Nuevo",
+      "coleccion": "Urbana",
+      "imagen": "assets/anteojos/band.webp",
+      "imgFrontal": "assets/anteojos/band.webp",
+      "destacado": false,
+      "rating": 4.7,
+      "nombre": "Aviador Albiceleste",
+      "reviews": 31,
+      "tipo": "anteojo",
+      "descripcion": "Protección UV400 categoría 3, Patillas flexibles antideslizantes, Diseño ergonómico confort, Garantía de 6 meses",
+      "updatedAt": "2026-09-05T18:15:08.138Z",
+      "stock": 9
+    },
+    {
+      "detalles": [
+        "Protección UV400",
+        "Marco metálico liviano",
+        "Cristales polarizados",
+        "Incluye estuche rígido y paño"
+      ],
+      "imgFrontal": "assets/anteojos/ant_arg.png",
+      "reviews": 42,
+      "updatedAt": "2026-09-05T18:15:08.139Z",
+      "precio": 18900,
+      "color": "Plata / Celeste",
+      "tipo": "anteojo",
+      "descripcion": "Protección UV400, Marco metálico liviano, Cristales polarizados, Incluye estuche rígido y paño",
+      "badge": "Oferta",
+      "destacado": false,
+      "id": "anteojo-sol-de-mayo",
+      "marca": "CAPFIT",
+      "coleccion": "Argentina",
+      "imgPreview": "assets/anteojos/ant_arg.png",
+      "rating": 4.8,
+      "precioAnterior": 22000,
+      "imagen": "assets/anteojos/ant_arg.png",
+      "stock": 6,
+      "tag": "Oferta",
+      "nombre": "Sol de Mayo",
+      "colores": [
+        {
+          "hex": "#c0c0c0",
+          "name": "Plata / Celeste"
+        },
+        {
+          "hex": "#d4af37",
+          "name": "Oro"
+        }
+      ],
+      "esNuevo": false,
+      "categoria": "anteojo",
+      "storeId": "principal"
+    },
+    {
+      "updatedAt": "2026-09-05T18:15:08.139Z",
+      "colores": [
+        {
+          "hex": "#1a2a4a",
+          "name": "Azul Marino"
+        },
+        {
+          "name": "Azul Noche",
+          "hex": "#0d1b2a"
+        },
+        {
+          "hex": "#4a5568",
+          "name": "Gris"
+        }
+      ],
+      "rating": 4.9,
+      "esNuevo": false,
+      "imagen": "assets/gorras/Gorra_azul_lateral.webp",
+      "storeId": "principal",
+      "stock": 4,
+      "coleccion": "Urbana",
+      "nombre": "Azul Navy",
+      "destacado": true,
+      "detalles": [
+        "Garbardina resistente",
+        "Bordado frontal en relieve",
+        "Cierre ajustable",
+        "Edición limitada"
+      ],
+      "descripcion": "Garbardina resistente, Bordado frontal en relieve, Cierre ajustable, Edición limitada",
+      "tag": "Oferta",
+      "imgFrontal": "assets/gorras/Gorra_azul_frente.webp",
+      "color": "Azul Marino",
+      "precio": 28900,
+      "id": "azul-navy",
+      "precioAnterior": 34900,
+      "tipo": "gorra",
+      "reviews": 74,
+      "categoria": "gorra",
+      "badge": "Oferta",
+      "marca": "CAPFIT",
+      "imgPreview": "assets/gorras/Gorra_azul_lateral.webp"
+    },
+    {
+      "categoria": "gorra",
+      "detalles": [
+        "Algodón peinado 100%",
+        "Hebilla metálica",
+        "Visera curva",
+        "Unisex"
+      ],
+      "nombre": "Beige Minimal",
+      "stock": 8,
+      "imagen": "assets/gorras/Agila_lateral.webp",
+      "storeId": "principal",
+      "tipo": "gorra",
+      "rating": 4.8,
+      "esNuevo": true,
+      "id": "beige-minimal",
+      "colores": [
+        {
+          "name": "Beige",
+          "hex": "#c8b093"
+        },
+        {
+          "name": "Marrón",
+          "hex": "#6b4c1e"
+        }
+      ],
+      "imgPreview": "assets/gorras/Agila_lateral.webp",
+      "descripcion": "Algodón peinado 100%, Hebilla metálica, Visera curva, Unisex",
+      "tag": "Nuevo",
+      "marca": "Minimal",
+      "coleccion": "Urbana",
+      "destacado": false,
+      "badge": "Nuevo",
+      "reviews": 96,
+      "updatedAt": "2026-09-05T18:15:08.139Z",
+      "color": "Beige",
+      "precio": 24900,
+      "imgFrontal": "assets/gorras/Agila_frente.webp",
+      "precioAnterior": null
+    },
+    {
+      "tipo": "gorra",
+      "tag": "Oferta",
+      "color": "Celeste y Blanco",
+      "destacado": true,
+      "precio": 29900,
+      "coleccion": "Argentina",
+      "imgPreview": "assets/gorras/messi_lateral.webp",
+      "reviews": 210,
+      "badge": "Oferta",
+      "updatedAt": "2026-09-05T18:15:08.139Z",
+      "marca": "AFA",
+      "colores": [
+        {
+          "hex": "#75aadb",
+          "name": "Celeste y Blanco"
+        },
+        {
+          "name": "Dorado",
+          "hex": "#d4af37"
+        }
+      ],
+      "rating": 5,
+      "detalles": [
+        "Edición oficial BiCampeón",
+        "Bordado conmemorativo número 10",
+        "Parche termoadherido",
+        "Ajuste perfecto"
+      ],
+      "imgFrontal": "assets/gorras/messi_frente.webp",
+      "esNuevo": false,
+      "imagen": "assets/gorras/messi_lateral.webp",
+      "storeId": "principal",
+      "categoria": "gorra",
+      "descripcion": "Edición oficial BiCampeón, Bordado conmemorativo número 10, Parche termoadherido, Ajuste perfecto",
+      "precioAnterior": 36000,
+      "nombre": "BiCampeón 10",
+      "stock": 5,
+      "id": "bicampeon-10"
+    },
+    {
+      "precioAnterior": null,
+      "descripcion": "Textil respirable, Costuras reforzadas, Cierre strapback de cuero, Visera plana rígida",
+      "imagen": "assets/gorras/blanca_lateral.png",
+      "rating": 4.7,
+      "imgFrontal": "assets/gorras/blanca_frente.png",
+      "stock": 7,
+      "categoria": "gorra",
+      "storeId": "principal",
+      "nombre": "Blanca Classic",
+      "esNuevo": true,
+      "colores": [
+        {
+          "name": "Blanco",
+          "hex": "#f5f5f5"
+        },
+        {
+          "hex": "#111111",
+          "name": "Negro Visera"
+        }
+      ],
+      "detalles": [
+        "Textil respirable",
+        "Costuras reforzadas",
+        "Cierre strapback de cuero",
+        "Visera plana rígida"
+      ],
+      "reviews": 37,
+      "marca": "CAPFIT",
+      "tag": "Nuevo",
+      "precio": 24900,
+      "updatedAt": "2026-09-05T18:15:08.139Z",
+      "id": "blanca-classic",
+      "imgPreview": "assets/gorras/blanca_lateral.png",
+      "badge": "Nuevo",
+      "tipo": "gorra",
+      "coleccion": "Urbana",
+      "color": "Blanco",
+      "destacado": false
+    },
+    {
+      "badge": "Especial",
+      "detalles": [
+        "Bordado en hilo dorado premium",
+        "Estructura rígida de alta densidad",
+        "Banda interior absorbente",
+        "Caja coleccionable"
+      ],
+      "reviews": 53,
+      "marca": "CAPFIT",
+      "precio": 33900,
+      "updatedAt": "2026-09-05T18:15:08.139Z",
+      "coleccion": "Edición Especial",
+      "tag": "Especial",
+      "imgFrontal": "assets/gorras/messi_dorada_frente.webp",
+      "color": "Negro/Dorado",
+      "destacado": true,
+      "descripcion": "Bordado en hilo dorado premium, Estructura rígida de alta densidad, Banda interior absorbente, Caja coleccionable",
+      "precioAnterior": null,
+      "stock": 3,
+      "rating": 5,
+      "imagen": "assets/gorras/messi_dorada_lateral.webp",
+      "tipo": "gorra",
+      "imgPreview": "assets/gorras/messi_dorada_lateral.webp",
+      "categoria": "gorra",
+      "storeId": "principal",
+      "colores": [
+        {
+          "name": "Negro/Dorado",
+          "hex": "#111111"
+        },
+        {
+          "hex": "#c8a020",
+          "name": "Oro"
+        }
+      ],
+      "id": "edicion-premium",
+      "esNuevo": false,
+      "nombre": "Edición Premium"
+    },
+    {
+      "destacado": true,
+      "precio": 27900,
+      "color": "Azul Albiceleste",
+      "tipo": "gorra",
+      "coleccion": "Argentina",
+      "descripcion": "Diseño exclusivo Araña 9, Visera curva pro, Tejido liviano antihumedad, Etiqueta holográfica de autenticidad",
+      "imgFrontal": "assets/gorras/julian_frente.webp",
+      "tag": "Nuevo",
+      "badge": "Nuevo",
+      "updatedAt": "2026-09-05T18:15:08.139Z",
+      "colores": [
+        {
+          "hex": "#1c3d5a",
+          "name": "Azul Albiceleste"
+        },
+        {
+          "name": "Blanco",
+          "hex": "#ffffff"
+        }
+      ],
+      "marca": "AFA",
+      "esNuevo": true,
+      "id": "la-arana-9",
+      "storeId": "principal",
+      "reviews": 88,
+      "precioAnterior": null,
+      "categoria": "gorra",
+      "rating": 4.9,
+      "imagen": "assets/gorras/julian_lateral.webp",
+      "detalles": [
+        "Diseño exclusivo Araña 9",
+        "Visera curva pro",
+        "Tejido liviano antihumedad",
+        "Etiqueta holográfica de autenticidad"
+      ],
+      "stock": 9,
+      "imgPreview": "assets/gorras/julian_lateral.webp",
+      "nombre": "La Araña 9"
+    },
+    {
+      "marca": "CAPFIT",
+      "imagen": "assets/anteojos/band.webp",
+      "rating": 4.7,
+      "badge": "Nuevo",
+      "categoria": "anteojo",
+      "imgPreview": "assets/anteojos/band.webp",
+      "tag": "Nuevo",
+      "reviews": 31,
+      "id": "anteojo-clasico-banda",
+      "nombre": "Aviador Albiceleste",
+      "precioAnterior": null,
+      "color": "Negro / Plata",
+      "destacado": false,
+      "storeId": "tienda1",
+      "precio": 19900,
+      "stock": 10,
+      "esNuevo": true,
+      "coleccion": "Urbana",
+      "imgFrontal": "assets/anteojos/band.webp",
+      "colores": [
+        {
+          "hex": "#111111",
+          "name": "Negro / Plata"
+        },
+        {
+          "name": "Plata",
+          "hex": "#c0c0c0"
+        }
+      ],
+      "updatedAt": "2026-09-05T17:45:09.977Z",
+      "descripcion": "Protección UV400 categoría 3, Patillas flexibles antideslizantes, Diseño ergonómico confort, Garantía de 6 meses",
+      "tipo": "anteojo",
+      "detalles": [
+        "Protección UV400 categoría 3",
+        "Patillas flexibles antideslizantes",
+        "Diseño ergonómico confort",
+        "Garantía de 6 meses"
+      ]
+    },
+    {
+      "tipo": "gorra",
+      "precioAnterior": 34900,
+      "color": "Azul Marino",
+      "precio": 28900,
+      "detalles": [
+        "Garbardina resistente",
+        "Bordado frontal en relieve",
+        "Cierre ajustable",
+        "Edición limitada"
+      ],
+      "reviews": 74,
+      "imgPreview": "assets/gorras/Gorra_azul_lateral.webp",
+      "badge": "Oferta",
+      "categoria": "gorra",
+      "marca": "CAPFIT",
+      "descripcion": "Garbardina resistente, Bordado frontal en relieve, Cierre ajustable, Edición limitada",
+      "tag": "Oferta",
+      "colores": [
+        {
+          "hex": "#1a2a4a",
+          "name": "Azul Marino"
+        },
+        {
+          "hex": "#0d1b2a",
+          "name": "Azul Noche"
+        },
+        {
+          "hex": "#4a5568",
+          "name": "Gris"
+        }
+      ],
+      "rating": 4.9,
+      "esNuevo": false,
+      "imagen": "assets/gorras/Gorra_azul_lateral.webp",
+      "updatedAt": "2026-09-05T17:45:09.393Z",
+      "storeId": "tienda1",
+      "coleccion": "Urbana",
+      "imgFrontal": "assets/gorras/Gorra_azul_frente.webp",
+      "nombre": "Azul Navy",
+      "stock": 4,
+      "id": "azul-navy",
+      "destacado": true
+    },
+    {
+      "storeId": "tienda1",
+      "esNuevo": true,
+      "colores": [
+        {
+          "name": "Beige",
+          "hex": "#c8b093"
+        },
+        {
+          "name": "Marrón",
+          "hex": "#6b4c1e"
+        }
+      ],
+      "imgFrontal": "assets/gorras/Agila_frente.webp",
+      "categoria": "gorra",
+      "detalles": [
+        "Algodón peinado 100%",
+        "Hebilla metálica",
+        "Visera curva",
+        "Unisex"
+      ],
+      "stock": 8,
+      "tipo": "gorra",
+      "id": "beige-minimal",
+      "precio": 24900,
+      "marca": "Minimal",
+      "destacado": false,
+      "tag": "Nuevo",
+      "imgPreview": "assets/gorras/Agila_lateral.webp",
+      "nombre": "Beige Minimal",
+      "coleccion": "Urbana",
+      "badge": "Nuevo",
+      "descripcion": "Algodón peinado 100%, Hebilla metálica, Visera curva, Unisex",
+      "imagen": "assets/gorras/Agila_lateral.webp",
+      "rating": 4.8,
+      "updatedAt": "2026-09-05T17:45:09.284Z",
+      "precioAnterior": null,
+      "color": "Beige",
+      "reviews": 96
+    },
+    {
+      "storeId": "tienda1",
+      "precio": 29900,
+      "detalles": [
+        "Edición oficial BiCampeón",
+        "Bordado conmemorativo número 10",
+        "Parche termoadherido",
+        "Ajuste perfecto"
+      ],
+      "esNuevo": false,
+      "stock": 5,
+      "colores": [
+        {
+          "name": "Celeste y Blanco",
+          "hex": "#75aadb"
+        },
+        {
+          "name": "Dorado",
+          "hex": "#d4af37"
+        }
+      ],
+      "categoria": "gorra",
+      "imgPreview": "assets/gorras/messi_lateral.webp",
+      "imagen": "assets/gorras/messi_lateral.webp",
+      "rating": 5,
+      "destacado": true,
+      "marca": "AFA",
+      "tag": "Oferta",
+      "coleccion": "Argentina",
+      "id": "bicampeon-10",
+      "badge": "Oferta",
+      "tipo": "gorra",
+      "updatedAt": "2026-09-05T17:45:09.707Z",
+      "reviews": 210,
+      "nombre": "BiCampeón 10",
+      "color": "Celeste y Blanco",
+      "descripcion": "Edición oficial BiCampeón, Bordado conmemorativo número 10, Parche termoadherido, Ajuste perfecto",
+      "imgFrontal": "assets/gorras/messi_frente.webp",
+      "precioAnterior": 36000
+    },
+    {
+      "esNuevo": true,
+      "colores": [
+        {
+          "hex": "#f5f5f5",
+          "name": "Blanco"
+        },
+        {
+          "hex": "#111111",
+          "name": "Negro Visera"
+        }
+      ],
+      "tag": "Nuevo",
+      "descripcion": "Textil respirable, Costuras reforzadas, Cierre strapback de cuero, Visera plana rígida",
+      "precioAnterior": null,
+      "storeId": "tienda1",
+      "updatedAt": "2026-09-05T17:45:09.622Z",
+      "imgFrontal": "assets/gorras/blanca_frente.png",
+      "tipo": "gorra",
+      "precio": 24900,
+      "destacado": false,
+      "coleccion": "Urbana",
+      "stock": 7,
+      "nombre": "Blanca Classic",
+      "imgPreview": "assets/gorras/blanca_lateral.png",
+      "color": "Blanco",
+      "detalles": [
+        "Textil respirable",
+        "Costuras reforzadas",
+        "Cierre strapback de cuero",
+        "Visera plana rígida"
+      ],
+      "marca": "CAPFIT",
+      "imagen": "assets/gorras/blanca_lateral.png",
+      "id": "blanca-classic",
+      "reviews": 37,
+      "badge": "Nuevo",
+      "rating": 4.7,
+      "categoria": "gorra"
+    },
+    {
+      "reviews": 128,
+      "updatedAt": "2026-09-05T17:45:09.178Z",
+      "imagen": "assets/gorras/Gorra_negra_frente.webp",
+      "color": "Negro",
+      "rating": 4.9,
+      "nombre": "Clásica Negra",
+      "tipo": "gorra",
+      "detalles": [
+        "Algodón premium",
+        "Ajuste regulable",
+        "Unisex",
+        "Logo bordado"
+      ],
+      "destacado": true,
+      "imgPreview": "assets/gorras/Gorra_negra_frente.webp",
+      "marca": "CAPFIT",
+      "descripcion": "Algodón premium, Ajuste regulable, Unisex, Logo bordado",
+      "coleccion": "Urbana",
+      "badge": "Más vendido",
+      "id": "clasica-negra",
+      "tag": "Más vendido",
+      "precio": 24900,
+      "precioAnterior": null,
+      "imgFrontal": "assets/gorras/Gorra_negra_frente.webp",
+      "esNuevo": false,
+      "colores": [
+        {
+          "hex": "#111111",
+          "name": "Negro"
+        },
+        {
+          "name": "Gris",
+          "hex": "#777777"
+        },
+        {
+          "name": "Blanco",
+          "hex": "#f5f5f5"
+        }
+      ],
+      "categoria": "gorra",
+      "storeId": "tienda1",
+      "stock": 6
+    },
+    {
+      "reviews": 53,
+      "updatedAt": "2026-09-05T17:45:09.489Z",
+      "imagen": "assets/gorras/messi_dorada_lateral.webp",
+      "tag": "Especial",
+      "imgFrontal": "assets/gorras/messi_dorada_frente.webp",
+      "rating": 5,
+      "nombre": "Edición Premium",
+      "tipo": "gorra",
+      "destacado": true,
+      "descripcion": "Bordado en hilo dorado premium, Estructura rígida de alta densidad, Banda interior absorbente, Caja coleccionable",
+      "coleccion": "Edición Especial",
+      "stock": 3,
+      "precio": 33900,
+      "color": "Negro/Dorado",
+      "id": "edicion-premium",
+      "precioAnterior": null,
+      "imgPreview": "assets/gorras/messi_dorada_lateral.webp",
+      "detalles": [
+        "Bordado en hilo dorado premium",
+        "Estructura rígida de alta densidad",
+        "Banda interior absorbente",
+        "Caja coleccionable"
+      ],
+      "marca": "CAPFIT",
+      "esNuevo": false,
+      "colores": [
+        {
+          "name": "Negro/Dorado",
+          "hex": "#111111"
+        },
+        {
+          "hex": "#c8a020",
+          "name": "Oro"
+        }
+      ],
+      "storeId": "tienda1",
+      "categoria": "gorra",
+      "badge": "Especial"
+    },
+    {
+      "tipo": "gorra",
+      "precio": 27900,
+      "descripcion": "Diseño exclusivo Araña 9, Visera curva pro, Tejido liviano antihumedad, Etiqueta holográfica de autenticidad",
+      "detalles": [
+        "Diseño exclusivo Araña 9",
+        "Visera curva pro",
+        "Tejido liviano antihumedad",
+        "Etiqueta holográfica de autenticidad"
+      ],
+      "id": "la-arana-9",
+      "imgFrontal": "assets/gorras/julian_frente.webp",
+      "updatedAt": "2026-09-05T17:45:09.793Z",
+      "reviews": 88,
+      "coleccion": "Argentina",
+      "stock": 9,
+      "destacado": true,
+      "precioAnterior": null,
+      "color": "Azul Albiceleste",
+      "rating": 4.9,
+      "colores": [
+        {
+          "name": "Azul Albiceleste",
+          "hex": "#1c3d5a"
+        },
+        {
+          "name": "Blanco",
+          "hex": "#ffffff"
+        }
+      ],
+      "tag": "Nuevo",
+      "esNuevo": true,
+      "imagen": "assets/gorras/julian_lateral.webp",
+      "imgPreview": "assets/gorras/julian_lateral.webp",
+      "storeId": "tienda1",
+      "nombre": "La Araña 9",
+      "categoria": "gorra",
+      "badge": "Nuevo",
+      "marca": "AFA"
+    },
+    {
+      "imgFrontal": "assets/anteojos/band.webp",
+      "id": "anteojo-clasico-banda",
+      "categoria": "anteojo",
+      "precio": 19900,
+      "stock": 10,
+      "tag": "Nuevo",
+      "reviews": 31,
+      "tipo": "anteojo",
+      "imagen": "assets/anteojos/band.webp",
+      "imgPreview": "assets/anteojos/band.webp",
+      "destacado": false,
+      "rating": 4.7,
+      "marca": "CAPFIT",
+      "precioAnterior": null,
+      "storeId": "tienda2",
+      "coleccion": "Urbana",
+      "esNuevo": true,
+      "badge": "Nuevo",
+      "colores": [
+        {
+          "hex": "#111111",
+          "name": "Negro / Plata"
+        },
+        {
+          "hex": "#c0c0c0",
+          "name": "Plata"
+        }
+      ],
+      "descripcion": "Protección UV400 categoría 3, Patillas flexibles antideslizantes, Diseño ergonómico confort, Garantía de 6 meses",
+      "updatedAt": "2026-09-05T17:45:10.851Z",
+      "nombre": "Aviador Albiceleste",
+      "color": "Negro / Plata",
+      "detalles": [
+        "Protección UV400 categoría 3",
+        "Patillas flexibles antideslizantes",
+        "Diseño ergonómico confort",
+        "Garantía de 6 meses"
+      ]
+    },
+    {
+      "coleccion": "Argentina",
+      "imagen": "assets/anteojos/ant_arg.png",
+      "imgFrontal": "assets/anteojos/ant_arg.png",
+      "marca": "CAPFIT",
+      "rating": 4.8,
+      "badge": "Oferta",
+      "destacado": false,
+      "precioAnterior": 22000,
+      "storeId": "tienda2",
+      "nombre": "Sol de Mayo",
+      "color": "Plata / Celeste",
+      "esNuevo": false,
+      "id": "anteojo-sol-de-mayo",
+      "updatedAt": "2026-09-05T17:45:10.755Z",
+      "descripcion": "Protección UV400, Marco metálico liviano, Cristales polarizados, Incluye estuche rígido y paño",
+      "colores": [
+        {
+          "hex": "#c0c0c0",
+          "name": "Plata / Celeste"
+        },
+        {
+          "name": "Oro",
+          "hex": "#d4af37"
+        }
+      ],
+      "tag": "Oferta",
+      "detalles": [
+        "Protección UV400",
+        "Marco metálico liviano",
+        "Cristales polarizados",
+        "Incluye estuche rígido y paño"
+      ],
+      "imgPreview": "assets/anteojos/ant_arg.png",
+      "reviews": 42,
+      "categoria": "anteojo",
+      "precio": 18900,
+      "stock": 6,
+      "tipo": "anteojo"
+    },
+    {
+      "reviews": 74,
+      "updatedAt": "2026-09-05T17:45:10.287Z",
+      "imagen": "assets/gorras/Gorra_azul_lateral.webp",
+      "tag": "Oferta",
+      "rating": 4.9,
+      "imgFrontal": "assets/gorras/Gorra_azul_frente.webp",
+      "nombre": "Azul Navy",
+      "tipo": "gorra",
+      "destacado": true,
+      "descripcion": "Garbardina resistente, Bordado frontal en relieve, Cierre ajustable, Edición limitada",
+      "coleccion": "Urbana",
+      "stock": 4,
+      "precio": 28900,
+      "color": "Azul Marino",
+      "id": "azul-navy",
+      "precioAnterior": 34900,
+      "imgPreview": "assets/gorras/Gorra_azul_lateral.webp",
+      "detalles": [
+        "Garbardina resistente",
+        "Bordado frontal en relieve",
+        "Cierre ajustable",
+        "Edición limitada"
+      ],
+      "marca": "CAPFIT",
+      "esNuevo": false,
+      "colores": [
+        {
+          "hex": "#1a2a4a",
+          "name": "Azul Marino"
+        },
+        {
+          "hex": "#0d1b2a",
+          "name": "Azul Noche"
+        },
+        {
+          "name": "Gris",
+          "hex": "#4a5568"
+        }
+      ],
+      "storeId": "tienda2",
+      "categoria": "gorra",
+      "badge": "Oferta"
+    },
+    {
+      "coleccion": "Urbana",
+      "badge": "Nuevo",
+      "imgFrontal": "assets/gorras/Agila_frente.webp",
+      "tag": "Nuevo",
+      "destacado": false,
+      "marca": "Minimal",
+      "detalles": [
+        "Algodón peinado 100%",
+        "Hebilla metálica",
+        "Visera curva",
+        "Unisex"
+      ],
+      "id": "beige-minimal",
+      "color": "Beige",
+      "descripcion": "Algodón peinado 100%, Hebilla metálica, Visera curva, Unisex",
+      "reviews": 96,
+      "updatedAt": "2026-09-05T17:45:10.203Z",
+      "precio": 24900,
+      "storeId": "tienda2",
+      "imgPreview": "assets/gorras/Agila_lateral.webp",
+      "categoria": "gorra",
+      "tipo": "gorra",
+      "colores": [
+        {
+          "name": "Beige",
+          "hex": "#c8b093"
+        },
+        {
+          "name": "Marrón",
+          "hex": "#6b4c1e"
+        }
+      ],
+      "stock": 8,
+      "esNuevo": true,
+      "precioAnterior": null,
+      "nombre": "Beige Minimal",
+      "rating": 4.8,
+      "imagen": "assets/gorras/Agila_lateral.webp"
+    },
+    {
+      "colores": [
+        {
+          "name": "Celeste y Blanco",
+          "hex": "#75aadb"
+        },
+        {
+          "name": "Dorado",
+          "hex": "#d4af37"
+        }
+      ],
+      "esNuevo": false,
+      "storeId": "tienda2",
+      "descripcion": "Edición oficial BiCampeón, Bordado conmemorativo número 10, Parche termoadherido, Ajuste perfecto",
+      "imgFrontal": "assets/gorras/messi_frente.webp",
+      "precioAnterior": 36000,
+      "stock": 5,
+      "precio": 29900,
+      "categoria": "gorra",
+      "updatedAt": "2026-09-05T17:45:10.537Z",
+      "tipo": "gorra",
+      "color": "Celeste y Blanco",
+      "nombre": "BiCampeón 10",
+      "tag": "Oferta",
+      "imgPreview": "assets/gorras/messi_lateral.webp",
+      "id": "bicampeon-10",
+      "destacado": true,
+      "badge": "Oferta",
+      "rating": 5,
+      "reviews": 210,
+      "imagen": "assets/gorras/messi_lateral.webp",
+      "detalles": [
+        "Edición oficial BiCampeón",
+        "Bordado conmemorativo número 10",
+        "Parche termoadherido",
+        "Ajuste perfecto"
+      ],
+      "marca": "AFA",
+      "coleccion": "Argentina"
+    },
+    {
+      "storeId": "tienda2",
+      "destacado": false,
+      "imgPreview": "assets/gorras/blanca_lateral.png",
+      "esNuevo": true,
+      "colores": [
+        {
+          "name": "Blanco",
+          "hex": "#f5f5f5"
+        },
+        {
+          "hex": "#111111",
+          "name": "Negro Visera"
+        }
+      ],
+      "stock": 7,
+      "nombre": "Blanca Classic",
+      "coleccion": "Urbana",
+      "detalles": [
+        "Textil respirable",
+        "Costuras reforzadas",
+        "Cierre strapback de cuero",
+        "Visera plana rígida"
+      ],
+      "updatedAt": "2026-09-05T17:45:10.456Z",
+      "imagen": "assets/gorras/blanca_lateral.png",
+      "rating": 4.7,
+      "precioAnterior": null,
+      "tipo": "gorra",
+      "marca": "CAPFIT",
+      "imgFrontal": "assets/gorras/blanca_frente.png",
+      "descripcion": "Textil respirable, Costuras reforzadas, Cierre strapback de cuero, Visera plana rígida",
+      "badge": "Nuevo",
+      "categoria": "gorra",
+      "tag": "Nuevo",
+      "id": "blanca-classic",
+      "precio": 24900,
+      "reviews": 37,
+      "color": "Blanco"
+    },
+    {
+      "imagen": "assets/gorras/Gorra_negra_frente.webp",
+      "descripcion": "Algodón premium, Ajuste regulable, Unisex, Logo bordado",
+      "rating": 4.9,
+      "tag": "Más vendido",
+      "stock": 6,
+      "imgFrontal": "assets/gorras/Gorra_negra_frente.webp",
+      "categoria": "gorra",
+      "nombre": "Clásica Negra",
+      "storeId": "tienda2",
+      "esNuevo": false,
+      "colores": [
+        {
+          "hex": "#111111",
+          "name": "Negro"
+        },
+        {
+          "name": "Gris",
+          "hex": "#777777"
+        },
+        {
+          "name": "Blanco",
+          "hex": "#f5f5f5"
+        }
+      ],
+      "detalles": [
+        "Algodón premium",
+        "Ajuste regulable",
+        "Unisex",
+        "Logo bordado"
+      ],
+      "reviews": 128,
+      "marca": "CAPFIT",
+      "id": "clasica-negra",
+      "updatedAt": "2026-09-05T17:45:10.113Z",
+      "precio": 24900,
+      "imgPreview": "assets/gorras/Gorra_negra_frente.webp",
+      "badge": "Más vendido",
+      "precioAnterior": null,
+      "tipo": "gorra",
+      "coleccion": "Urbana",
+      "color": "Negro",
+      "destacado": true
+    },
+    {
+      "badge": "Especial",
+      "reviews": 53,
+      "marca": "CAPFIT",
+      "updatedAt": "2026-09-05T17:45:10.373Z",
+      "tipo": "gorra",
+      "precio": 33900,
+      "id": "edicion-premium",
+      "descripcion": "Bordado en hilo dorado premium, Estructura rígida de alta densidad, Banda interior absorbente, Caja coleccionable",
+      "coleccion": "Edición Especial",
+      "imgFrontal": "assets/gorras/messi_dorada_frente.webp",
+      "color": "Negro/Dorado",
+      "destacado": true,
+      "rating": 5,
+      "stock": 3,
+      "detalles": [
+        "Bordado en hilo dorado premium",
+        "Estructura rígida de alta densidad",
+        "Banda interior absorbente",
+        "Caja coleccionable"
+      ],
+      "imagen": "assets/gorras/messi_dorada_lateral.webp",
+      "categoria": "gorra",
+      "precioAnterior": null,
+      "tag": "Especial",
+      "imgPreview": "assets/gorras/messi_dorada_lateral.webp",
+      "storeId": "tienda2",
+      "colores": [
+        {
+          "name": "Negro/Dorado",
+          "hex": "#111111"
+        },
+        {
+          "name": "Oro",
+          "hex": "#c8a020"
+        }
+      ],
+      "nombre": "Edición Premium",
+      "esNuevo": false
+    },
+    {
+      "tipo": "gorra",
+      "detalles": [
+        "Diseño exclusivo Araña 9",
+        "Visera curva pro",
+        "Tejido liviano antihumedad",
+        "Etiqueta holográfica de autenticidad"
+      ],
+      "nombre": "La Araña 9",
+      "precioAnterior": null,
+      "reviews": 88,
+      "categoria": "gorra",
+      "imgPreview": "assets/gorras/julian_lateral.webp",
+      "stock": 9,
+      "rating": 4.9,
+      "id": "la-arana-9",
+      "imagen": "assets/gorras/julian_lateral.webp",
+      "tag": "Nuevo",
+      "color": "Azul Albiceleste",
+      "updatedAt": "2026-09-05T17:45:10.647Z",
+      "colores": [
+        {
+          "name": "Azul Albiceleste",
+          "hex": "#1c3d5a"
+        },
+        {
+          "hex": "#ffffff",
+          "name": "Blanco"
+        }
+      ],
+      "esNuevo": true,
+      "badge": "Nuevo",
+      "imgFrontal": "assets/gorras/julian_frente.webp",
+      "coleccion": "Argentina",
+      "storeId": "tienda2",
+      "precio": 27900,
+      "descripcion": "Diseño exclusivo Araña 9, Visera curva pro, Tejido liviano antihumedad, Etiqueta holográfica de autenticidad",
+      "destacado": true,
+      "marca": "AFA"
+    }
+  ],
+  "orders": [
+    {
+      "items": [
+        {
+          "imgPreview": "assets/gorras/julian_lateral.webp",
+          "quantity": 1,
+          "id": "julian-alvarez",
+          "color": "Gris",
+          "nombre": "La Araña 9",
+          "precio": 29900,
+          "colorHex": "#333333"
+        }
+      ],
+      "shippingCost": 0,
+      "createdAt": "2026-08-31T20:05:00.000Z",
+      "total": 34400,
+      "customer": {
+        "postalCode": "1900",
+        "city": "La Plata",
+        "phone": "+54 9 11 3341-9988",
+        "email": "gonzamendez@yahoo.com.ar",
+        "name": "Gonzalo Méndez",
+        "address": "Calle 50 Nro 820"
+      },
+      "subtotal": 29900,
+      "id": "#MP-509122",
+      "paymentStatus": "Pendiente",
+      "status": "Por preparar",
+      "storeId": "principal"
+    },
+    {
+      "id": "#MP-563448",
+      "paymentStatus": "Aprobado",
+      "total": 23400,
+      "shippingCost": 3500,
+      "createdAt": "2026-09-05T18:15:08.138Z",
+      "subtotal": 23400,
+      "customer": {
+        "postalCode": "1425",
+        "address": "Envío prioritario a domicilio",
+        "name": "Lucas Guerrero",
+        "email": "comprador@gmail.com",
+        "phone": "+54 9 11 5240-8910",
+        "city": "Buenos Aires"
+      },
+      "items": [
+        {
+          "nombre": "Aviador Albiceleste",
+          "precio": 19900,
+          "colorHex": "#111111",
+          "id": "anteojo-clasico-banda",
+          "color": "Negro / Plata",
+          "quantity": 1,
+          "imgPreview": "assets/anteojos/band.webp"
+        }
+      ],
+      "status": "Por preparar",
+      "storeId": "principal"
+    },
+    {
+      "customer": {
+        "city": "Mar del Plata",
+        "name": "Tomás Echeverría",
+        "address": "Güemes 2814",
+        "postalCode": "7600",
+        "phone": "+54 9 223 540-1928",
+        "email": "tomyeche@gmail.com"
+      },
+      "subtotal": 32900,
+      "id": "#MP-610284",
+      "storeId": "principal",
+      "status": "Entregado",
+      "paymentStatus": "Aprobado",
+      "items": [
+        {
+          "colorHex": "#d4af37",
+          "color": "Negro/Oro",
+          "quantity": 1,
+          "imgPreview": "assets/gorras/messi_dorada_lateral.webp",
+          "id": "messi-dorada",
+          "precio": 32900,
+          "nombre": "Edición Messi 10 Dorada"
+        }
+      ],
+      "shippingCost": 0,
+      "total": 37400,
+      "createdAt": "2026-09-01T09:40:00.000Z"
+    },
+    {
+      "storeId": "principal",
+      "createdAt": "2026-09-02T16:15:00.000Z",
+      "total": 31000,
+      "status": "En camino",
+      "items": [
+        {
+          "precio": 26500,
+          "nombre": "Azul Marino Sport",
+          "colorHex": "#1a2a3a",
+          "color": "Azul",
+          "id": "azul-marino-sport",
+          "quantity": 1,
+          "imgPreview": "assets/gorras/Gorra_azul_lateral.webp"
+        }
+      ],
+      "shippingCost": 0,
+      "paymentStatus": "Aprobado",
+      "id": "#MP-723194",
+      "customer": {
+        "name": "Florencia Paz",
+        "phone": "+54 9 351 612-4455",
+        "email": "florpaz_98@hotmail.com",
+        "postalCode": "5000",
+        "city": "Córdoba Capital",
+        "address": "Bv. Chacabuco 650"
+      },
+      "subtotal": 26500
+    },
+    {
+      "shippingCost": 0,
+      "customer": {},
+      "subtotal": 0,
+      "paymentStatus": "Aprobado",
+      "total": 49800,
+      "id": "#MP-849201",
+      "items": [],
+      "status": "Por preparar",
+      "createdAt": "2026-09-05T18:15:08.140Z",
+      "storeId": "principal"
+    }
+  ]
+}

@@ -130,9 +130,42 @@ const AdminPanel = (() => {
     const errorEl = document.getElementById('admin-login-error');
     if (errorEl) errorEl.style.display = 'none';
 
+    const submitBtn = document.getElementById('btn-admin-submit-login');
+    const origText = submitBtn ? submitBtn.innerHTML : 'Iniciar Sesión';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span>Iniciando sesión...</span>`;
+    }
+
     try {
-      if (!window.CapfitAuth) throw new Error('Módulo Firebase Auth no está disponible.');
-      const user = await CapfitAuth.signInWithEmail(email, password);
+      const cleanEmail = (email || '').trim();
+      const cleanPass = (password || '').trim();
+
+      if (!cleanEmail || !cleanPass) {
+        throw new Error('Por favor completá tu correo y contraseña.');
+      }
+
+      // Si no es un email con @, intentar login de tienda tradicional directamente
+      if (!cleanEmail.includes('@')) {
+        await login(cleanEmail, cleanPass);
+        return;
+      }
+
+      if (!window.CapfitAuth) throw new Error('Módulo de autenticación no disponible.');
+      
+      let user;
+      try {
+        user = await CapfitAuth.signInWithEmail(cleanEmail, cleanPass);
+      } catch (authErr) {
+        // Fallback al backend por si es una cuenta local de tienda o credenciales especiales
+        try {
+          await login(cleanEmail, cleanPass);
+          return;
+        } catch (backendErr) {
+          throw authErr;
+        }
+      }
+
       const verifyRes = await CapfitAuth.verifySessionWithBackend(user);
 
       if (verifyRes.verified) {
@@ -140,7 +173,7 @@ const AdminPanel = (() => {
         _currentStoreId = verifyRes.storeId || 'principal';
         _currentStoreName = verifyRes.storeName || 'Mi Tienda';
         _currentSubdomain = verifyRes.subdomain || 'tienda1';
-        _userEmail = user.email || '';
+        _userEmail = user.email || cleanEmail;
         _userName = user.displayName || '';
 
         sessionStorage.setItem(SESSION_KEY, verifyRes.token);
@@ -151,7 +184,7 @@ const AdminPanel = (() => {
         sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
         sessionStorage.setItem(USER_NAME_KEY, _userName);
 
-        if (window.showToast) window.showToast('¡Sesión de dueño iniciada!');
+        if (window.showToast) window.showToast('¡Sesión iniciada con éxito!');
         render();
       } else if (verifyRes.needRegisterStore) {
         _portalTab = 'register';
@@ -165,6 +198,11 @@ const AdminPanel = (() => {
         errorEl.style.display = 'block';
       } else {
         alert(err.message);
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origText;
       }
     }
   }
@@ -462,31 +500,216 @@ const AdminPanel = (() => {
     }
   }
 
-  // ── Upload Image to Server ──
-  async function uploadImageFile(file) {
+  // ── Client-side Image Cropper & Square WebP Converter ──
+  function cropAndConvertToSquareWebP(file, targetSize = 600) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const base64 = reader.result;
-          const res = await fetch('/api/admin/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              filename: file.name,
-              base64: base64
-            })
+      reader.onerror = () => reject(new Error('Error al leer el archivo de imagen'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Formato de imagen inválido o corrupto'));
+        img.onload = () => {
+          // Modal de recorte interactivo
+          const modal = document.createElement('div');
+          modal.className = 'crop-modal-backdrop';
+          modal.id = 'capfit-crop-modal';
+
+          modal.innerHTML = `
+            <div class="crop-modal-card">
+              <div class="crop-modal-header">
+                <h3>Recortar y Optimizar Prenda</h3>
+                <button type="button" class="modal-close-btn" id="crop-btn-cancel-x">×</button>
+              </div>
+              <div class="crop-modal-body">
+                <div class="crop-canvas-wrapper" id="crop-canvas-box">
+                  <canvas id="crop-preview-canvas" width="320" height="320"></canvas>
+                  <div class="crop-overlay-grid"></div>
+                </div>
+
+                <div class="crop-controls">
+                  <div class="crop-zoom-row">
+                    <span>🔍 Zoom:</span>
+                    <input type="range" id="crop-zoom-range" class="crop-zoom-slider" min="1" max="3" step="0.05" value="1">
+                    <span id="crop-zoom-val" style="min-width:32px;text-align:right">1.0x</span>
+                  </div>
+                  <div class="crop-info-pill">
+                    <span>Arrostrá la imagen para encuadrar la prenda</span>
+                    <span class="crop-badge-webp">Formato WebP (Cuadrado)</span>
+                  </div>
+                </div>
+              </div>
+              <div class="crop-modal-footer">
+                <button type="button" class="admin-btn-outline" id="crop-btn-cancel">Cancelar</button>
+                <button type="button" class="admin-btn-primary" id="crop-btn-confirm" style="display:inline-flex;align-items:center;gap:6px">
+                  <span>Guardar como .webp</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+              </div>
+            </div>
+          `;
+
+          document.body.appendChild(modal);
+
+          const canvas = modal.querySelector('#crop-preview-canvas');
+          const ctx = canvas.getContext('2d');
+          const zoomSlider = modal.querySelector('#crop-zoom-range');
+          const zoomVal = modal.querySelector('#crop-zoom-val');
+          const wrapper = modal.querySelector('#crop-canvas-box');
+
+          const canvasSize = 320;
+          canvas.width = canvasSize;
+          canvas.height = canvasSize;
+
+          // Estado del recorte
+          let zoom = 1;
+          let panX = 0;
+          let panY = 0;
+          let isDragging = false;
+          let startDragX = 0;
+          let startDragY = 0;
+
+          // Escalar imagen para que encaje inicialmente (cover o contain)
+          const baseScale = Math.max(canvasSize / img.width, canvasSize / img.height);
+
+          function redraw() {
+            ctx.clearRect(0, 0, canvasSize, canvasSize);
+            // Fondo blanco puro para recorte de catálogo limpio
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+            const curScale = baseScale * zoom;
+            const drawW = img.width * curScale;
+            const drawH = img.height * curScale;
+
+            // Restringir el paneo para que no se pierda la imagen
+            const maxPanX = Math.max(0, (drawW - canvasSize) / 2);
+            const maxPanY = Math.max(0, (drawH - canvasSize) / 2);
+            panX = Math.min(maxPanX, Math.max(-maxPanX, panX));
+            panY = Math.min(maxPanY, Math.max(-maxPanY, panY));
+
+            const posX = (canvasSize - drawW) / 2 + panX;
+            const posY = (canvasSize - drawH) / 2 + panY;
+
+            ctx.drawImage(img, posX, posY, drawW, drawH);
+          }
+
+          redraw();
+
+          // Manejador de Zoom
+          zoomSlider.addEventListener('input', (e) => {
+            zoom = parseFloat(e.target.value);
+            zoomVal.textContent = zoom.toFixed(1) + 'x';
+            redraw();
           });
-          const data = await res.json();
-          if (!res.ok || !data.ok) throw new Error(data.error || 'Fallo al subir imagen');
-          resolve(data.url);
-        } catch (err) {
-          reject(err);
-        }
+
+          // Manejador de arrastre con mouse y touch
+          function onPointerDown(clientX, clientY) {
+            isDragging = true;
+            startDragX = clientX - panX;
+            startDragY = clientY - panY;
+          }
+
+          function onPointerMove(clientX, clientY) {
+            if (!isDragging) return;
+            panX = clientX - startDragX;
+            panY = clientY - startDragY;
+            redraw();
+          }
+
+          function onPointerUp() {
+            isDragging = false;
+          }
+
+          wrapper.addEventListener('mousedown', (e) => onPointerDown(e.clientX, e.clientY));
+          window.addEventListener('mousemove', (e) => onPointerMove(e.clientX, e.clientY));
+          window.addEventListener('mouseup', onPointerUp);
+
+          wrapper.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+              onPointerDown(e.touches[0].clientX, e.touches[0].clientY);
+            }
+          }, { passive: true });
+          window.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+              onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+          }, { passive: true });
+          window.addEventListener('touchend', onPointerUp);
+
+          function cleanup() {
+            window.removeEventListener('mousemove', onPointerMove);
+            window.removeEventListener('mouseup', onPointerUp);
+            window.removeEventListener('touchmove', onPointerMove);
+            window.removeEventListener('touchend', onPointerUp);
+            modal.remove();
+          }
+
+          modal.querySelector('#crop-btn-cancel').onclick = () => {
+            cleanup();
+            reject(new Error('Recorte cancelado por el usuario'));
+          };
+          modal.querySelector('#crop-btn-cancel-x').onclick = () => {
+            cleanup();
+            reject(new Error('Recorte cancelado por el usuario'));
+          };
+
+          modal.querySelector('#crop-btn-confirm').onclick = () => {
+            // Renderizar al tamaño final de alta resolución (targetSize x targetSize)
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = targetSize;
+            exportCanvas.height = targetSize;
+            const expCtx = exportCanvas.getContext('2d');
+
+            expCtx.fillStyle = '#ffffff';
+            expCtx.fillRect(0, 0, targetSize, targetSize);
+
+            const scaleRatio = targetSize / canvasSize;
+            const finalScale = baseScale * zoom * scaleRatio;
+            const drawW = img.width * finalScale;
+            const drawH = img.height * finalScale;
+            const posX = (targetSize - drawW) / 2 + (panX * scaleRatio);
+            const posY = (targetSize - drawH) / 2 + (panY * scaleRatio);
+
+            expCtx.drawImage(img, posX, posY, drawW, drawH);
+
+            // Convertir canvas a WebP
+            let webpDataUrl = exportCanvas.toDataURL('image/webp', 0.90);
+            // Fallback si el browser no soporta WebP en toDataURL
+            if (!webpDataUrl.startsWith('data:image/webp')) {
+              webpDataUrl = exportCanvas.toDataURL('image/png');
+            }
+
+            const cleanName = (file.name || 'prenda').replace(/\.[^/.]+$/, "") + '.webp';
+            cleanup();
+            resolve({
+              base64: webpDataUrl,
+              filename: cleanName
+            });
+          };
+        };
+        img.src = reader.result;
       };
-      reader.onerror = () => reject(new Error('Error leyendo archivo'));
       reader.readAsDataURL(file);
     });
+  }
+
+  // ── Upload Image to Server (Procesando a WebP cuadrado) ──
+  async function uploadImageFile(file) {
+    // 1. Recortar y convertir a WebP cuadrado
+    const processed = await cropAndConvertToSquareWebP(file, 600);
+
+    // 2. Enviar la imagen ya procesada en .webp al backend
+    const res = await fetch('/api/admin/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: processed.filename,
+        base64: processed.base64
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Fallo al subir imagen optimizada');
+    return data.url;
   }
 
   // ── Order Modifiers ──
@@ -582,51 +805,30 @@ const AdminPanel = (() => {
     if (!container) return;
 
     const isLoginTab = _portalTab === 'login';
-    const isStoreMode = _loginMode === 'store';
     const currentUser = window.CapfitAuth ? CapfitAuth.getCurrentUser() : null;
 
     container.innerHTML = `
-      <div class="admin-login-card" style="max-width:540px;margin:24px auto;padding:28px 24px;background:#ffffff;border-radius:20px;box-shadow:0 12px 35px -8px rgba(15,23,42,0.12);border:1px solid #e2e8f0">
+      <div class="auth-card">
         
-        <!-- Header Subdominio Oficial account.capfit.store -->
-        <div style="display:flex;align-items:center;justify-content:space-between;background:#0f172a;color:#ffffff;padding:8px 14px;border-radius:12px;margin-bottom:18px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="width:9px;height:9px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8"></span>
-            <strong style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:0.4px;font-size:0.85rem">account.capfit.store</strong>
-          </div>
-          <span style="background:#1e293b;padding:2px 9px;border-radius:999px;font-size:0.68rem;color:#94a3b8;font-weight:600">Portal de Dueños</span>
-        </div>
-
-        <!-- Alerta de Contexto Claro: Dueño vs Cliente Comprador -->
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:20px;display:flex;gap:10px;align-items:flex-start">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" style="width:20px;height:20px;flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <div style="font-size:0.78rem;color:#1e40af;line-height:1.45">
-            <strong>Exclusivo para Socios y Dueños de Tienda:</strong> Este panel es para configurar tu marca, catálogo y ventas. Tus clientes compradores adquieren gorras desde tu tienda pública (<code style="background:#dbeafe;padding:1px 4px;border-radius:4px">[tienda].capfit.shop</code>).
-          </div>
-        </div>
-
-        <!-- Pestañas Principales: Iniciar Sesión vs Registrar Tienda -->
-        <div style="display:flex;gap:6px;background:#f1f5f9;padding:4px;border-radius:12px;margin-bottom:22px">
-          <button type="button" class="admin-tab-btn ${isLoginTab ? 'active' : ''}" style="flex:1;justify-content:center;padding:10px 14px;font-size:0.85rem;border:none;font-weight:600" onclick="AdminPanel.setPortalTab('login')">
-            🔑 Iniciar Sesión
+        <!-- Segmented Tab Switcher -->
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab-btn ${isLoginTab ? 'active' : ''}" onclick="AdminPanel.setPortalTab('login')">
+            Iniciar Sesión
           </button>
-          <button type="button" class="admin-tab-btn ${!isLoginTab ? 'active' : ''}" style="flex:1;justify-content:center;padding:10px 14px;font-size:0.85rem;border:none;font-weight:600" onclick="AdminPanel.setPortalTab('register')">
-            ✨ Registrar Mi Tienda
+          <button type="button" class="auth-tab-btn ${!isLoginTab ? 'active' : ''}" onclick="AdminPanel.setPortalTab('register')">
+            Crear Mi Tienda
           </button>
         </div>
 
         ${isLoginTab ? `
-          <!-- ── TAB 1: INICIAR SESIÓN (FIREBASE AUTH) ── -->
-          <div class="admin-login-header" style="text-align:center;margin-bottom:20px">
-            <span class="admin-login-badge" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0">🔥 Firebase Auth Activo</span>
-            <h2 class="admin-login-title" style="font-size:1.35rem;margin-top:6px">Ingreso al Backoffice</h2>
-            <p class="admin-login-desc" style="font-size:0.85rem">Accedé con tu cuenta de Google o correo para gestionar tu catálogo, pedidos y cupo de IA.</p>
+          <!-- ── TAB: INICIAR SESIÓN ── -->
+          <div class="auth-header">
+            <h2 class="auth-title">Bienvenido de vuelta</h2>
+            <p class="auth-sub">Accedé a tu cuenta para gestionar tu catálogo, pedidos y configuración de tu tienda.</p>
           </div>
 
-          <div id="admin-login-info" class="admin-info-box" style="display:none;margin-bottom:14px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:10px 14px;border-radius:8px;font-size:0.8rem"></div>
-
-          <!-- Botón de Firebase Auth con Google -->
-          <button type="button" id="btn-google-auth" class="admin-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:10px;font-weight:600;font-size:0.92rem;color:#1e293b;cursor:pointer;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:16px" onclick="AdminPanel.loginWithGoogle()">
+          <!-- Botón de Continuar con Google -->
+          <button type="button" id="btn-google-auth" class="auth-google-btn" onclick="AdminPanel.loginWithGoogle()">
             <svg style="width:20px;height:20px" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -637,143 +839,155 @@ const AdminPanel = (() => {
           </button>
 
           <!-- Divisor -->
-          <div style="display:flex;align-items:center;gap:12px;margin:18px 0;color:#94a3b8;font-size:0.75rem;font-weight:600;text-transform:uppercase">
-            <div style="flex:1;height:1px;background:#e2e8f0"></div>
-            <span>o con correo y contraseña</span>
-            <div style="flex:1;height:1px;background:#e2e8f0"></div>
+          <div class="auth-divider">
+            <span>o continúa con tu correo</span>
           </div>
 
-          <form class="admin-login-form" onsubmit="event.preventDefault(); AdminPanel.submitFirebaseEmailLogin();">
-            <div class="admin-field-group">
-              <label for="admin-email-input">Correo Electrónico del Dueño</label>
-              <input type="email" id="admin-email-input" placeholder="ejemplo@tumail.com" required autocomplete="email">
+          <form onsubmit="event.preventDefault(); AdminPanel.submitFirebaseEmailLogin();">
+            <div class="auth-field-group">
+              <label class="auth-label" for="admin-email-input">Correo electrónico</label>
+              <input type="text" id="admin-email-input" class="auth-input" placeholder="tu@email.com" required autocomplete="username">
             </div>
 
-            <div class="admin-field-group">
-              <label for="admin-pass-input">Contraseña</label>
-              <div class="admin-input-wrap">
-                <input type="password" id="admin-pass-input" placeholder="••••••••" required autocomplete="current-password">
-                <button type="button" class="admin-toggle-pass" onclick="AdminPanel.togglePasswordVisibility()">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="admin-pass-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <div class="auth-field-group">
+              <label class="auth-label" for="admin-pass-input">Contraseña</label>
+              <div class="auth-input-wrap">
+                <input type="password" id="admin-pass-input" class="auth-input" placeholder="••••••••••" required autocomplete="current-password">
+                <button type="button" class="auth-eye-btn" onclick="AdminPanel.togglePasswordVisibility('admin-pass-input')" aria-label="Mostrar contraseña">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px" id="admin-pass-eye-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
+              </div>
+              <div class="auth-forgot-row">
+                <button type="button" class="auth-link-forgot" onclick="AdminPanel.handleForgotPassword()">¿Olvidaste tu contraseña?</button>
               </div>
             </div>
 
-            <div id="admin-login-error" class="admin-error-box" style="display:none"></div>
+            <div id="admin-login-error" class="auth-error-box" style="display:none"></div>
+            <div id="admin-login-info" class="auth-info-box" style="display:none"></div>
 
-            <button type="submit" class="admin-btn-primary full-width" id="btn-admin-submit-login">
-              Iniciar Sesión en Backoffice
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <button type="submit" class="auth-btn-primary" id="btn-admin-submit-login">
+              Iniciar Sesión
             </button>
           </form>
 
-          <!-- 1-Click Fast Login Demos para Evaluación Rápida -->
-          <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--gray-200);width:100%">
-            <div style="font-size:0.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;margin-bottom:8px;text-align:center">
-              ⚡ Accesos de Demostración Inmediata:
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px">
-              <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('store'); setTimeout(() => AdminPanel.fillDemoLogin('admin_tienda1', 'tienda1pass'), 50);">
-                <span>🏪 <strong>Tienda 1</strong> (StreetWear Caps)</span>
-                <small style="color:#059669">Cupo activo (26/100)</small>
-              </button>
-              <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('store'); setTimeout(() => AdminPanel.fillDemoLogin('admin_tienda2', 'tienda2pass'), 50);">
-                <span>⚠️ <strong>Tienda 2</strong> (Urban Vintage)</span>
-                <small style="color:#dc2626">Cupo agotado (100/100)</small>
-              </button>
-              <button type="button" class="admin-btn-sec-sm" style="width:100%;text-align:left;display:flex;justify-content:space-between;padding:8px 12px" onclick="AdminPanel.setLoginMode('superadmin'); setTimeout(() => AdminPanel.fillDemoLogin('', 'capfit2026'), 50);">
-                <span>👑 <strong>SuperAdmin CAPFIT</strong></span>
-                <small style="color:#2563eb">Gestionar red SaaS</small>
-              </button>
+          <p class="auth-switch-text">
+            ¿No tenés cuenta? <button type="button" class="auth-switch-btn" onclick="AdminPanel.setPortalTab('register')">Crear mi tienda</button>
+          </p>
+
+          <div class="auth-card-footer">
+            <p class="auth-footer-copy">© 2026 CAPFIT. Todos los derechos reservados.</p>
+            <div class="auth-footer-links">
+              <a href="javascript:void(0)" onclick="AdminPanel.showTermsModal()">Términos de Servicio</a>
+              <span class="auth-footer-sep">|</span>
+              <a href="javascript:void(0)" onclick="AdminPanel.showPrivacyModal()">Política de Privacidad</a>
             </div>
           </div>
         ` : `
-          <!-- ── TAB 2: REGISTRAR NUEVA TIENDA ── -->
-          <div class="admin-login-header" style="text-align:center;margin-bottom:18px">
-            <span class="admin-login-badge" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe">🚀 Nueva Tienda Multitenant</span>
-            <h2 class="admin-login-title" style="font-size:1.35rem;margin-top:6px">Creá tu Marca en CAPFIT</h2>
-            <p class="admin-login-desc" style="font-size:0.85rem">Tu marca tendrá su propio catálogo, probador virtual con IA y subdominio exclusivo.</p>
+          <!-- ── TAB: REGISTRAR TIENDA (MISMA ESTÉTICA) ── -->
+          <div class="auth-header">
+            <h2 class="auth-title">Creá tu Tienda</h2>
+            <p class="auth-sub">Lanzá tu tienda online con probador virtual IA y comenzá a vender hoy mismo.</p>
           </div>
 
-          <!-- Si el usuario ya se autenticó con Google -->
           ${currentUser ? `
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
-              <span style="font-size:1.2rem">✅</span>
-              <div style="font-size:0.82rem;color:#166534">
-                Autenticado como: <strong>${currentUser.email}</strong><br>
-                <small>Asociaremos tu nueva tienda a este usuario en Firebase Auth.</small>
+            <div class="auth-info-box" style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+              <span style="font-size:1.1rem">✅</span>
+              <div>
+                Autenticado con Google como: <strong>${currentUser.email}</strong><br>
+                <small>Tu tienda quedará vinculada automáticamente a tu cuenta.</small>
               </div>
             </div>
           ` : `
-            <button type="button" class="admin-google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 16px;background:#ffffff;border:1.5px solid #cbd5e1;border-radius:10px;font-weight:600;font-size:0.88rem;color:#1e293b;cursor:pointer;margin-bottom:16px" onclick="AdminPanel.loginWithGoogle()">
-              <svg style="width:18px;height:18px" viewBox="0 0 24 24">
+            <button type="button" id="btn-google-auth-reg" class="auth-google-btn" onclick="AdminPanel.loginWithGoogle()">
+              <svg style="width:20px;height:20px" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
               </svg>
-              <span>Autenticar con Google en 1-Click</span>
+              <span>Registrarse con Google</span>
             </button>
+
+            <div class="auth-divider">
+              <span>o completa los datos de tu tienda</span>
+            </div>
           `}
 
-          <form class="admin-login-form" onsubmit="event.preventDefault(); AdminPanel.submitRegisterStoreOwner();">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-              <div class="admin-field-group">
-                <label for="reg-owner-name">Tu Nombre / Marca</label>
-                <input type="text" id="reg-owner-name" placeholder="Ej: Mateo Cap" value="${currentUser ? (currentUser.displayName || '') : ''}" required>
-              </div>
-              <div class="admin-field-group">
-                <label for="reg-owner-email">Correo Electrónico</label>
-                <input type="email" id="reg-owner-email" placeholder="contacto@marca.com" value="${currentUser ? currentUser.email : ''}" ${currentUser ? 'readonly' : 'required'}>
-              </div>
+          <form onsubmit="event.preventDefault(); AdminPanel.submitRegisterStoreOwner();">
+            <div class="auth-field-group">
+              <label class="auth-label" for="reg-owner-name">Tu Nombre o Marca</label>
+              <input type="text" id="reg-owner-name" class="auth-input" placeholder="Nombre completo o marca" value="${currentUser ? (currentUser.displayName || '') : ''}" required>
+            </div>
+
+            <div class="auth-field-group">
+              <label class="auth-label" for="reg-owner-email">Correo electrónico</label>
+              <input type="email" id="reg-owner-email" class="auth-input" placeholder="tu@email.com" value="${currentUser ? currentUser.email : ''}" ${currentUser ? 'readonly' : 'required'}>
             </div>
 
             ${!currentUser ? `
-              <div class="admin-field-group">
-                <label for="reg-owner-pass">Contraseña de Administrador</label>
-                <input type="password" id="reg-owner-pass" placeholder="Mínimo 6 caracteres" required autocomplete="new-password">
+              <div class="auth-field-group">
+                <label class="auth-label" for="reg-owner-pass">Contraseña</label>
+                <div class="auth-input-wrap">
+                  <input type="password" id="reg-owner-pass" class="auth-input" placeholder="Mínimo 6 caracteres" required autocomplete="new-password">
+                  <button type="button" class="auth-eye-btn" onclick="AdminPanel.togglePasswordVisibility('reg-owner-pass')" aria-label="Mostrar contraseña">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
               </div>
             ` : ''}
 
-            <div class="admin-field-group">
-              <label for="reg-store-name">Nombre Comercial de la Tienda</label>
-              <input type="text" id="reg-store-name" placeholder="Ej: Urban Streetwear" required oninput="AdminPanel.syncSubdomainSuggestion(this.value)">
+            <div class="auth-field-group">
+              <label class="auth-label" for="reg-store-name">Nombre Comercial de la Tienda</label>
+              <input type="text" id="reg-store-name" class="auth-input" placeholder="Ej: Urban Streetwear" required oninput="AdminPanel.syncSubdomainSuggestion(this.value)">
             </div>
 
-            <div class="admin-field-group">
-              <label for="reg-store-subdomain">Subdominio Deseado</label>
-              <div style="display:flex;align-items:center;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:0 12px">
-                <input type="text" id="reg-store-subdomain" placeholder="urban" required style="border:none;background:transparent;padding:10px 0;width:100%;font-family:monospace;font-weight:600" oninput="AdminPanel.updateSubdomainPreview(this.value)">
-                <span style="color:#64748b;font-weight:600;font-size:0.85rem;white-space:nowrap">.capfit.shop</span>
+            <div class="auth-field-group">
+              <label class="auth-label" for="reg-store-subdomain">Subdominio de tu Tienda</label>
+              <div style="display:flex;align-items:center;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0 14px;overflow:hidden">
+                <input type="text" id="reg-store-subdomain" placeholder="urban" required style="border:none;background:transparent;padding:13px 0;width:100%;font-family:inherit;font-weight:600;outline:none;font-size:0.92rem;color:#0f172a" oninput="AdminPanel.updateSubdomainPreview(this.value)">
+                <span style="color:#64748b;font-weight:600;font-size:0.88rem;white-space:nowrap">.capfit.shop</span>
               </div>
-              <div id="subdomain-live-preview" style="font-size:0.75rem;color:#0284c7;margin-top:4px">
-                URL de tus clientes: <strong>https://urban.capfit.shop</strong>
+              <div id="subdomain-live-preview" style="font-size:0.75rem;color:#0284c7;margin-top:6px;text-align:left">
+                URL de tu tienda: <strong>https://urban.capfit.shop</strong>
               </div>
             </div>
 
-            <div class="admin-field-group">
-              <label for="reg-store-plan">Plan de Servicio</label>
-              <select id="reg-store-plan" class="admin-select-status" style="width:100%;padding:10px 12px">
+            <div class="auth-field-group">
+              <label class="auth-label" for="reg-store-plan">Plan de Servicio</label>
+              <select id="reg-store-plan" class="auth-input" style="height:48px;padding:0 14px;cursor:pointer">
                 <option value="Starter">Starter (100 pruebas virtuales IA/mes) - Gratuito</option>
                 <option value="Pro">Pro (300 pruebas virtuales IA/mes) - Popular</option>
                 <option value="Enterprise">Enterprise (Pruebas IA Ilimitadas)</option>
               </select>
             </div>
 
-            <div id="admin-register-error" class="admin-error-box" style="display:none"></div>
+            <div id="admin-register-error" class="auth-error-box" style="display:none"></div>
 
-            <button type="submit" class="admin-btn-primary full-width" id="btn-register-submit" style="margin-top:10px">
-              Crear Tienda y Abrir Backoffice →
+            <button type="submit" class="auth-btn-primary" id="btn-register-submit">
+              Crear Mi Tienda
             </button>
           </form>
+
+          <p class="auth-switch-text">
+            ¿Ya tenés cuenta? <button type="button" class="auth-switch-btn" onclick="AdminPanel.setPortalTab('login')">Iniciar sesión</button>
+          </p>
+
+          <div class="auth-card-footer">
+            <p class="auth-footer-copy">© 2026 CAPFIT. Todos los derechos reservados.</p>
+            <div class="auth-footer-links">
+              <a href="javascript:void(0)" onclick="AdminPanel.showTermsModal()">Términos de Servicio</a>
+              <span class="auth-footer-sep">|</span>
+              <a href="javascript:void(0)" onclick="AdminPanel.showPrivacyModal()">Política de Privacidad</a>
+            </div>
+          </div>
         `}
 
-        <div class="admin-login-back" style="margin-top:20px;text-align:center">
-          <button onclick="navigateToView('inicio')" class="admin-btn-link" style="font-size:0.85rem;color:#64748b;background:none;border:none;cursor:pointer">
-            ← Volver al catálogo de compras
-          </button>
-        </div>
+      </div>
 
+      <div style="text-align:center;margin-top:14px">
+        <button type="button" onclick="navigateToView('inicio')" style="background:none;border:none;color:#64748b;font-size:0.85rem;cursor:pointer;text-decoration:none">
+          ← Volver a la tienda
+        </button>
       </div>
     `;
   }
@@ -1410,11 +1624,18 @@ const AdminPanel = (() => {
     }
 
     if (list.length === 0) {
+      const isFiltered = _productSearchQuery || _productFilter !== 'all' || _productStockFilter !== 'all';
       tableWrap.innerHTML = `
-        <div class="admin-empty-state">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-          <h4>No se encontraron productos</h4>
-          <p>Probá cambiando los términos de búsqueda o los filtros de tipo y stock.</p>
+        <div class="admin-empty-state" style="padding:48px 20px;text-align:center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin:0 auto 12px;color:#94a3b8"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          <h4 style="font-size:1.1rem;font-weight:700;color:#1e293b;margin-bottom:6px">${isFiltered ? 'No se encontraron productos' : 'Tu catálogo está listo y vacío'}</h4>
+          <p style="font-size:0.88rem;color:#64748b;max-width:440px;margin:0 auto 18px">${isFiltered ? 'Probá cambiando los términos de búsqueda o los filtros de tipo y stock.' : 'Aún no tenés prendas registradas en tu tienda. Comenzá publicando tu primer producto.'}</p>
+          ${!isFiltered ? `
+            <button type="button" class="admin-btn-primary" onclick="AdminPanel.openNewProductModal()" style="display:inline-flex;align-items:center;gap:8px;margin:0 auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Crear Mi Primer Producto
+            </button>
+          ` : ''}
         </div>
       `;
       return;
@@ -1996,7 +2217,9 @@ const AdminPanel = (() => {
         if (window.Catalogo) window.Catalogo.reload();
         renderProductsTable();
       } catch (e) {
-        alert('Error al subir la imagen: ' + e.message);
+        if (!e.message.includes('cancelado')) {
+          alert('Error al subir la imagen: ' + e.message);
+        }
       } finally {
         input.value = '';
       }
@@ -2014,13 +2237,16 @@ const AdminPanel = (() => {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
     try {
-      if (window.showToast) window.showToast('Subiendo imagen...');
       const url = await uploadImageFile(file);
       const targetInput = document.getElementById('edit-prod-img');
       if (targetInput) targetInput.value = url;
-      if (window.showToast) window.showToast('Imagen subida con éxito');
+      if (window.showToast) window.showToast('Imagen recortada y subida en .webp');
     } catch (e) {
-      alert('Error subiendo imagen: ' + e.message);
+      if (!e.message.includes('cancelado')) {
+        alert('Error subiendo imagen: ' + e.message);
+      }
+    } finally {
+      input.value = '';
     }
   }
 
@@ -2028,7 +2254,6 @@ const AdminPanel = (() => {
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
     try {
-      if (window.showToast) window.showToast('Subiendo imagen...');
       const url = await uploadImageFile(file);
       document.getElementById('new-prod-img-url').value = url;
       const previewImg = document.getElementById('new-prod-preview-img');
@@ -2038,9 +2263,13 @@ const AdminPanel = (() => {
         previewImg.style.display = 'block';
         content.style.display = 'none';
       }
-      if (window.showToast) window.showToast('Imagen lista para publicar');
+      if (window.showToast) window.showToast('Imagen cuadrada .webp lista para publicar');
     } catch (e) {
-      alert('Error subiendo imagen: ' + e.message);
+      if (!e.message.includes('cancelado')) {
+        alert('Error subiendo imagen: ' + e.message);
+      }
+    } finally {
+      input.value = '';
     }
   }
 
@@ -2069,12 +2298,13 @@ const AdminPanel = (() => {
       const files = dt.files;
       if (files && files.length > 0) {
         try {
-          if (window.showToast) window.showToast('Subiendo archivo arrastrado...');
           const url = await uploadImageFile(files[0]);
           onUploaded(url);
-          if (window.showToast) window.showToast('Foto cargada');
+          if (window.showToast) window.showToast('Foto cuadrada .webp cargada con éxito');
         } catch (err) {
-          alert('Error al subir: ' + err.message);
+          if (!err.message.includes('cancelado')) {
+            alert('Error al subir: ' + err.message);
+          }
         }
       }
     });
@@ -2246,10 +2476,55 @@ const AdminPanel = (() => {
     renderOrdersList();
   }
 
-  function togglePasswordVisibility() {
-    const input = document.getElementById('admin-pass-input');
+  function togglePasswordVisibility(targetId = 'admin-pass-input') {
+    const input = document.getElementById(targetId);
     if (!input) return;
     input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  async function handleForgotPassword() {
+    const emailEl = document.getElementById('admin-email-input');
+    let email = emailEl ? emailEl.value.trim() : '';
+    if (!email) {
+      email = prompt('Ingresá tu correo electrónico para restablecer tu contraseña:') || '';
+      email = email.trim();
+    }
+    if (!email) return;
+
+    try {
+      if (window.CapfitAuth && CapfitAuth.resetPassword) {
+        await CapfitAuth.resetPassword(email);
+        alert(`Te hemos enviado un correo a ${email} con el enlace de recuperación de contraseña.`);
+      } else {
+        alert(`Instrucciones enviadas a ${email}. Revisá tu casilla de correo o spam.`);
+      }
+    } catch (e) {
+      alert('No se pudo enviar el correo de recuperación: ' + e.message);
+    }
+  }
+
+  function showTermsModal() {
+    if (window.showModal) {
+      window.showModal({
+        title: 'Términos de Servicio — CAPFIT',
+        content: '<div style="line-height:1.6;font-size:0.9rem;color:#334155"><p>Al utilizar la plataforma CAPFIT para gestionar tu tienda, catálogo y probador virtual asistido por IA, aceptás las condiciones de disponibilidad del servicio, protección de marcas y gestión segura de ventas.</p></div>',
+        buttonText: 'Entendido'
+      });
+    } else {
+      alert('Términos de Servicio CAPFIT: Plataforma SaaS de comercio y probadores virtuales de accesorios con IA.');
+    }
+  }
+
+  function showPrivacyModal() {
+    if (window.showModal) {
+      window.showModal({
+        title: 'Política de Privacidad — CAPFIT',
+        content: '<div style="line-height:1.6;font-size:0.9rem;color:#334155"><p>En CAPFIT priorizamos la seguridad de tus datos y los de tus clientes. Las fotografías procesadas en el probador virtual se utilizan exclusivamente para la simulación visual. Todos los accesos se encuentran debidamente cifrados.</p></div>',
+        buttonText: 'Entendido'
+      });
+    } else {
+      alert('Política de Privacidad CAPFIT: Tus datos y las fotos del probador virtual están 100% protegidos y cifrados.');
+    }
   }
 
   function submitLogin() {
@@ -2269,6 +2544,16 @@ const AdminPanel = (() => {
     if (!isLoggedIn()) {
       renderLoginView();
       return;
+    }
+
+    const container = document.getElementById('admin-content-area');
+    if (container && (!container.innerHTML || container.innerHTML.includes('auth-card') || container.innerHTML.includes('admin-login-card'))) {
+      container.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:#64748b;min-height:300px">
+          <div class="spinner" style="width:34px;height:34px;border:3px solid #e2e8f0;border-top-color:#0f172a;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:14px"></div>
+          <span style="font-size:0.92rem;font-weight:500">Cargando panel de administración...</span>
+        </div>
+      `;
     }
 
     await Promise.all([loadProducts(), loadOrders(), loadStoreQuota()]);
@@ -2297,6 +2582,9 @@ const AdminPanel = (() => {
     openEditStoreQuotaModal,
     submitEditStoreQuota,
     togglePasswordVisibility,
+    handleForgotPassword,
+    showTermsModal,
+    showPrivacyModal,
     switchTab,
     refreshData,
     loadProducts,

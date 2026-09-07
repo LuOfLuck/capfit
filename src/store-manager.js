@@ -454,13 +454,8 @@ function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit
   stores.push(newStore);
   saveStores(stores);
 
-  // Inicializar productos de la tienda clonando catálogo de la principal en Firestore
-  const principalProds = readStoreProducts('principal');
-  if (principalProds.length > 0) {
-    writeStoreProducts(newStore.id, principalProds);
-  } else {
-    cachedProducts.set(newStore.id, []);
-  }
+  // La nueva tienda inicia completamente limpia, con 0 prendas ni órdenes cargadas
+  cachedProducts.set(newStore.id, []);
   cachedOrders.set(newStore.id, []);
 
   if (ownerUid) {
@@ -539,8 +534,8 @@ function getDatabaseInfo() {
   return {
     provider: 'Firebase Firestore',
     edition: 'Enterprise Cloud DB',
-    projectId: 'applied-sunlight-dgtt6',
-    databaseId: 'ai-studio-capfit-89d6a925-ec0e-426b-9d91-c793f721e963',
+    projectId: 'capfit-6689b',
+    databaseId: '(default)',
     connected: status.isConnected,
     storageType: '100% Cloud Database (Firestore)',
     collections: ['stores', 'products', 'orders', 'ai_logs', 'store_owners'],

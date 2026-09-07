@@ -151,10 +151,20 @@ const Catalogo = (() => {
     if (!grid) return;
 
     if (_filteredGorras.length === 0) {
+      const isFiltered = Boolean(
+        (_activeFilters.search && _activeFilters.search.trim() !== '') ||
+        _activeFilters.tipo !== 'todas' ||
+        _activeFilters.marca !== 'todas' ||
+        _activeFilters.coleccion !== 'todas' ||
+        _activeFilters.badge !== 'todos' ||
+        _activeFilters.precioRange !== 'todos'
+      );
       grid.innerHTML = `
-        <div class="empty-catalog-msg">
-          <p>No encontramos gorras que coincidan con tu búsqueda.</p>
-          <button onclick="Catalogo.resetFilters()" class="btn-reset-filters">Ver todas las gorras</button>
+        <div class="empty-catalog-msg" style="padding:48px 20px;text-align:center">
+          <p style="font-size:1rem;color:#64748b;margin-bottom:12px">
+            ${isFiltered ? 'No encontramos gorras que coincidan con tu búsqueda.' : 'Próximamente nuevos ingresos. El catálogo de esta tienda está en preparación.'}
+          </p>
+          ${isFiltered ? '<button onclick="Catalogo.resetFilters()" class="btn-reset-filters">Ver todas las gorras</button>' : ''}
         </div>
       `;
       return;

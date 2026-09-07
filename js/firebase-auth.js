@@ -6,12 +6,13 @@
 
 (function() {
   const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyDigsQcUkAGElI_lPTgq4VpfKFFyTE8NCw",
-    authDomain: "applied-sunlight-dgtt6.firebaseapp.com",
-    projectId: "applied-sunlight-dgtt6",
-    storageBucket: "applied-sunlight-dgtt6.firebasestorage.app",
-    messagingSenderId: "766976387991",
-    appId: "1:766976387991:web:4027135384a5562a2db2d2"
+    apiKey: "AIzaSyAFz9zUuRPgy4n-tYP-3BxwmXldMBMUmhA",
+    authDomain: "capfit-6689b.firebaseapp.com",
+    projectId: "capfit-6689b",
+    storageBucket: "capfit-6689b.firebasestorage.app",
+    messagingSenderId: "278406793068",
+    appId: "1:278406793068:web:da02f07bf8b13afdeb1549",
+    measurementId: "G-RJFGW1349J"
   };
 
   let authInstance = null;
@@ -169,6 +170,14 @@
     sessionStorage.removeItem('capfit_user_name');
   }
 
+  // Restablecer contraseña
+  async function resetPassword(email) {
+    const auth = await initAuth();
+    if (!auth) throw new Error('No se pudo inicializar Firebase Auth SDK.');
+    const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js');
+    await sendPasswordResetEmail(auth, email.trim());
+  }
+
   // Verificar credenciales de Firebase Auth contra el backend de CAPFIT
   async function verifySessionWithBackend(firebaseUser) {
     if (!firebaseUser) throw new Error('Usuario no autenticado en Firebase.');
@@ -267,6 +276,7 @@
     signInWithGoogle,
     signInWithEmail,
     registerWithEmail,
+    resetPassword,
     signOutUser,
     verifySessionWithBackend,
     registerStoreForOwner,

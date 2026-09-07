@@ -759,7 +759,7 @@ async function appHandler(req, res) {
     return;
   }
 
-  // 6. POST /api/admin/upload (Subida de fotos de productos)
+  // 6. POST /api/admin/upload (Subida de fotos de productos convertidas a WebP)
   if (reqPath === '/api/admin/upload' && req.method === 'POST') {
     try {
       const raw = await readBody(req);
@@ -770,9 +770,11 @@ async function appHandler(req, res) {
       }
       const cleanBase64 = base64.replace(/^data:[^;]+;base64,/, '');
       const buffer = Buffer.from(cleanBase64, 'base64');
-      const ext = path.extname(filename || '') || '.webp';
-      const safeBase = path.basename(filename || 'gorra', ext).replace(/[^a-zA-Z0-9_-]/g, '_');
-      const safeFilename = `${safeBase}_${Date.now()}${ext}`;
+      
+      // Asegurar extensión .webp para optimización y compatibilidad
+      const origExt = path.extname(filename || '');
+      const safeBase = path.basename(filename || 'gorra', origExt).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeFilename = `${safeBase}_${Date.now()}.webp`;
 
       const uploadDir = path.join(__dirname, 'assets', 'gorras');
       if (!fs.existsSync(uploadDir)) {
