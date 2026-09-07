@@ -16,6 +16,7 @@ let cachedStores = [];
 const cachedProducts = new Map(); // storeId -> Array of products
 const cachedOrders = new Map();   // storeId -> Array of orders
 let isInitialized = false;
+let initPromise = null;
 
 function getCurrentPeriod() {
   const d = new Date();
@@ -27,7 +28,19 @@ function getCurrentPeriod() {
 /**
  * Cargar todos los datos de las tiendas, productos y órdenes directamente desde Firebase Firestore
  */
-async function init() {
+function init() {
+  if (!initPromise) {
+    initPromise = _doInit();
+  }
+  return initPromise;
+}
+
+function ensureInitialized() {
+  if (isInitialized) return Promise.resolve();
+  return init();
+}
+
+async function _doInit() {
   try {
     if (!FirebaseDb) {
       console.warn('⚠️ FirebaseDb no disponible, usando memoria volatil.');
@@ -43,7 +56,7 @@ async function init() {
       cachedStores = dbStores.map(st => ({
         id: st.id,
         subdomain: st.subdomain || st.id,
-        fullDomain: st.fullDomain || `${st.subdomain || st.id}.capfit.shop`,
+        fullDomain: st.fullDomain || `${st.subdomain || st.id}.capfit.store`,
         name: st.name || `Tienda ${st.id}`,
         tagline: st.tagline || '',
         username: st.username || st.adminUsername || `admin_${st.id}`,
@@ -64,7 +77,7 @@ async function init() {
       const defaultPrincipal = {
         id: 'principal',
         subdomain: 'capfit',
-        fullDomain: 'capfit.shop',
+        fullDomain: 'capfit.store',
         name: 'CAPFIT Oficial',
         tagline: 'Gorras premium y probador virtual con IA',
         username: 'admin',
@@ -202,7 +215,7 @@ function saveStores(stores) {
       FirebaseDb.saveStore({
         id: st.id,
         subdomain: st.subdomain,
-        fullDomain: st.fullDomain || `${st.subdomain}.capfit.shop`,
+        fullDomain: st.fullDomain || `${st.subdomain}.capfit.store`,
         name: st.name,
         tagline: st.tagline || '',
         username: st.username,
@@ -401,7 +414,7 @@ function getAiQuotaStatus(storeId) {
     storeId: store.id,
     storeName: store.name,
     subdomain: store.subdomain,
-    fullDomain: `${store.subdomain}.capfit.shop`,
+    fullDomain: `${store.subdomain}.capfit.store`,
     plan: store.plan || 'Starter',
     limit,
     used,
@@ -423,7 +436,7 @@ function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit
 
   if (!cleanSub) throw new Error('El subdominio es obligatorio y debe ser alfanumérico.');
   if (stores.some(s => s.subdomain.toLowerCase() === cleanSub)) {
-    throw new Error(`El subdominio "${cleanSub}.capfit.shop" ya está registrado.`);
+    throw new Error(`El subdominio "${cleanSub}.capfit.store" ya está registrado.`);
   }
 
   const cleanUser = (username || cleanSub).trim();
@@ -435,7 +448,7 @@ function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit
   const newStore = {
     id: cleanSub,
     subdomain: cleanSub,
-    fullDomain: `${cleanSub}.capfit.shop`,
+    fullDomain: `${cleanSub}.capfit.store`,
     name: (name || `Tienda ${cleanSub}`).trim(),
     tagline: (tagline || 'Tienda de gorras personalizada').trim(),
     username: cleanUser,
@@ -546,6 +559,7 @@ function getDatabaseInfo() {
 
 module.exports = {
   init,
+  ensureInitialized,
   getAllStores,
   getStoreById,
   getStoreBySubdomain,

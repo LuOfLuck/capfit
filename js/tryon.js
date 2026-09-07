@@ -835,7 +835,7 @@ function updateTryOnQuotaUI() {
         <div class="quota-badge-icon">⚠️</div>
         <div class="quota-badge-info">
           <strong>Límite mensual de ${quota.limit} pruebas con IA alcanzado</strong>
-          <span>Tienda "${store.name}" (${store.subdomain}.capfit.shop) · ${quota.used}/${quota.limit} usadas este mes (${quota.period}). El cupo se reinicia el 1° del próximo mes.</span>
+          <span>Tienda "${store.name}" (${store.subdomain}.capfit.store) · ${quota.used}/${quota.limit} usadas este mes (${quota.period}). El cupo se reinicia el 1° del próximo mes.</span>
         </div>
       `;
       quotaBanner.style.display = 'flex';
@@ -853,7 +853,7 @@ function updateTryOnQuotaUI() {
       quotaBanner.innerHTML = `
         <div class="quota-badge-icon">⚡</div>
         <div class="quota-badge-info">
-          <strong>Tienda: ${store.name}</strong> (${store.subdomain}.capfit.shop) · 
+          <strong>Tienda: ${store.name}</strong> (${store.subdomain}.capfit.store) · 
           <span><strong>${quota.remaining}</strong> de ${quota.limit} pruebas IA disponibles este mes</span>
         </div>
         <span class="quota-badge-plan">${store.plan || 'Starter'}</span>

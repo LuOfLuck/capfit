@@ -17,11 +17,32 @@ const Store = (() => {
     });
   }
 
+  function getSubdomainFromHost() {
+    try {
+      const host = (window.location.hostname || '').toLowerCase();
+      const parts = host.split('.');
+      if (parts.length >= 3) {
+        const sub = parts[0];
+        if (sub && sub !== 'www' && sub !== 'api' && sub !== 'ais-dev' && sub !== 'ais-pre') {
+          return sub;
+        }
+      }
+    } catch (e) {}
+    return '';
+  }
+
   function getQueryStoreId() {
     try {
+      // 1. Si estamos navegando en un subdominio específico (ej: tienda1.capfit.store)
+      const hostSub = getSubdomainFromHost();
+      if (hostSub) return hostSub;
+
+      // 2. Parámetro explícito de query string (?store= o ?tienda=)
       const p = new URLSearchParams(window.location.search);
-      const s = p.get('store');
+      const s = p.get('store') || p.get('tienda');
       if (s) return s;
+
+      // 3. Tienda guardada en sesión local
       const saved = localStorage.getItem('capfit_active_store_id');
       if (saved) return saved;
     } catch (e) {}
@@ -49,13 +70,25 @@ const Store = (() => {
   }
 
   function switchStore(storeId) {
-    if (!storeId) {
+    if (!storeId || storeId === 'principal') {
       localStorage.removeItem('capfit_active_store_id');
+      const host = (window.location.hostname || '').toLowerCase();
+      if (host.includes('capfit.store') && host !== 'capfit.store') {
+        window.location.href = `https://capfit.store/`;
+        return;
+      }
       const url = new URL(window.location.href);
       url.searchParams.delete('store');
+      url.searchParams.delete('tienda');
       window.location.href = url.pathname + (url.search ? url.search : '') + window.location.hash;
     } else {
       localStorage.setItem('capfit_active_store_id', storeId);
+      const host = (window.location.hostname || '').toLowerCase();
+      if (host.endsWith('capfit.store')) {
+        // Redirigir directamente al subdominio si estamos en capfit.store
+        window.location.href = `https://${storeId}.capfit.store/`;
+        return;
+      }
       const url = new URL(window.location.href);
       url.searchParams.set('store', storeId);
       window.location.href = url.pathname + url.search + window.location.hash;
@@ -131,7 +164,7 @@ async function loadPublicStoresIntoDropdown() {
         <div class="store-dropdown-item ${isCur ? 'active' : ''}" onclick="Store.switchStore('${s.id}')">
           <div>
             <div class="store-item-name">${s.name} ${isCur ? '✓' : ''}</div>
-            <div class="store-item-subdomain">${s.subdomain}.capfit.shop</div>
+            <div class="store-item-subdomain">${s.subdomain}.capfit.store</div>
           </div>
           <span class="store-item-badge">${s.plan || 'Plan'}</span>
         </div>
@@ -145,7 +178,7 @@ async function loadPublicStoresIntoDropdown() {
 Store.on('store:synced', (data) => {
   const lbl = document.getElementById('nav-store-subdomain-label');
   if (lbl && data && data.store) {
-    lbl.textContent = `${data.store.subdomain}.capfit.shop`;
+    lbl.textContent = `${data.store.subdomain}.capfit.store`;
   }
 });
 

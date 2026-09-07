@@ -136,6 +136,9 @@ async function appHandler(req, res) {
     res.writeHead(204, corsHeaders()); res.end(); return;
   }
 
+  // Asegurar que la base de datos Firestore esté sincronizada antes de resolver tienda
+  await StoreManager.ensureInitialized();
+
   // Resolver la tienda actual según host, subdominio o parámetro (?store=tienda1)
   const currentStore = StoreManager.resolveStoreFromRequest(req);
 
@@ -351,7 +354,7 @@ async function appHandler(req, res) {
       store: {
         id: currentStore.id,
         subdomain: currentStore.subdomain,
-        fullDomain: currentStore.fullDomain || `${currentStore.subdomain}.capfit.shop`,
+        fullDomain: currentStore.fullDomain || `${currentStore.subdomain}.capfit.store`,
         name: currentStore.name,
         tagline: currentStore.tagline,
         plan: currentStore.plan || 'Starter',
@@ -368,7 +371,7 @@ async function appHandler(req, res) {
     const publicList = all.map(s => ({
       id: s.id,
       subdomain: s.subdomain,
-      fullDomain: s.fullDomain || `${s.subdomain}.capfit.shop`,
+      fullDomain: s.fullDomain || `${s.subdomain}.capfit.store`,
       name: s.name,
       tagline: s.tagline,
       plan: s.plan,
@@ -494,7 +497,7 @@ async function appHandler(req, res) {
           stores: ownedStores.map(s => ({ id: s.id, name: s.name, subdomain: s.subdomain, plan: s.plan })),
           token: `capfit_owner_fb_${uid}_${Date.now()}`,
           user: { uid, email: cleanEmail, displayName: displayName || store.name, photoURL },
-          message: `Bienvenido a tu tienda ${store.name} (${store.subdomain}.capfit.shop)`
+          message: `Bienvenido a tu tienda ${store.name} (${store.subdomain}.capfit.store)`
         });
         return;
       }
@@ -546,7 +549,7 @@ async function appHandler(req, res) {
         plan: newStore.plan,
         store: newStore,
         token: `capfit_owner_fb_${uid}_${Date.now()}`,
-        message: `¡Tienda "${newStore.name}" creada exitosamente! Subdominio: ${newStore.subdomain}.capfit.shop`
+        message: `¡Tienda "${newStore.name}" creada exitosamente! Subdominio: ${newStore.subdomain}.capfit.store`
       });
     } catch (e) {
       sendJson(res, 400, { ok: false, error: e.message });
@@ -587,7 +590,7 @@ async function appHandler(req, res) {
       const newStore = StoreManager.createStore(body);
       sendJson(res, 201, {
         ok: true,
-        message: `Tienda "${newStore.name}" creada con éxito en ${newStore.subdomain}.capfit.shop`,
+        message: `Tienda "${newStore.name}" creada con éxito en ${newStore.subdomain}.capfit.store`,
         store: newStore,
         aiQuota: StoreManager.getAiQuotaStatus(newStore.id)
       });

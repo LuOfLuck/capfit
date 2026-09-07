@@ -292,7 +292,7 @@ const AdminPanel = (() => {
       _currentStoreId = data.storeId || 'principal';
       _currentStoreName = data.storeName || (data.role === 'superadmin' ? 'Plataforma CAPFIT' : 'Mi Tienda');
       _currentSubdomain = data.subdomain || 'tienda1';
-      _userEmail = payload.username.includes('@') ? payload.username : `${payload.username}@capfit.shop`;
+      _userEmail = payload.username.includes('@') ? payload.username : `${payload.username}@capfit.store`;
 
       sessionStorage.setItem(SESSION_KEY, data.token || 'valid');
       sessionStorage.setItem(ROLE_KEY, _adminRole);
@@ -945,10 +945,10 @@ const AdminPanel = (() => {
               <label class="auth-label" for="reg-store-subdomain">Subdominio de tu Tienda</label>
               <div style="display:flex;align-items:center;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0 14px;overflow:hidden">
                 <input type="text" id="reg-store-subdomain" placeholder="urban" required style="border:none;background:transparent;padding:13px 0;width:100%;font-family:inherit;font-weight:600;outline:none;font-size:0.92rem;color:#0f172a" oninput="AdminPanel.updateSubdomainPreview(this.value)">
-                <span style="color:#64748b;font-weight:600;font-size:0.88rem;white-space:nowrap">.capfit.shop</span>
+                <span style="color:#64748b;font-weight:600;font-size:0.88rem;white-space:nowrap">.capfit.store</span>
               </div>
               <div id="subdomain-live-preview" style="font-size:0.75rem;color:#0284c7;margin-top:6px;text-align:left">
-                URL de tu tienda: <strong>https://urban.capfit.shop</strong>
+                URL de tu tienda: <strong>https://urban.capfit.store</strong>
               </div>
             </div>
 
@@ -1004,7 +1004,7 @@ const AdminPanel = (() => {
     const prev = document.getElementById('subdomain-live-preview');
     if (!prev) return;
     const clean = (val || 'tu-tienda').toLowerCase().replace(/[^a-z0-9-]/g, '');
-    prev.innerHTML = `URL de tus clientes: <strong>https://${clean || 'tu-tienda'}.capfit.shop</strong>`;
+    prev.innerHTML = `URL de tus clientes: <strong>https://${clean || 'tu-tienda'}.capfit.store</strong>`;
   }
 
   function submitFirebaseEmailLogin() {
@@ -1138,7 +1138,7 @@ const AdminPanel = (() => {
             <span style="background:#0f172a;color:#38bdf8;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-family:monospace;font-weight:700" title="Portal de Configuración de Dueños">
               account.capfit.store
             </span>
-            <span class="saas-store-domain" title="Subdominio público de tus clientes">${_currentSubdomain}.capfit.shop</span>
+            <span class="saas-store-domain" title="Subdominio público de tus clientes">${_currentSubdomain}.capfit.store</span>
             <span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:0.72rem;padding:3px 8px;border-radius:999px;font-weight:600" title="Base de Datos Cloud Firebase Firestore & Auth Activos">
               🔥 Firebase Firestore & Auth
             </span>
@@ -1260,7 +1260,7 @@ const AdminPanel = (() => {
           <div>
             <h3 style="font-size:1.1rem;font-weight:700">Red de Tiendas y Subdominios Registrados</h3>
             <p style="font-size:0.8rem;color:var(--gray-500);margin-top:2px">
-              Cada cliente tiene su tienda independiente en <code>*.capfit.shop</code> con catálogo, stock y cupo mensual de imágenes IA.
+              Cada cliente tiene su tienda independiente en <code>*.capfit.store</code> con catálogo, stock y cupo mensual de imágenes IA.
             </p>
           </div>
           <button class="admin-btn-primary" onclick="AdminPanel.openCreateStoreModal()">
@@ -1281,7 +1281,7 @@ const AdminPanel = (() => {
                 <div class="saas-store-header">
                   <div>
                     <div class="saas-store-title">${st.name} ${isCur ? '⭐ (Activa)' : ''}</div>
-                    <span class="saas-store-domain">${st.subdomain}.capfit.shop</span>
+                    <span class="saas-store-domain">${st.subdomain}.capfit.store</span>
                   </div>
                   <span class="saas-badge-plan">${st.plan || 'Plan Standard'}</span>
                 </div>
@@ -1344,7 +1344,7 @@ const AdminPanel = (() => {
 
         <form onsubmit="event.preventDefault(); AdminPanel.submitCreateStore();">
           <p style="font-size:0.8rem;color:var(--gray-600);margin-bottom:14px">
-            Se registrará la tienda con su propio subdominio en <code>capfit.shop</code> y se clonará la plantilla inicial de gorras para que el dueño empiece a vender de inmediato.
+            Se registrará la tienda con su propio subdominio en <code>capfit.store</code> y se clonará la plantilla inicial de gorras para que el dueño empiece a vender de inmediato.
           </p>
 
           <div class="admin-field-group" style="margin-bottom:12px">
@@ -1353,10 +1353,10 @@ const AdminPanel = (() => {
           </div>
 
           <div class="admin-field-group" style="margin-bottom:12px">
-            <label>Subdominio deseado (*.capfit.shop) *</label>
+            <label>Subdominio deseado (*.capfit.store) *</label>
             <div style="display:flex;align-items:center;gap:6px">
               <input type="text" id="new-store-subdomain" placeholder="tienda3" style="flex:1" required pattern="[a-z0-9\\-]+" title="Solo letras minúsculas, números y guiones">
-              <span style="font-family:monospace;font-size:0.85rem;color:var(--gray-500)">.capfit.shop</span>
+              <span style="font-family:monospace;font-size:0.85rem;color:var(--gray-500)">.capfit.store</span>
             </div>
           </div>
 
@@ -1429,7 +1429,7 @@ const AdminPanel = (() => {
       const modal = document.getElementById('admin-create-store-modal');
       if (modal) modal.remove();
 
-      if (window.showToast) window.showToast(`¡Tienda "${name}" creada en ${subdomain}.capfit.shop!`);
+      if (window.showToast) window.showToast(`¡Tienda "${name}" creada en ${subdomain}.capfit.store!`);
       await refreshData();
     } catch (e) {
       alert('Error creando la tienda: ' + e.message);
@@ -1456,7 +1456,7 @@ const AdminPanel = (() => {
 
         <form onsubmit="event.preventDefault(); AdminPanel.submitEditStoreQuota('${storeId}');">
           <div style="background:#f8fafc;padding:12px;border-radius:8px;font-size:0.8rem;margin-bottom:14px">
-            <div><strong>Subdominio:</strong> ${targetStore.subdomain}.capfit.shop</div>
+            <div><strong>Subdominio:</strong> ${targetStore.subdomain}.capfit.store</div>
             <div><strong>Consumo actual del mes:</strong> ${q.used} de ${q.limit} fotos generadas</div>
           </div>
 
