@@ -9,6 +9,7 @@
         "subdomain": { "type": "string", "maxLength": 64 },
         "name": { "type": "string", "maxLength": 100 },
         "tagline": { "type": "string", "maxLength": 200 },
+        "about": { "type": "object" },
         "adminUsername": { "type": "string", "maxLength": 64 },
         "adminPassword": { "type": "string", "maxLength": 64 },
         "plan": { "type": "string", "maxLength": 50 },

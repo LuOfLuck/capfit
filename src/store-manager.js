@@ -64,6 +64,8 @@ async function _doInit() {
         ownerEmail: st.ownerEmail || `admin@${st.subdomain || st.id}.shop`,
         ownerUid: st.ownerUid || null,
         plan: st.plan || 'Starter',
+        about: st.about || null,
+        sections: st.sections || null,
         aiMonthlyLimit: st.aiMonthlyLimit !== undefined ? Number(st.aiMonthlyLimit) : 100,
         aiGenerationsUsed: st.aiGenerationsUsed !== undefined ? Number(st.aiGenerationsUsed) : 0,
         aiCurrentPeriod: st.aiPeriod || st.aiCurrentPeriod || getCurrentPeriod(),
@@ -223,6 +225,8 @@ function saveStores(stores) {
         ownerEmail: st.ownerEmail || '',
         ownerUid: st.ownerUid || null,
         plan: st.plan || 'Starter',
+        about: st.about !== undefined ? st.about : null,
+        sections: st.sections !== undefined ? st.sections : null,
         aiMonthlyLimit: st.aiMonthlyLimit !== undefined ? Number(st.aiMonthlyLimit) : 100,
         aiGenerationsUsed: st.aiGenerationsUsed !== undefined ? Number(st.aiGenerationsUsed) : 0,
         aiPeriod: st.aiCurrentPeriod || getCurrentPeriod(),
@@ -532,11 +536,189 @@ function updateStore(id, updates) {
   if (updates.aiGenerationsUsed !== undefined) s.aiGenerationsUsed = Number(updates.aiGenerationsUsed);
   if (updates.resetAiUsage === true) s.aiGenerationsUsed = 0;
   if (updates.brandColor !== undefined) s.brandColor = updates.brandColor;
+  if (updates.about !== undefined) s.about = updates.about;
+  if (updates.sections !== undefined) s.sections = updates.sections;
   if (updates.active !== undefined) s.active = Boolean(updates.active);
 
   stores[idx] = s;
   saveStores(stores);
   return s;
+}
+
+function getDefaultSectionsForStore(store) {
+  const storeName = (store && store.name) || 'Nuestra Tienda';
+  const about = (store && store.about) || {};
+  const email = about.email || (store && store.ownerEmail) || `contacto@${(store && store.subdomain) || 'tienda'}.capfit.shop`;
+  const phone = about.phone || '+54 9 11 5555-0199';
+  const location = about.location || 'Buenos Aires, Argentina';
+  const brandName = about.brandName || storeName;
+
+  return {
+    about: {
+      brandName: brandName,
+      tagline: about.tagline || (store && store.tagline) || 'Probadores virtuales de gorras y accesorios con IA.',
+      story: about.story || `En ${storeName} fusionamos diseño de autor, materiales de máxima calidad y tecnología de probador virtual con Inteligencia Artificial.`,
+      mission: about.mission || 'Brindar a cada cliente la seguridad de elegir el producto perfecto antes de comprar con probador interactivo.',
+      vision: about.vision || 'Ser la marca referente en diseño de accesorios y moda urbana con probadores virtuales.',
+      quality: about.quality || 'Selección rigurosa de tejidos, costuras reforzadas de alta durabilidad y herrajes anatómicos.',
+      foundedYear: about.foundedYear || '2024',
+      location: location,
+      email: email,
+      phone: phone,
+      statsHappyClients: about.statsHappyClients || '+2.500',
+      statsTryonAccuracy: about.statsTryonAccuracy || '99.2%',
+      statsFastShipping: about.statsFastShipping || '24-48 hs'
+    },
+    faq: {
+      subtitle: 'Encontrá respuestas rápidas sobre el probador con IA, envíos, medios de pago y garantías.',
+      items: [
+        {
+          id: 'faq-1',
+          cat: 'ia',
+          q: '¿Cómo funciona el probador virtual con Inteligencia Artificial?',
+          a: `En ${storeName} utilizamos visión computacional para calibrar el tamaño, ángulo e iluminación de la prenda en tu rostro. Podés subir una foto o usar tu cámara en vivo y probarte cualquier modelo al instante.`
+        },
+        {
+          id: 'faq-2',
+          cat: 'ia',
+          q: '¿Mis fotos quedan guardadas o son privadas?',
+          a: 'Tu privacidad es absoluta. Tu foto se procesa de forma efímera en la memoria de la sesión y se destruye inmediatamente después. Nunca almacenamos tus fotos biométricas ni las compartimos.'
+        },
+        {
+          id: 'faq-3',
+          cat: 'envios',
+          q: '¿Cuánto tarda en llegar mi pedido y cuánto cuesta el envío?',
+          a: 'Para CABA y Gran Buenos Aires las entregas se realizan entre 24 y 48 horas hábiles. Para el resto del país, entre 3 y 5 días hábiles vía Andreani o Correo Argentino. En compras superiores al mínimo promocional, ¡el envío es 100% gratuito!'
+        },
+        {
+          id: 'faq-4',
+          cat: 'pagos',
+          q: '¿Cuáles son los medios de pago aceptados?',
+          a: 'Aceptamos tarjetas de crédito, débito, transferencias y dinero en cuenta a través de Mercado Pago con la máxima seguridad antifraude.'
+        },
+        {
+          id: 'faq-5',
+          cat: 'garantia',
+          q: '¿Qué hago si el producto no me queda como esperaba?',
+          a: 'Contás con 30 días corridos desde que recibís tu pedido para solicitar cambio o devolución. El primer cambio de talle o modelo no tiene costo de flete.'
+        }
+      ]
+    },
+    envios: {
+      freeShippingThreshold: 40000,
+      freeShippingBanner: '¡Envío Gratis disponible! En compras superiores a $40.000 a cualquier punto del país.',
+      standardTitle: 'Envío Estándar Nacional',
+      standardTime: '3 a 5 días hábiles',
+      standardCarrier: 'Andreani / Correo Argentino con seguimiento en tiempo real directo a tu puerta o sucursal.',
+      expressTitle: 'Express CABA y GBA',
+      expressTime: '24 a 48 hs hábiles',
+      expressDesc: 'Servicio de mensajería prioritario para compras realizadas de Lunes a Viernes antes de las 13:00 hs.',
+      pickupTitle: 'Retiro en Sucursal / Showroom',
+      pickupTime: 'Gratis / Inmediato',
+      pickupAddress: location,
+      packagingTitle: 'Embalaje Protector Reforzado',
+      packagingDesc: 'Despachamos cada pedido en cajas rígidas con soporte anatómico interno para que la gorra llegue con su horma original intacta.'
+    },
+    cambios: {
+      daysGuarantee: 30,
+      bannerTitle: '30 Días Corridos de Garantía Sin Preguntas',
+      bannerDesc: 'Tenés hasta 30 días posteriores a la fecha de recepción para solicitar un cambio de producto o la devolución de tu dinero. El primer cambio de talle o modelo no tiene costo de flete.',
+      step1Title: 'Contactanos',
+      step1Desc: `Escribinos por WhatsApp al ${phone} o a ${email} indicando tu número de pedido y el motivo del cambio.`,
+      step2Title: 'Despachá el Paquete',
+      step2Desc: 'Te enviamos una etiqueta prepaga para que dejes el paquete en la sucursal de correo más cercana sin abonar nada.',
+      step3Title: 'Recibí o Reintegrá',
+      step3Desc: 'Una vez verificado el paquete, despachamos el nuevo modelo o te reintegramos el 100% de lo abonado.',
+      cond1: 'El producto debe estar nuevo, sin uso, sin perfumes ni marcas.',
+      cond2: 'Conservar la etiqueta original colocada y el empaque rígido.',
+      cond3: 'Presentar el número de orden o comprobante de compra digital.',
+      whatsappNumber: phone
+    },
+    contacto: {
+      whatsapp: phone,
+      whatsappDesc: 'Respuesta rápida (menos de 15 min)',
+      email: email,
+      emailDesc: 'Para consultas generales, pedidos especiales o soporte de compra',
+      hoursTitle: 'Horarios de Atención',
+      hoursDesc: 'Lunes a Sábados de 9:00 a 20:00 hs',
+      locationTitle: 'Punto de Entrega & Showroom',
+      locationDesc: location,
+      headerTitle: 'Contactanos',
+      headerSubtitle: 'Estamos disponibles para resolver tus dudas, asesorarte con tu compra o ayudarte con el probador virtual con IA.'
+    },
+    terminos: {
+      lastUpdated: 'Enero 2026',
+      art1Title: '1. Aceptación de los Términos',
+      art1Body: `Al acceder, navegar o realizar transacciones en ${storeName} y sus servicios asociados, el usuario declara haber leído, comprendido y aceptado en su totalidad los presentes Términos y Condiciones.`,
+      art2Title: '2. Uso del Probador Virtual con IA',
+      art2Body: 'El probador virtual es una herramienta orientativa basada en modelos de Inteligencia Artificial para estimar el calce visual de accesorios. Las imágenes resultantes constituyen representaciones simuladas de alta fidelidad.',
+      art3Title: '3. Precios y Moneda',
+      art3Body: 'Todos los precios publicados en el catálogo están expresados en pesos argentinos (ARS) e incluyen los impuestos correspondientes.',
+      art4Title: '4. Disponibilidad y Despacho',
+      art4Body: 'El compromiso de entrega está sujeto a la disponibilidad de stock físico. En caso de agostarse un artículo, ofreceremos un cambio inmediato o reembolso íntegro.',
+      art5Title: '5. Propiedad Intelectual',
+      art5Body: `Los signos distintivos, logotipos, imágenes y diseños son propiedad de ${storeName} y se encuentran protegidos por las leyes vigentes.`,
+      art6Title: '6. Jurisdicción y Ley Aplicable',
+      art6Body: 'Los presentes Términos y Condiciones se rigen por las leyes de la República Argentina.'
+    },
+    privacidad: {
+      art1Title: '1. Privacidad por Diseño en el Probador Virtual',
+      art1Body: 'Las fotografías o capturas utilizadas en el Probador IA se procesan de forma efímera en la memoria volátil de la sesión. Nunca almacenamos rasgos faciales, datos biométricos ni fotografías en servidores permanentes.',
+      art2Title: '2. Datos Recopilados en el Proceso de Compra',
+      art2Body: `Únicamente recopilamos los datos personales estrictamente necesarios para procesar y despachar tu pedido: nombre, dirección, teléfono y correo electrónico.`,
+      art3Title: '3. Seguridad de Pagos',
+      art3Body: 'No almacenamos datos financieros sensibles. Todas las transacciones se canalizan de manera cifrada a través de pasarelas de pago con certificación PCI-DSS.',
+      art4Title: '4. Derechos del Titular de los Datos',
+      art4Body: `De conformidad con la Ley N° 25.326, podés solicitar acceso, rectificación o eliminación de tus datos escribiendo a ${email}.`
+    }
+  };
+}
+
+function getStoreSections(storeId) {
+  const store = getStoreById(storeId) || getStoreById('principal') || getAllStores()[0];
+  if (!store) return {};
+
+  const defaults = getDefaultSectionsForStore(store);
+  const saved = store.sections || {};
+
+  // Merge sobre nosotros: si ya tiene store.about, sincronizar
+  const mergedAbout = { ...defaults.about, ...(store.about || {}), ...(saved.about || {}) };
+
+  return {
+    about: mergedAbout,
+    faq: { ...defaults.faq, ...(saved.faq || {}) },
+    envios: { ...defaults.envios, ...(saved.envios || {}) },
+    cambios: { ...defaults.cambios, ...(saved.cambios || {}) },
+    contacto: { ...defaults.contacto, ...(saved.contacto || {}) },
+    terminos: { ...defaults.terminos, ...(saved.terminos || {}) },
+    privacidad: { ...defaults.privacidad, ...(saved.privacidad || {}) }
+  };
+}
+
+function updateStoreSections(storeId, sectionKey, sectionData) {
+  const store = getStoreById(storeId);
+  if (!store) throw new Error('Tienda no encontrada');
+
+  const currentSections = getStoreSections(storeId);
+  let updatedSections = { ...currentSections };
+
+  if (sectionKey && sectionData) {
+    updatedSections[sectionKey] = {
+      ...(updatedSections[sectionKey] || {}),
+      ...sectionData
+    };
+  } else if (typeof sectionData === 'object' && !sectionKey) {
+    updatedSections = { ...updatedSections, ...sectionData };
+  }
+
+  // Si se actualizó about, reflejarlo también en store.about
+  const updates = { sections: updatedSections };
+  if (updatedSections.about) {
+    updates.about = updatedSections.about;
+  }
+
+  updateStore(store.id, updates);
+  return updatedSections;
 }
 
 function getDatabaseInfo() {
@@ -576,6 +758,9 @@ module.exports = {
   getAiQuotaStatus,
   createStore,
   updateStore,
+  getDefaultSectionsForStore,
+  getStoreSections,
+  updateStoreSections,
   getCurrentPeriod,
   getDatabaseInfo,
   findStoresByOwner,

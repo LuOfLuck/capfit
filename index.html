@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CAPFIT — Probador Virtual de Gorras con IA</title>
+  <meta name="description" content="Multi-tenant e-commerce platform for caps, sunglasses and accessories with AI Try-On, monthly quota management, store subdomains, and backoffice management.">
+  <meta property="og:title" content="CAPFIT — Probador Virtual de Gorras con IA">
+  <meta property="og:description" content="Multi-tenant e-commerce platform for caps, sunglasses and accessories with AI Try-On, monthly quota management, store subdomains, and backoffice management.">
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,20 +42,6 @@
         <a href="#inicio" onclick="navigateToView('inicio')" class="nav-logo">
           CAP<span>FIT</span>
         </a>
-        <div class="store-subdomain-pill" id="nav-store-pill" onclick="toggleStoreDropdown(event)" title="Cambiar de tienda / subdominio">
-          <span class="store-dot"></span>
-          <span id="nav-store-subdomain-label">tienda1.capfit.store</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
-          <div class="store-dropdown-menu" id="nav-store-dropdown" style="display:none" onclick="event.stopPropagation()">
-            <div class="store-dropdown-header">🏪 Tiendas Multitenant Registradas</div>
-            <div id="nav-store-dropdown-list">
-              <!-- Cargado dinámicamente -->
-            </div>
-            <div class="store-dropdown-footer">
-              <a href="#admin" onclick="navigateToView('admin')">⚙️ Gestionar tiendas en Backoffice →</a>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="nav-search-wrap">
@@ -67,17 +56,9 @@
         <li><a href="#inicio" onclick="navigateToView('inicio'); Catalogo.resetFilters();" class="active">Inicio</a></li>
         <li><a href="#catalogo-section" onclick="navigateToView('inicio'); Catalogo.resetFilters();">Catálogo</a></li>
         <li><a href="#probador" onclick="navigateToView('probador');">Probador IA</a></li>
-        <li><a href="#account" onclick="navigateToView('admin');" title="Acceso Tiendas">Acceso Tiendas</a></li>
       </ul>
 
       <div class="nav-actions">
-        <a href="#account" class="nav-icon-btn" title="Acceso Tiendas" onclick="navigateToView('admin')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-        </a>
-
         <a href="#carrito" onclick="navigateToView('carrito')" class="nav-icon-btn nav-cart-btn" title="Ver Carrito">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
@@ -244,7 +225,10 @@
         <div class="step-cards-row">
           <div class="step-card">
             <span class="step-num-pill">1</span>
-            <span class="step-card-text">Elegí tu gorra favorita</span>
+            <div class="step-card-text">
+              <strong>Elegí tu prenda</strong><br>
+              <small style="color:var(--gray-500);font-weight:500">del catálogo</small>
+            </div>
             <img src="assets/gorras/Gorra_negra_frente.webp" alt="Gorra" class="step-card-img" onerror="this.style.display='none'">
           </div>
 
@@ -252,22 +236,33 @@
 
           <div class="step-card">
             <span class="step-num-pill">2</span>
-            <span class="step-card-text">Subí tu foto o usá la cámara</span>
-            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop" alt="Foto" class="step-card-img">
+            <div class="step-card-text">
+              <strong>Subí tu foto</strong><br>
+              <small style="color:var(--gray-500);font-weight:500">o usá tu cámara</small>
+            </div>
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop" alt="Foto" class="step-card-img">
           </div>
 
           <span class="step-arrow">→</span>
 
           <div class="step-card">
             <span class="step-num-pill">3</span>
-            <span class="step-card-text">La IA procesa la imagen <br><small style="color:var(--gray-500)">10 seg</small></span>
+            <div class="step-card-text">
+              <strong>La IA procesa</strong><br>
+              <small style="color:var(--gray-500);font-weight:500">en solo 10 seg</small>
+            </div>
+            <div class="step-card-badge-icon" title="Inteligencia Artificial">⚡</div>
           </div>
 
           <span class="step-arrow">→</span>
 
           <div class="step-card">
             <span class="step-num-pill">4</span>
-            <span class="step-card-text">¡Ves cómo te queda!</span>
+            <div class="step-card-text">
+              <strong>¡Mirá cómo queda!</strong><br>
+              <small style="color:var(--gray-500);font-weight:500">calce realista</small>
+            </div>
+            <div class="step-card-badge-icon" title="Resultado">✨</div>
           </div>
         </div>
 
@@ -851,6 +846,700 @@
   </main>
 
 
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 6: SOBRE NOSOTROS (#view-sobre-nosotros) - PERSONALIZABLE
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-sobre-nosotros" class="app-view">
+    <div class="content-view-container">
+
+      <!-- Customizer Top Banner -->
+      <div class="about-customizer-banner">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font-size:1.6rem">✨</span>
+          <div>
+            <strong style="display:block;font-size:0.98rem;letter-spacing:0.3px">Sección 100% Personalizable</strong>
+            <span style="font-size:0.82rem;color:#cbd5e1">Podés adaptar el nombre de tu tienda, historia, misión y datos de contacto en vivo.</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button type="button" onclick="PagesManager.openAdminEditor('about')" style="background:#0f172a;color:#ffffff;border:1px solid #334155;padding:9px 18px;font-size:0.85rem;font-weight:700;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+            ⚙️ Editar en Admin
+          </button>
+          <button type="button" onclick="SobreNosotros.openCustomizer()" style="background:#ffffff;color:#0f172a;border:none;padding:9px 18px;font-size:0.85rem;font-weight:700;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+            ✏️ Personalizador rápido
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Customizer Form Panel (collapsible) -->
+      <div id="about-customizer-panel" class="about-customizer-panel" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #e2e8f0">
+          <div>
+            <h3 style="font-size:1.3rem;font-weight:800;color:#0f172a;margin:0 0 4px">Personalizar «Sobre Nosotros»</h3>
+            <p style="font-size:0.85rem;color:#64748b;margin:0">Los cambios se aplican al instante y se guardan para el perfil de tu tienda.</p>
+          </div>
+          <button type="button" onclick="SobreNosotros.closeCustomizer()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b" title="Cerrar panel">✕</button>
+        </div>
+
+        <form onsubmit="SobreNosotros.submitCustomizer(event)">
+          <div class="customizer-form-grid">
+            <div class="customizer-field">
+              <label for="edit-about-brand">Nombre de la Marca / Tienda</label>
+              <input type="text" id="edit-about-brand" placeholder="Ej: CAPFIT Store" required>
+            </div>
+            <div class="customizer-field">
+              <label for="edit-about-year">Año de Fundación</label>
+              <input type="text" id="edit-about-year" placeholder="Ej: 2024">
+            </div>
+            <div class="customizer-field full-width">
+              <label for="edit-about-tagline">Eslogan / Subtítulo</label>
+              <input type="text" id="edit-about-tagline" placeholder="Ej: Moda urbana y probador virtual inteligente">
+            </div>
+            <div class="customizer-field full-width">
+              <label for="edit-about-story">Historia de la Marca (Quiénes somos)</label>
+              <textarea id="edit-about-story" rows="4" placeholder="Contá cómo nació tu marca, qué los apasiona y por qué son diferentes..."></textarea>
+            </div>
+            <div class="customizer-field">
+              <label for="edit-about-mission">Nuestra Misión</label>
+              <textarea id="edit-about-mission" rows="3" placeholder="El propósito principal de tu negocio..."></textarea>
+            </div>
+            <div class="customizer-field">
+              <label for="edit-about-vision">Nuestra Visión</label>
+              <textarea id="edit-about-vision" rows="3" placeholder="Hacia dónde va la marca en el futuro..."></textarea>
+            </div>
+            <div class="customizer-field full-width">
+              <label for="edit-about-quality">Compromiso con la Calidad</label>
+              <textarea id="edit-about-quality" rows="2" placeholder="Detalles de confección, telas, durabilidad..."></textarea>
+            </div>
+            <div class="customizer-field">
+              <label for="edit-about-location">Ubicación / Ciudad</label>
+              <input type="text" id="edit-about-location" placeholder="Ej: Buenos Aires, Argentina">
+            </div>
+            <div class="customizer-field">
+              <label for="edit-about-email">Email de Contacto</label>
+              <input type="email" id="edit-about-email" placeholder="Ej: contacto@tutienda.store">
+            </div>
+            <div class="customizer-field">
+              <label for="edit-about-phone">Teléfono / WhatsApp</label>
+              <input type="text" id="edit-about-phone" placeholder="Ej: +54 9 11 5555-0199">
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;flex-wrap:wrap;gap:10px">
+            <button type="button" onclick="SobreNosotros.resetData()" style="background:none;border:1px solid #cbd5e1;color:#64748b;padding:9px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer">
+              ↺ Restaurar predeterminados
+            </button>
+            <div style="display:flex;gap:10px">
+              <button type="button" onclick="SobreNosotros.closeCustomizer()" style="background:#f1f5f9;border:none;color:#475569;padding:9px 18px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer">
+                Cancelar
+              </button>
+              <button type="submit" class="admin-btn-primary" style="padding:9px 24px;font-size:0.88rem;font-weight:700">
+                💾 Guardar cambios
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Public View of Sobre Nosotros -->
+      <div class="content-page-header">
+        <div>
+          <span class="badge-pill badge-calidad">Identidad de Marca</span>
+          <h1 class="content-page-title" id="about-hero-title">Conocé nuestra historia</h1>
+          <p class="content-page-subtitle" id="about-display-tagline">Probadores virtuales de gorras y accesorios con IA. Comprá con confianza, probá primero.</p>
+        </div>
+        <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">← Volver al inicio</a>
+      </div>
+
+      <!-- Hero Card -->
+      <div class="about-hero-card">
+        <div class="about-hero-tag">Tecnología & Confección</div>
+        <h2 class="about-hero-title" id="about-display-brand">CAPFIT</h2>
+        <p class="about-hero-subtitle" id="about-display-story">
+          Nacimos con el objetivo de transformar la experiencia de comprar gorras y accesorios en línea. Sabemos lo difícil que es imaginar cómo te va a quedar una gorra antes de recibirla en tu casa. Por eso combinamos confección textil de primer nivel con tecnología de Inteligencia Artificial pionera para que puedas probarte cualquier prenda al instante desde tu cámara o subiendo una foto.
+        </p>
+      </div>
+
+      <!-- 3 Pillars Grid -->
+      <div class="about-grid-3">
+        <div class="about-pillar-card">
+          <div class="about-pillar-icon">🎯</div>
+          <h3 class="about-pillar-title">Nuestra Misión</h3>
+          <p class="about-pillar-desc" id="about-display-mission">
+            Brindar a cada cliente la seguridad de elegir el producto perfecto antes de comprar, combinando vanguardia tecnológica, diseño urbano y atención personalizada.
+          </p>
+        </div>
+
+        <div class="about-pillar-card">
+          <div class="about-pillar-icon">⚡</div>
+          <h3 class="about-pillar-title">Probador con IA</h3>
+          <p class="about-pillar-desc" id="about-display-vision">
+            Desarrollamos algoritmos biométricos avanzados que detectan el ángulo exacto de tu cabeza y ajustan la copa, visera e iluminación en tiempo real con calce fotorrealista.
+          </p>
+        </div>
+
+        <div class="about-pillar-card">
+          <div class="about-pillar-icon">💎</div>
+          <h3 class="about-pillar-title">Calidad Garantizada</h3>
+          <p class="about-pillar-desc" id="about-display-quality">
+            Utilizamos gabardinas de algodón premium, broches metálicos duraderos y bordados de alta densidad para ofrecer prendas que mantienen su forma con el paso del tiempo.
+          </p>
+        </div>
+      </div>
+
+      <!-- Stats Ribbon -->
+      <div class="about-stats-ribbon">
+        <div>
+          <div class="about-stat-number" id="about-display-stat-clients">+3.500</div>
+          <div class="about-stat-label">Personas ya probaron</div>
+        </div>
+        <div>
+          <div class="about-stat-number" id="about-display-stat-acc">99.2%</div>
+          <div class="about-stat-label">Satisfacción en calce</div>
+        </div>
+        <div>
+          <div class="about-stat-number" id="about-display-stat-ship">24-48 hs</div>
+          <div class="about-stat-label">Entregas express</div>
+        </div>
+      </div>
+
+      <!-- Contact & Location Box -->
+      <div class="content-card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px">
+        <div>
+          <h4 style="font-size:1.15rem;font-weight:800;color:#0f172a;margin:0 0 6px">¿Querés contactarte con el equipo?</h4>
+          <p style="font-size:0.88rem;color:#64748b;margin:0">
+            📍 <span id="about-display-location">Buenos Aires, Argentina</span> • 
+            ✉️ <span id="about-display-email">contacto@capfit.store</span> • 
+            📞 <span id="about-display-phone">+54 9 11 5555-0199</span>
+          </p>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button class="btn-hero-primary" onclick="navigateToView('probador')" style="padding:10px 22px;font-size:0.85rem">
+            PROBAR AHORA →
+          </button>
+          <button class="btn-hero-secondary" onclick="navigateToView('inicio'); Catalogo.resetFilters();" style="padding:10px 20px;font-size:0.85rem">
+            Ver Catálogo
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 7: PREGUNTAS FRECUENTES (#view-faq)
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-faq" class="app-view">
+    <div class="content-view-container">
+
+      <div class="content-page-header">
+        <div>
+          <span class="badge-pill badge-nuevo">Centro de Ayuda</span>
+          <h1 class="content-page-title">Preguntas Frecuentes</h1>
+          <p class="content-page-subtitle" id="faq-display-subtitle">Encontrá respuestas rápidas sobre el probador con IA, formas de pago, plazos de entrega y garantías de compra.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn-edit-section-header" onclick="PagesManager.openAdminEditor('faq')">✏️ Editar FAQ en Admin</button>
+          <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">← Volver al inicio</a>
+        </div>
+      </div>
+
+      <!-- Search Input -->
+      <div class="faq-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" class="faq-search-input" placeholder="Buscá una duda (ej. cómo funciona la IA, envíos, tarjetas, cambios)..." oninput="FAQManager.filter(this.value)">
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="faq-categories-row">
+        <button class="faq-category-pill active" onclick="FAQManager.filterByCategory('todas', this)">Todas las preguntas</button>
+        <button class="faq-category-pill" onclick="FAQManager.filterByCategory('ia', this)">Probador con IA</button>
+        <button class="faq-category-pill" onclick="FAQManager.filterByCategory('envios', this)">Envíos y Entregas</button>
+        <button class="faq-category-pill" onclick="FAQManager.filterByCategory('pagos', this)">Pagos y Facturación</button>
+        <button class="faq-category-pill" onclick="FAQManager.filterByCategory('garantia', this)">Cambios y Garantía</button>
+      </div>
+
+      <!-- Questions Accordion -->
+      <div id="faq-list-container">
+        
+        <div class="faq-item open" data-cat="ia">
+          <div class="faq-question" onclick="FAQManager.toggle(this)">
+            <span>¿Cómo funciona el probador virtual con Inteligencia Artificial?</span>
+            <span class="faq-toggle-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            Nuestro sistema utiliza modelos de visión artificial para detectar los puntos de referencia de tu rostro. Podés subir una selfie bien iluminada o activar tu cámara en vivo. En menos de 10 segundos, la IA calcula la escala, el ángulo y la perspectiva de la gorra, proyectándola con sombras y calce realistas sobre tu cabeza.
+          </div>
+        </div>
+
+        <div class="faq-item" data-cat="ia">
+          <div class="faq-question" onclick="FAQManager.toggle(this)">
+            <span>¿Mis fotos quedan guardadas o son privadas?</span>
+            <span class="faq-toggle-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            Tu privacidad es absoluta. Tu imagen se procesa temporalmente en memoria para renderizar el calce de la prenda y se destruye inmediatamente después. Nunca almacenamos tus fotos biométricas en ninguna base de datos ni las compartimos con nadie.
+          </div>
+        </div>
+
+        <div class="faq-item" data-cat="envios">
+          <div class="faq-question" onclick="FAQManager.toggle(this)">
+            <span>¿Cuánto tarda en llegar mi pedido y cuánto cuesta el envío?</span>
+            <span class="faq-toggle-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            Para CABA y Gran Buenos Aires las entregas se realizan entre 24 y 48 horas hábiles. Para el resto del país, entre 3 y 5 días hábiles vía Andreani o Correo Argentino. En compras que superen los $40.000, ¡el envío estándar es 100% gratuito!
+          </div>
+        </div>
+
+        <div class="faq-item" data-cat="pagos">
+          <div class="faq-question" onclick="FAQManager.toggle(this)">
+            <span>¿Cuáles son los medios de pago aceptados?</span>
+            <span class="faq-toggle-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            Procesamos todos los pagos a través de Mercado Pago. Podés abonar con tarjetas de crédito (Visa, Mastercard, AMEX), débito, saldo en cuenta de Mercado Pago o en efectivo a través de Rapipago y Pago Fácil.
+          </div>
+        </div>
+
+        <div class="faq-item" data-cat="garantia">
+          <div class="faq-question" onclick="FAQManager.toggle(this)">
+            <span>¿Qué hago si el producto no me queda como esperaba?</span>
+            <span class="faq-toggle-icon">+</span>
+          </div>
+          <div class="faq-answer">
+            Contás con 30 días corridos desde que recibís tu pedido para solicitar un cambio de talle/modelo o la devolución total de tu dinero. El primer cambio es sin costo alguno para vos.
+          </div>
+        </div>
+
+      </div>
+
+      <div id="faq-empty-search" style="display:none;padding:48px 20px;text-align:center" class="content-card">
+        <p style="font-size:1.1rem;font-weight:700;color:#0f172a;margin:0 0 8px">No encontramos preguntas relacionadas con tu búsqueda.</p>
+        <p style="font-size:0.88rem;color:#64748b;margin:0 0 16px">Escribinos directamente a nuestro equipo de soporte y te respondemos al instante.</p>
+        <button class="btn-hero-primary" onclick="navigateToView('contacto')" style="padding:10px 20px;font-size:0.85rem">Contactar Soporte</button>
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 8: ENVÍOS Y ENTREGAS (#view-envios)
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-envios" class="app-view">
+    <div class="content-view-container">
+
+      <div class="content-page-header">
+        <div>
+          <span class="badge-pill badge-más-vendido">Logística y Despachos</span>
+          <h1 class="content-page-title">Envíos y Entregas</h1>
+          <p class="content-page-subtitle">Enviamos a todo el territorio argentino con empaques rígidos diseñados para preservar la estructura original de tus gorras.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn-edit-section-header" onclick="PagesManager.openAdminEditor('envios')">✏️ Editar Envíos en Admin</button>
+          <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">← Volver al inicio</a>
+        </div>
+      </div>
+
+      <!-- Free Shipping Callout Banner -->
+      <div class="free-shipping-banner" style="margin-bottom:28px">
+        <div class="free-shipping-msg" id="envios-free-banner">
+          🚚 <strong>¡Envío Gratis disponible!</strong> Todas las compras superiores a $40.000 cuentan con envío estándar bonificado a cualquier punto del país.
+        </div>
+      </div>
+
+      <!-- Shipping Methods Grid -->
+      <div class="shipping-cards-grid">
+        <div class="shipping-card">
+          <div class="shipping-card-header">
+            <div class="shipping-card-icon">🚚</div>
+            <div>
+              <div class="shipping-card-title" id="envios-standard-title">Envío Estándar Nacional</div>
+              <span class="shipping-card-time" id="envios-standard-time">3 a 5 días hábiles</span>
+            </div>
+          </div>
+          <p class="shipping-card-desc" id="envios-standard-desc">
+            Despachado a través de Andreani o Correo Argentino con seguimiento en tiempo real directo a tu puerta o sucursal más cercana.
+          </p>
+        </div>
+
+        <div class="shipping-card">
+          <div class="shipping-card-header">
+            <div class="shipping-card-icon">⚡</div>
+            <div>
+              <div class="shipping-card-title" id="envios-express-title">Express CABA y GBA</div>
+              <span class="shipping-card-time" id="envios-express-time">24 a 48 hs hábiles</span>
+            </div>
+          </div>
+          <p class="shipping-card-desc" id="envios-express-desc">
+            Servicio de mensajería prioritario para compras realizadas de Lunes a Viernes antes de las 13:00 hs en el Área Metropolitana.
+          </p>
+        </div>
+
+        <div class="shipping-card">
+          <div class="shipping-card-header">
+            <div class="shipping-card-icon">🏢</div>
+            <div>
+              <div class="shipping-card-title" id="envios-pickup-title">Retiro en Sucursal</div>
+              <span class="shipping-card-time" id="envios-pickup-time">Gratis / Inmediato</span>
+            </div>
+          </div>
+          <p class="shipping-card-desc" id="envios-pickup-desc">
+            Podés retirar tu pedido en nuestros puntos de entrega autorizados en CABA sin ningún costo adicional una vez acreditado el pago.
+          </p>
+        </div>
+      </div>
+
+      <!-- Packaging & Protection Card -->
+      <div class="content-card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <div style="font-size:2.4rem;background:#f8fafc;width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;flex-shrink:0">
+          📦
+        </div>
+        <div style="flex:1;min-width:260px">
+          <h3 style="font-size:1.2rem;font-weight:800;color:#0f172a;margin:0 0 6px" id="envios-packaging-title">Embalaje Protector Reforzado</h3>
+          <p style="font-size:0.9rem;color:#475569;margin:0;line-height:1.6" id="envios-packaging-desc">
+            Sabemos que una gorra abollada o con la visera doblada arruina la compra. Por eso, cada producto se despacha en cajas de cartón corrugado rígido con soporte interno anatómico para que llegue intacta, tal como salió de fábrica.
+          </p>
+        </div>
+      </div>
+
+      <!-- Order Tracking Lookup Widget -->
+      <div class="content-card" style="background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)">
+        <h3 style="font-size:1.2rem;font-weight:800;color:#0f172a;margin:0 0 6px">¿Querés rastrear tu pedido?</h3>
+        <p style="font-size:0.88rem;color:#64748b;margin:0 0 16px">Ingresá el código de seguimiento enviado a tu email para ver la ubicación actual de tu paquete.</p>
+        
+        <form onsubmit="handleTrackingLookup(event)">
+          <div class="tracking-input-row">
+            <input type="text" id="tracking-input" placeholder="Ej: CAP-89234 o TN9482718AR" style="flex:1;padding:12px 16px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.9rem" required>
+            <button type="submit" class="admin-btn-primary" style="padding:12px 24px;font-size:0.88rem;font-weight:700">
+              Rastrear Envío →
+            </button>
+          </div>
+        </form>
+
+        <div id="tracking-result-box" style="display:none;margin-top:20px;padding:18px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px"></div>
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 9: CAMBIOS Y DEVOLUCIONES (#view-cambios)
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-cambios" class="app-view">
+    <div class="content-view-container">
+
+      <div class="content-page-header">
+        <div>
+          <span class="badge-pill badge-calidad">Garantía Total</span>
+          <h1 class="content-page-title">Cambios y Devoluciones</h1>
+          <p class="content-page-subtitle">Tu satisfacción es lo más importante. Si la prenda no te queda bien o querés cambiarla por otro modelo, te lo resolvemos fácil y rápido.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn-edit-section-header" onclick="PagesManager.openAdminEditor('cambios')">✏️ Editar Cambios en Admin</button>
+          <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">← Volver al inicio</a>
+        </div>
+      </div>
+
+      <!-- 30-Day Guarantee Banner -->
+      <div class="content-card" style="border-left:4px solid #0f172a;background:linear-gradient(135deg,#f8fafc 0%,#ffffff 100%)">
+        <h3 style="font-size:1.3rem;font-weight:800;color:#0f172a;margin:0 0 8px" id="cambios-banner-title">30 Días Corridos de Garantía Sin Preguntas</h3>
+        <p style="font-size:0.92rem;color:#475569;margin:0;line-height:1.65" id="cambios-banner-desc">
+          Tenés hasta 30 días posteriores a la fecha de recepción para solicitar un cambio de producto o la devolución de tu dinero. El primer cambio de talle o modelo no tiene costo de flete.
+        </p>
+      </div>
+
+      <!-- 3 Steps Grid -->
+      <div class="return-steps-grid">
+        <div class="return-step-box">
+          <div class="return-step-num">1</div>
+          <h4 style="font-size:1.05rem;font-weight:800;color:#0f172a;margin:0 0 8px" id="cambios-step1-title">Contactanos</h4>
+          <p style="font-size:0.88rem;color:#475569;margin:0;line-height:1.55" id="cambios-step1-desc">
+            Escribinos por WhatsApp al +54 9 11 5555-0199 o por correo a contacto@capfit.store indicando tu número de pedido y el motivo del cambio.
+          </p>
+        </div>
+
+        <div class="return-step-box">
+          <div class="return-step-num">2</div>
+          <h4 style="font-size:1.05rem;font-weight:800;color:#0f172a;margin:0 0 8px" id="cambios-step2-title">Despachá el Paquete</h4>
+          <p style="font-size:0.88rem;color:#475569;margin:0;line-height:1.55" id="cambios-step2-desc">
+            Te enviamos una etiqueta prepaga para que dejes el paquete en la sucursal de correo más cercana a tu domicilio sin abonar nada en el momento.
+          </p>
+        </div>
+
+        <div class="return-step-box">
+          <div class="return-step-num">3</div>
+          <h4 style="font-size:1.05rem;font-weight:800;color:#0f172a;margin:0 0 8px" id="cambios-step3-title">Recibí o Reintegrá</h4>
+          <p style="font-size:0.88rem;color:#475569;margin:0;line-height:1.55" id="cambios-step3-desc">
+            Una vez verificado el paquete, te despachamos inmediatamente el nuevo modelo elegido o te reintegramos el 100% de lo abonado a tu medio de pago.
+          </p>
+        </div>
+      </div>
+
+      <!-- Requirements Checklist -->
+      <div class="content-card">
+        <h4 style="font-size:1.15rem;font-weight:800;color:#0f172a;margin:0 0 14px">Condiciones para realizar un cambio:</h4>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px">
+          <li style="display:flex;align-items:center;gap:10px;font-size:0.9rem;color:#334155">
+            <span style="color:#059669;font-weight:700">✓</span> <span id="cambios-cond1">El producto debe estar nuevo, sin uso, sin perfumes ni marcas de maquillaje.</span>
+          </li>
+          <li style="display:flex;align-items:center;gap:10px;font-size:0.9rem;color:#334155">
+            <span style="color:#059669;font-weight:700">✓</span> <span id="cambios-cond2">Conservar la etiqueta original colocada y el empaque o caja protectora.</span>
+          </li>
+          <li style="display:flex;align-items:center;gap:10px;font-size:0.9rem;color:#334155">
+            <span style="color:#059669;font-weight:700">✓</span> <span id="cambios-cond3">Presentar el número de orden o comprobante de compra digital enviado al email.</span>
+          </li>
+        </ul>
+
+        <div style="margin-top:24px;padding-top:18px;border-top:1px solid #e2e8f0;display:flex;gap:12px;flex-wrap:wrap">
+          <a href="https://wa.me/5491155550199?text=Hola,%20quiero%20hacer%20un%20cambio%20de%20mi%20pedido" id="cambios-whatsapp-link" target="_blank" rel="noopener" class="btn-hero-primary" style="padding:10px 20px;font-size:0.85rem;text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+            💬 Iniciar Cambio vía WhatsApp
+          </a>
+          <button class="btn-hero-secondary" onclick="navigateToView('contacto')" style="padding:10px 20px;font-size:0.85rem">
+            Formulario de Contacto
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 10: CONTACTO (#view-contacto)
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-contacto" class="app-view">
+    <div class="content-view-container">
+
+      <div class="content-page-header">
+        <div>
+          <span class="badge-pill badge-calidad">Atención Personalizada</span>
+          <h1 class="content-page-title" id="contacto-header-title">Contactanos</h1>
+          <p class="content-page-subtitle" id="contacto-header-subtitle">Estamos disponibles para resolver tus dudas, asesorarte con tu compra o ayudarte con el probador virtual con IA.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn-edit-section-header" onclick="PagesManager.openAdminEditor('contacto')">✏️ Editar Contacto en Admin</button>
+          <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">← Volver al inicio</a>
+        </div>
+      </div>
+
+      <div class="contact-layout-grid">
+        
+        <!-- Left: Channels -->
+        <div class="contact-channels-list">
+          
+          <a href="https://wa.me/5491155550199?text=Hola,%20tengo%20una%20consulta" id="contacto-whatsapp-link" target="_blank" rel="noopener" class="contact-channel-card">
+            <div style="font-size:1.8rem">💬</div>
+            <div>
+              <strong style="display:block;font-size:0.95rem;color:#0f172a">WhatsApp Directo</strong>
+              <span style="font-size:0.82rem;color:#059669;font-weight:600" id="contacto-whatsapp-desc">Respuesta rápida (menos de 15 min)</span>
+              <div style="font-size:0.82rem;color:#64748b;margin-top:2px" id="contacto-whatsapp-num">+54 9 11 5555-0199</div>
+            </div>
+          </a>
+
+          <a href="mailto:contacto@capfit.store" id="contacto-email-link" class="contact-channel-card">
+            <div style="font-size:1.8rem">✉️</div>
+            <div>
+              <strong style="display:block;font-size:0.95rem;color:#0f172a">Correo Electrónico</strong>
+              <span style="font-size:0.82rem;color:#64748b" id="contacto-email-val">contacto@capfit.store</span>
+              <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px" id="contacto-email-desc">Para cotizaciones mayoristas o soporte general</div>
+            </div>
+          </a>
+
+          <div class="contact-channel-card" style="cursor:default">
+            <div style="font-size:1.8rem">⏰</div>
+            <div>
+              <strong style="display:block;font-size:0.95rem;color:#0f172a" id="contacto-hours-title">Horarios de Atención</strong>
+              <span style="font-size:0.82rem;color:#64748b" id="contacto-hours-desc">Lunes a Sábados de 9:00 a 20:00 hs</span>
+              <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">Domingos y feriados guardias activas</div>
+            </div>
+          </div>
+
+          <div class="contact-channel-card" style="cursor:default">
+            <div style="font-size:1.8rem">📍</div>
+            <div>
+              <strong style="display:block;font-size:0.95rem;color:#0f172a" id="contacto-location-title">Punto de Entrega & Showroom</strong>
+              <span style="font-size:0.82rem;color:#64748b" id="contacto-location-desc">Buenos Aires, Argentina</span>
+              <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px">Retiros con cita previa coordinada</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right: Contact Form -->
+        <div class="contact-form-card">
+          <h3 style="font-size:1.25rem;font-weight:800;color:#0f172a;margin:0 0 6px">Envianos tu mensaje</h3>
+          <p style="font-size:0.88rem;color:#64748b;margin:0 0 20px">Completá el formulario y un asesor se pondrá en contacto a la brevedad.</p>
+
+          <form onsubmit="handleContactSubmit(event)">
+            <div class="form-grid-2">
+              <div class="customizer-field">
+                <label for="contact-nombre">Tu Nombre</label>
+                <input type="text" id="contact-nombre" name="nombre" placeholder="Ej: Lucas González" required>
+              </div>
+              <div class="customizer-field">
+                <label for="contact-email">Email</label>
+                <input type="email" id="contact-email" name="email" placeholder="lucas@ejemplo.com" required>
+              </div>
+            </div>
+
+            <div class="customizer-field" style="margin-bottom:14px">
+              <label for="contact-asunto">Motivo de la consulta</label>
+              <input type="text" id="contact-asunto" name="asunto" placeholder="Ej: Consulta sobre talle, estado de envío, etc." required>
+            </div>
+
+            <div class="customizer-field" style="margin-bottom:20px">
+              <label for="contact-mensaje">Mensaje</label>
+              <textarea id="contact-mensaje" name="mensaje" rows="4" placeholder="Escribí aquí los detalles de tu consulta..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn-hero-primary" style="width:100%;justify-content:center;padding:12px 24px;font-size:0.9rem">
+              ENVIAR MENSAJE →
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 11: TÉRMINOS Y CONDICIONES (#view-terminos)
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-terminos" class="app-view">
+    <div class="content-view-container">
+
+      <div class="content-page-header">
+        <div>
+          <span class="badge-pill badge-calidad">Marco Legal</span>
+          <h1 class="content-page-title">Términos y Condiciones</h1>
+          <p class="content-page-subtitle">Última actualización: <span id="terminos-updated-date">Enero 2026</span>. Por favor leé detenidamente los términos que rigen el uso de nuestra tienda y el probador con IA.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn-edit-section-header" onclick="PagesManager.openAdminEditor('terminos')">✏️ Editar Términos en Admin</button>
+          <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">← Volver al inicio</a>
+        </div>
+      </div>
+
+      <div class="content-card" id="terminos-articles-container">
+        
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">1. Aceptación de los Términos</h3>
+          <p class="legal-article-body">
+            Al acceder, navegar o realizar transacciones en la tienda y sus servicios asociados, el usuario declara haber leído, comprendido y aceptado en su totalidad los presentes Términos y Condiciones, así como las políticas de privacidad y garantías aplicables.
+          </p>
+        </div>
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">2. Uso del Probador Virtual con IA</h3>
+          <p class="legal-article-body">
+            El probador virtual es una herramienta orientativa basada en modelos de Inteligencia Artificial para estimar el calce visual de gorras y accesorios. Las imágenes resultantes constituyen representaciones simuladas de alta fidelidad. El usuario se compromete a no utilizar fotos de terceros sin su debida autorización y a emplear la herramienta con fines lícitos.
+          </p>
+        </div>
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">3. Precios, Moneda y Facturación</h3>
+          <p class="legal-article-body">
+            Todos los precios publicados en el catálogo están expresados en pesos argentinos (ARS) e incluyen los impuestos correspondientes. Los precios y promociones están sujetos a modificación sin previo aviso antes de la confirmación final de la orden de compra.
+          </p>
+        </div>
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">4. Disponibilidad y Despacho</h3>
+          <p class="legal-article-body">
+            El compromiso de entrega de los productos adquiridos está sujeto a la disponibilidad de stock físico. En caso de agotarse un artículo tras haber realizado la compra, nos comunicaremos de inmediato para ofrecer un cambio de modelo o el reembolso íntegro del dinero.
+          </p>
+        </div>
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">5. Propiedad Intelectual</h3>
+          <p class="legal-article-body">
+            Todos los elementos distintivos de la marca, logotipos, imágenes de producto, textos, interfaces de usuario y algoritmos del probador virtual son propiedad exclusiva de la marca o de sus respectivos licenciantes, encontrándose protegidos por las leyes vigentes.
+          </p>
+        </div>
+
+        <div class="legal-article-section" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
+          <h3 class="legal-article-title">6. Jurisdicción y Ley Aplicable</h3>
+          <p class="legal-article-body">
+            Los presentes Términos y Condiciones se regirán e interpretarán de conformidad con las leyes de la República Argentina. Cualquier controversia será sometida a la jurisdicción de los Tribunales competentes.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW 12: POLÍTICA DE PRIVACIDAD (#view-privacidad)
+       ══════════════════════════════════════════════════════════════ -->
+  <main id="view-privacidad" class="app-view">
+    <div class="content-view-container">
+
+      <div class="content-page-header">
+        <div>
+          <span class="badge-pill badge-calidad">Seguridad & Datos</span>
+          <h1 class="content-page-title">Política de Privacidad</h1>
+          <p class="content-page-subtitle">Tu privacidad y la seguridad de tus datos biométricos son nuestra máxima prioridad técnica y ética.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn-edit-section-header" onclick="PagesManager.openAdminEditor('privacidad')">✏️ Editar Privacidad en Admin</button>
+          <a href="#inicio" onclick="navigateToView('inicio')" class="cart-back-link">← Volver al inicio</a>
+        </div>
+      </div>
+
+      <div class="content-card" id="privacidad-articles-container">
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">1. Privacidad por Diseño en el Probador Virtual</h3>
+          <p class="legal-article-body">
+            Las fotografías o capturas de video que utilizás en el Probador IA se procesan de forma efímera en la memoria volátil de la sesión. <strong>Nunca almacenamos tus rasgos faciales, datos biométricos ni fotografías en servidores permanentes</strong>. Una vez finalizada la simulación o cerrada la ventana, la imagen se descarta por completo.
+          </p>
+        </div>
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">2. Datos Recopilados en el Proceso de Compra</h3>
+          <p class="legal-article-body">
+            Únicamente recopilamos los datos personales estrictamente necesarios para procesar y despachar tu pedido: nombre y apellido, dirección de entrega, número de teléfono y correo electrónico para el envío de factura y seguimiento logístico.
+          </p>
+        </div>
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">3. Seguridad de Pagos</h3>
+          <p class="legal-article-body">
+            No almacenamos números de tarjetas de crédito o débito ni códigos de seguridad. Todas las transacciones se canalizan a través de la pasarela cifrada de Mercado Pago bajo protocolos de encriptación TLS 1.3 y certificación internacional PCI-DSS de nivel 1.
+          </p>
+        </div>
+
+        <div class="legal-article-section">
+          <h3 class="legal-article-title">4. Cookies y Preferencias Locales</h3>
+          <p class="legal-article-body">
+            Utilizamos almacenamiento local del navegador (LocalStorage) exclusivamente para recordar los artículos añadidos a tu carrito de compras y tus preferencias de visualización, facilitando una experiencia de navegación continua y rápida.
+          </p>
+        </div>
+
+        <div class="legal-article-section" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
+          <h3 class="legal-article-title">5. Derechos del Titular de los Datos</h3>
+          <p class="legal-article-body">
+            De conformidad con la Ley N° 25.326 de Protección de los Datos Personales, contás con el derecho de acceder, rectificar o solicitar la supresión de tus datos de contacto registrados.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+
   <!-- ══ FOOTER ══ -->
   <footer>
     <div class="footer-inner">
@@ -887,19 +1576,19 @@
         <div class="footer-col">
           <h4>Ayuda</h4>
           <ul>
-            <li><a href="#">Preguntas frecuentes</a></li>
-            <li><a href="#">Envíos y entregas</a></li>
-            <li><a href="#">Cambios y devoluciones</a></li>
-            <li><a href="#">Contacto</a></li>
+            <li><a href="#faq" onclick="navigateToView('faq')">Preguntas frecuentes</a></li>
+            <li><a href="#envios" onclick="navigateToView('envios')">Envíos y entregas</a></li>
+            <li><a href="#cambios" onclick="navigateToView('cambios')">Cambios y devoluciones</a></li>
+            <li><a href="#contacto" onclick="navigateToView('contacto')">Contacto</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
           <h4>Información</h4>
           <ul>
-            <li><a href="#">Sobre nosotros</a></li>
-            <li><a href="#">Términos y condiciones</a></li>
-            <li><a href="#">Política de privacidad</a></li>
+            <li><a href="#sobre-nosotros" onclick="navigateToView('sobre-nosotros')">Sobre nosotros</a></li>
+            <li><a href="#terminos" onclick="navigateToView('terminos')">Términos y condiciones</a></li>
+            <li><a href="#privacidad" onclick="navigateToView('privacidad')">Política de privacidad</a></li>
             <li><a href="#admin" onclick="navigateToView('admin')">Panel de Administración</a></li>
           </ul>
         </div>
@@ -934,6 +1623,7 @@
   <script src="js/tryon.js"></script>
   <script src="js/mercadopago.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/pages.js"></script>
   <script src="js/ui.js"></script>
 
 </body>

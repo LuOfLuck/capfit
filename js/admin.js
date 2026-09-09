@@ -12,7 +12,8 @@ const AdminPanel = (() => {
 
   let _products = [];
   let _orders = [];
-  let _activeTab = 'catalogo'; // 'catalogo' | 'pedidos' | 'nuevo' | 'tiendas'
+  let _activeTab = 'catalogo'; // 'catalogo' | 'pedidos' | 'nuevo' | 'secciones' | 'tiendas'
+  let _activeSectionSubtab = 'about'; // 'about' | 'faq' | 'envios' | 'cambios' | 'contacto' | 'terminos' | 'privacidad'
   let _productSearch = '';
   let _productStockFilter = 'todos'; // 'todos' | 'bajo' | 'agotado' | 'disponible'
   let _productTypeFilter = 'todos'; // 'todos' | 'gorra' | 'anteojos' | 'gorro'
@@ -1201,6 +1202,10 @@ const AdminPanel = (() => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           Cargar Nueva Gorra
         </button>
+        <button class="admin-tab-btn ${_activeTab === 'secciones' ? 'active' : ''}" onclick="AdminPanel.switchTab('secciones')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Páginas & Secciones
+        </button>
         ${isSuper ? `
           <button class="admin-tab-btn ${_activeTab === 'tiendas' ? 'active' : ''}" onclick="AdminPanel.switchTab('tiendas')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -1228,8 +1233,645 @@ const AdminPanel = (() => {
       renderOrdersTab(tabArea);
     } else if (_activeTab === 'nuevo') {
       renderNewProductTab(tabArea);
+    } else if (_activeTab === 'secciones') {
+      renderSectionsTab(tabArea);
     } else if (_activeTab === 'tiendas') {
       renderStoresTab(tabArea);
+    }
+  }
+
+  // ── TAB: PÁGINAS & SECCIONES PERSONALIZABLES (MULTI-TENANT FIRESTORE) ──
+  function switchSectionSubtab(subtab) {
+    _activeSectionSubtab = subtab;
+    const tabArea = document.getElementById('admin-tab-content-area');
+    if (tabArea) renderSectionsTab(tabArea);
+  }
+
+  function openSectionsEditor(sectionKey) {
+    _activeTab = 'secciones';
+    if (sectionKey) _activeSectionSubtab = sectionKey;
+    render();
+    const tabArea = document.getElementById('admin-tab-content-area');
+    if (tabArea) {
+      tabArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function renderSectionsTab(container) {
+    const subtabs = [
+      { key: 'about', label: 'ℹ️ Sobre Nosotros', view: 'sobre-nosotros' },
+      { key: 'faq', label: '❓ Preguntas Frecuentes', view: 'faq' },
+      { key: 'envios', label: '🚚 Envíos & Entregas', view: 'envios' },
+      { key: 'cambios', label: '🔄 Cambios & Devoluciones', view: 'cambios' },
+      { key: 'contacto', label: '📞 Contacto & Showroom', view: 'contacto' },
+      { key: 'terminos', label: '📜 Términos & Condiciones', view: 'terminos' },
+      { key: 'privacidad', label: '🔒 Política de Privacidad', view: 'privacidad' }
+    ];
+
+    const currentSub = subtabs.find(s => s.key === _activeSectionSubtab) || subtabs[0];
+    const allSections = (window.PagesManager && PagesManager.getSections) ? PagesManager.getSections(_currentStoreId) : {};
+    const d = allSections[currentSub.key] || {};
+
+    container.innerHTML = `
+      <!-- Header Banner -->
+      <div style="background:#0f172a;border-radius:12px;padding:20px;color:#fff;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="background:#38bdf8;color:#0f172a;font-size:0.75rem;font-weight:800;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:0.5px">
+              Personalizador de Tienda
+            </span>
+            <span style="color:#94a3b8;font-size:0.82rem">Tienda activa: <strong>${escapeHtml(_currentStoreName)}</strong> (${escapeHtml(_currentStoreId)})</span>
+          </div>
+          <h3 style="margin:0;font-size:1.3rem;font-weight:800;color:#fff">Edición de Páginas y Secciones Informativas</h3>
+          <p style="margin:4px 0 0;font-size:0.85rem;color:#cbd5e1">Los cambios se guardan en la nube (Firebase Firestore) y se reflejan al instante en la tienda de tus clientes.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button type="button" class="admin-btn-sec" onclick="navigateToView('${currentSub.view}')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25)">
+            👁️ Ver "${currentSub.label.replace(/^[^\s]+\s/, '')}" en Tienda
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Subtabs -->
+      <div class="section-editor-subtabs-nav">
+        ${subtabs.map(st => `
+          <button type="button" class="section-editor-subtab-btn ${st.key === currentSub.key ? 'active' : ''}" onclick="AdminPanel.switchSectionSubtab('${st.key}')">
+            ${st.label}
+          </button>
+        `).join('')}
+      </div>
+
+      <!-- Active Section Form Box -->
+      <div class="admin-card" style="background:#fff;border:1px solid var(--gray-200);border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.03)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--gray-200);flex-wrap:wrap;gap:10px">
+          <div>
+            <h4 style="margin:0;font-size:1.15rem;font-weight:700;color:var(--gray-900)">
+              ${currentSub.label}
+            </h4>
+            <span style="font-size:0.8rem;color:var(--gray-500)">Modificá los textos y parámetros de esta sección para tu tienda.</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="background:#f1f5f9;color:#475569;font-size:0.75rem;padding:4px 10px;border-radius:20px;font-family:monospace;font-weight:600">
+              /stores/${escapeHtml(_currentStoreId)}/sections/${currentSub.key}
+            </span>
+          </div>
+        </div>
+
+        <form id="form-admin-section-${currentSub.key}" onsubmit="AdminPanel.saveCurrentSectionForm(event)">
+          ${renderSectionFormFields(currentSub.key, d)}
+
+          <div class="section-editor-footer">
+            <button type="button" class="admin-btn-outline" onclick="AdminPanel.resetCurrentSectionForm()" style="color:var(--gray-600)">
+              ↺ Restaurar Valores por Defecto
+            </button>
+            <div style="display:flex;align-items:center;gap:12px">
+              <button type="button" class="admin-btn-sec" onclick="navigateToView('${currentSub.view}')">
+                👁️ Vista Previa
+              </button>
+              <button type="submit" class="admin-btn-primary" id="btn-save-section-submit" style="display:inline-flex;align-items:center;gap:8px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span>Guardar en Firebase Firestore</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    `;
+  }
+
+  function renderSectionFormFields(key, d) {
+    if (key === 'about') {
+      return `
+        <div class="section-form-grid">
+          <div>
+            <label class="admin-label">Nombre de la Marca / Tienda</label>
+            <input type="text" id="sec-input-brandName" class="admin-input" value="${escapeHtml(d.brandName || _currentStoreName)}" required>
+          </div>
+          <div>
+            <label class="admin-label">Año de Fundación</label>
+            <input type="text" id="sec-input-foundedYear" class="admin-input" value="${escapeHtml(d.foundedYear || '2024')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Lema / Subtítulo Principal</label>
+            <input type="text" id="sec-input-tagline" class="admin-input" value="${escapeHtml(d.tagline || '')}" placeholder="Probadores virtuales de gorras y accesorios con IA...">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Nuestra Historia</label>
+            <textarea id="sec-input-story" class="admin-textarea" rows="4" placeholder="Contá el origen y la pasión de tu marca...">${escapeHtml(d.story || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Nuestra Misión</label>
+            <textarea id="sec-input-mission" class="admin-textarea" rows="3">${escapeHtml(d.mission || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Nuestra Visión</label>
+            <textarea id="sec-input-vision" class="admin-textarea" rows="3">${escapeHtml(d.vision || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Compromiso con la Calidad</label>
+            <textarea id="sec-input-quality" class="admin-textarea" rows="2">${escapeHtml(d.quality || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Ubicación / Ciudad</label>
+            <input type="text" id="sec-input-location" class="admin-input" value="${escapeHtml(d.location || '')}">
+          </div>
+          <div>
+            <label class="admin-label">Email de Contacto</label>
+            <input type="email" id="sec-input-email" class="admin-input" value="${escapeHtml(d.email || '')}">
+          </div>
+          <div>
+            <label class="admin-label">Teléfono / WhatsApp</label>
+            <input type="text" id="sec-input-phone" class="admin-input" value="${escapeHtml(d.phone || '')}">
+          </div>
+          <div>
+            <label class="admin-label">Estadística: Clientes Felices</label>
+            <input type="text" id="sec-input-statsHappyClients" class="admin-input" value="${escapeHtml(d.statsHappyClients || '+3.500')}">
+          </div>
+          <div>
+            <label class="admin-label">Estadística: Calce / Precisión IA</label>
+            <input type="text" id="sec-input-statsTryonAccuracy" class="admin-input" value="${escapeHtml(d.statsTryonAccuracy || '99.2%')}">
+          </div>
+          <div>
+            <label class="admin-label">Estadística: Tiempo de Entrega</label>
+            <input type="text" id="sec-input-statsFastShipping" class="admin-input" value="${escapeHtml(d.statsFastShipping || '24-48 hs')}">
+          </div>
+        </div>
+      `;
+    }
+
+    if (key === 'faq') {
+      const items = Array.isArray(d.items) ? d.items : [];
+      return `
+        <div class="section-form-grid">
+          <div class="full-width">
+            <label class="admin-label">Subtítulo de la Página FAQ</label>
+            <input type="text" id="sec-input-subtitle" class="admin-input" value="${escapeHtml(d.subtitle || '')}">
+          </div>
+          <div class="full-width" style="margin-top:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <label class="admin-label" style="margin:0;font-size:0.95rem;font-weight:700">Listado de Preguntas y Respuestas</label>
+              <button type="button" class="admin-btn-sec" onclick="AdminPanel.addFaqItemRow()" style="padding:6px 12px;font-size:0.8rem">
+                + Agregar Pregunta
+              </button>
+            </div>
+            <div id="faq-admin-items-list" style="display:flex;flex-direction:column;gap:12px">
+              ${items.map((item, i) => `
+                <div class="faq-admin-row-card" id="faq-row-${i}" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;position:relative">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <span style="font-weight:700;font-size:0.82rem;color:#475569">Pregunta #${i + 1}</span>
+                    <button type="button" onclick="AdminPanel.removeFaqItemRow(${i})" style="background:none;border:none;color:#ef4444;font-size:0.8rem;cursor:pointer;font-weight:600">
+                      🗑️ Eliminar
+                    </button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 140px;gap:10px;margin-bottom:8px">
+                    <input type="text" class="admin-input faq-field-q" value="${escapeHtml(item.q || '')}" placeholder="¿Pregunta frecuente?" required>
+                    <select class="admin-input faq-field-cat">
+                      <option value="ia" ${item.cat === 'ia' ? 'selected' : ''}>🤖 Probador IA</option>
+                      <option value="envios" ${item.cat === 'envios' ? 'selected' : ''}>🚚 Envíos</option>
+                      <option value="pagos" ${item.cat === 'pagos' ? 'selected' : ''}>💳 Pagos</option>
+                      <option value="garantia" ${item.cat === 'garantia' ? 'selected' : ''}>🛡️ Garantía</option>
+                    </select>
+                  </div>
+                  <textarea class="admin-textarea faq-field-a" rows="2" placeholder="Respuesta clara y detallada..." required>${escapeHtml(item.a || '')}</textarea>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (key === 'envios') {
+      return `
+        <div class="section-form-grid">
+          <div>
+            <label class="admin-label">Monto Mínimo para Envío Gratis ($ ARS)</label>
+            <input type="number" id="sec-input-freeShippingThreshold" class="admin-input" value="${Number(d.freeShippingThreshold || 40000)}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Texto del Banner Promocional de Envío</label>
+            <input type="text" id="sec-input-freeShippingBanner" class="admin-input" value="${escapeHtml(d.freeShippingBanner || '')}">
+          </div>
+          <div>
+            <label class="admin-label">Título: Envío Estándar</label>
+            <input type="text" id="sec-input-standardTitle" class="admin-input" value="${escapeHtml(d.standardTitle || 'Envío Estándar Nacional')}">
+          </div>
+          <div>
+            <label class="admin-label">Plazo: Envío Estándar</label>
+            <input type="text" id="sec-input-standardTime" class="admin-input" value="${escapeHtml(d.standardTime || '3 a 5 días hábiles')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Descripción / Transportista Estándar</label>
+            <textarea id="sec-input-standardCarrier" class="admin-textarea" rows="2">${escapeHtml(d.standardCarrier || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Título: Envío Express</label>
+            <input type="text" id="sec-input-expressTitle" class="admin-input" value="${escapeHtml(d.expressTitle || 'Express CABA y GBA')}">
+          </div>
+          <div>
+            <label class="admin-label">Plazo: Envío Express</label>
+            <input type="text" id="sec-input-expressTime" class="admin-input" value="${escapeHtml(d.expressTime || '24 a 48 hs hábiles')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Descripción Envío Express</label>
+            <textarea id="sec-input-expressDesc" class="admin-textarea" rows="2">${escapeHtml(d.expressDesc || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Título: Retiro en Sucursal / Showroom</label>
+            <input type="text" id="sec-input-pickupTitle" class="admin-input" value="${escapeHtml(d.pickupTitle || 'Retiro en Sucursal / Showroom')}">
+          </div>
+          <div>
+            <label class="admin-label">Plazo / Costo de Retiro</label>
+            <input type="text" id="sec-input-pickupTime" class="admin-input" value="${escapeHtml(d.pickupTime || 'Gratis / Inmediato')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Dirección para Retiro</label>
+            <input type="text" id="sec-input-pickupAddress" class="admin-input" value="${escapeHtml(d.pickupAddress || '')}">
+          </div>
+          <div>
+            <label class="admin-label">Título: Garantía de Embalaje</label>
+            <input type="text" id="sec-input-packagingTitle" class="admin-input" value="${escapeHtml(d.packagingTitle || 'Embalaje Protector Reforzado')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Descripción del Embalaje</label>
+            <textarea id="sec-input-packagingDesc" class="admin-textarea" rows="2">${escapeHtml(d.packagingDesc || '')}</textarea>
+          </div>
+        </div>
+      `;
+    }
+
+    if (key === 'cambios') {
+      return `
+        <div class="section-form-grid">
+          <div>
+            <label class="admin-label">Días de Garantía</label>
+            <input type="number" id="sec-input-daysGuarantee" class="admin-input" value="${Number(d.daysGuarantee || 30)}">
+          </div>
+          <div>
+            <label class="admin-label">WhatsApp para Cambios</label>
+            <input type="text" id="sec-input-whatsappNumber" class="admin-input" value="${escapeHtml(d.whatsappNumber || '')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Título del Banner Principal</label>
+            <input type="text" id="sec-input-bannerTitle" class="admin-input" value="${escapeHtml(d.bannerTitle || '')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Descripción del Banner</label>
+            <textarea id="sec-input-bannerDesc" class="admin-textarea" rows="2">${escapeHtml(d.bannerDesc || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Paso 1: Título</label>
+            <input type="text" id="sec-input-step1Title" class="admin-input" value="${escapeHtml(d.step1Title || 'Contactanos')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Paso 1: Descripción</label>
+            <textarea id="sec-input-step1Desc" class="admin-textarea" rows="2">${escapeHtml(d.step1Desc || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Paso 2: Título</label>
+            <input type="text" id="sec-input-step2Title" class="admin-input" value="${escapeHtml(d.step2Title || 'Despachá el Paquete')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Paso 2: Descripción</label>
+            <textarea id="sec-input-step2Desc" class="admin-textarea" rows="2">${escapeHtml(d.step2Desc || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Paso 3: Título</label>
+            <input type="text" id="sec-input-step3Title" class="admin-input" value="${escapeHtml(d.step3Title || 'Recibí o Reintegrá')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Paso 3: Descripción</label>
+            <textarea id="sec-input-step3Desc" class="admin-textarea" rows="2">${escapeHtml(d.step3Desc || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Condición 1</label>
+            <input type="text" id="sec-input-cond1" class="admin-input" value="${escapeHtml(d.cond1 || '')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Condición 2</label>
+            <input type="text" id="sec-input-cond2" class="admin-input" value="${escapeHtml(d.cond2 || '')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Condición 3</label>
+            <input type="text" id="sec-input-cond3" class="admin-input" value="${escapeHtml(d.cond3 || '')}">
+          </div>
+        </div>
+      `;
+    }
+
+    if (key === 'contacto') {
+      return `
+        <div class="section-form-grid">
+          <div>
+            <label class="admin-label">Título del Encabezado</label>
+            <input type="text" id="sec-input-headerTitle" class="admin-input" value="${escapeHtml(d.headerTitle || 'Contactanos')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Subtítulo del Encabezado</label>
+            <textarea id="sec-input-headerSubtitle" class="admin-textarea" rows="2">${escapeHtml(d.headerSubtitle || '')}</textarea>
+          </div>
+          <div>
+            <label class="admin-label">Número de WhatsApp</label>
+            <input type="text" id="sec-input-whatsapp" class="admin-input" value="${escapeHtml(d.whatsapp || '')}">
+          </div>
+          <div>
+            <label class="admin-label">Aclaración WhatsApp</label>
+            <input type="text" id="sec-input-whatsappDesc" class="admin-input" value="${escapeHtml(d.whatsappDesc || 'Respuesta rápida')}">
+          </div>
+          <div>
+            <label class="admin-label">Email de Contacto</label>
+            <input type="email" id="sec-input-email" class="admin-input" value="${escapeHtml(d.email || '')}">
+          </div>
+          <div>
+            <label class="admin-label">Aclaración Email</label>
+            <input type="text" id="sec-input-emailDesc" class="admin-input" value="${escapeHtml(d.emailDesc || 'Para consultas generales')}">
+          </div>
+          <div>
+            <label class="admin-label">Título: Horarios de Atención</label>
+            <input type="text" id="sec-input-hoursTitle" class="admin-input" value="${escapeHtml(d.hoursTitle || 'Horarios de Atención')}">
+          </div>
+          <div>
+            <label class="admin-label">Detalle Horarios</label>
+            <input type="text" id="sec-input-hoursDesc" class="admin-input" value="${escapeHtml(d.hoursDesc || 'Lunes a Sábados de 9:00 a 20:00 hs')}">
+          </div>
+          <div>
+            <label class="admin-label">Título: Punto de Entrega / Showroom</label>
+            <input type="text" id="sec-input-locationTitle" class="admin-input" value="${escapeHtml(d.locationTitle || 'Punto de Entrega & Showroom')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Dirección o Aclaración Showroom</label>
+            <input type="text" id="sec-input-locationDesc" class="admin-input" value="${escapeHtml(d.locationDesc || '')}">
+          </div>
+        </div>
+      `;
+    }
+
+    if (key === 'terminos') {
+      return `
+        <div class="section-form-grid">
+          <div>
+            <label class="admin-label">Fecha de Última Actualización</label>
+            <input type="text" id="sec-input-lastUpdated" class="admin-input" value="${escapeHtml(d.lastUpdated || 'Enero 2026')}">
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 1: Título</label>
+            <input type="text" id="sec-input-art1Title" class="admin-input" value="${escapeHtml(d.art1Title || '1. Aceptación de los Términos')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 1: Contenido</label>
+            <textarea id="sec-input-art1Body" class="admin-textarea" rows="3">${escapeHtml(d.art1Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 2: Título</label>
+            <input type="text" id="sec-input-art2Title" class="admin-input" value="${escapeHtml(d.art2Title || '2. Uso del Probador Virtual con IA')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 2: Contenido</label>
+            <textarea id="sec-input-art2Body" class="admin-textarea" rows="3">${escapeHtml(d.art2Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 3: Título</label>
+            <input type="text" id="sec-input-art3Title" class="admin-input" value="${escapeHtml(d.art3Title || '3. Precios y Moneda')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 3: Contenido</label>
+            <textarea id="sec-input-art3Body" class="admin-textarea" rows="3">${escapeHtml(d.art3Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 4: Título</label>
+            <input type="text" id="sec-input-art4Title" class="admin-input" value="${escapeHtml(d.art4Title || '4. Disponibilidad y Despacho')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 4: Contenido</label>
+            <textarea id="sec-input-art4Body" class="admin-textarea" rows="3">${escapeHtml(d.art4Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 5: Título</label>
+            <input type="text" id="sec-input-art5Title" class="admin-input" value="${escapeHtml(d.art5Title || '5. Propiedad Intelectual')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 5: Contenido</label>
+            <textarea id="sec-input-art5Body" class="admin-textarea" rows="3">${escapeHtml(d.art5Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 6: Título</label>
+            <input type="text" id="sec-input-art6Title" class="admin-input" value="${escapeHtml(d.art6Title || '6. Jurisdicción y Ley Aplicable')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 6: Contenido</label>
+            <textarea id="sec-input-art6Body" class="admin-textarea" rows="3">${escapeHtml(d.art6Body || '')}</textarea>
+          </div>
+        </div>
+      `;
+    }
+
+    if (key === 'privacidad') {
+      return `
+        <div class="section-form-grid">
+          <div class="full-width">
+            <label class="admin-label">Artículo 1: Título</label>
+            <input type="text" id="sec-input-art1Title" class="admin-input" value="${escapeHtml(d.art1Title || '1. Privacidad por Diseño en el Probador Virtual')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 1: Contenido</label>
+            <textarea id="sec-input-art1Body" class="admin-textarea" rows="3">${escapeHtml(d.art1Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 2: Título</label>
+            <input type="text" id="sec-input-art2Title" class="admin-input" value="${escapeHtml(d.art2Title || '2. Datos Recopilados en el Proceso de Compra')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 2: Contenido</label>
+            <textarea id="sec-input-art2Body" class="admin-textarea" rows="3">${escapeHtml(d.art2Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 3: Título</label>
+            <input type="text" id="sec-input-art3Title" class="admin-input" value="${escapeHtml(d.art3Title || '3. Seguridad de Pagos')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 3: Contenido</label>
+            <textarea id="sec-input-art3Body" class="admin-textarea" rows="3">${escapeHtml(d.art3Body || '')}</textarea>
+          </div>
+          <div class="full-width">
+            <label class="admin-label">Artículo 4: Título</label>
+            <input type="text" id="sec-input-art4Title" class="admin-input" value="${escapeHtml(d.art4Title || '4. Derechos del Titular de los Datos')}">
+            <label class="admin-label" style="margin-top:6px">Artículo 4: Contenido</label>
+            <textarea id="sec-input-art4Body" class="admin-textarea" rows="3">${escapeHtml(d.art4Body || '')}</textarea>
+          </div>
+        </div>
+      `;
+    }
+
+    return '<p>Sección no reconocida.</p>';
+  }
+
+  function addFaqItemRow() {
+    const list = document.getElementById('faq-admin-items-list');
+    if (!list) return;
+    const idx = list.querySelectorAll('.faq-admin-row-card').length;
+    const div = document.createElement('div');
+    div.className = 'faq-admin-row-card';
+    div.id = `faq-row-${idx}`;
+    div.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;position:relative';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:700;font-size:0.82rem;color:#475569">Nueva Pregunta #${idx + 1}</span>
+        <button type="button" onclick="AdminPanel.removeFaqItemRow(${idx})" style="background:none;border:none;color:#ef4444;font-size:0.8rem;cursor:pointer;font-weight:600">
+          🗑️ Eliminar
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 140px;gap:10px;margin-bottom:8px">
+        <input type="text" class="admin-input faq-field-q" placeholder="¿Pregunta frecuente?" required>
+        <select class="admin-input faq-field-cat">
+          <option value="ia">🤖 Probador IA</option>
+          <option value="envios">🚚 Envíos</option>
+          <option value="pagos">💳 Pagos</option>
+          <option value="garantia">🛡️ Garantía</option>
+        </select>
+      </div>
+      <textarea class="admin-textarea faq-field-a" rows="2" placeholder="Respuesta clara y detallada..." required></textarea>
+    `;
+    list.appendChild(div);
+  }
+
+  function removeFaqItemRow(index) {
+    const row = document.getElementById(`faq-row-${index}`);
+    if (row) row.remove();
+  }
+
+  async function saveCurrentSectionForm(e) {
+    if (e) e.preventDefault();
+    const key = _activeSectionSubtab;
+    const btn = document.getElementById('btn-save-section-submit');
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span>⏳ Guardando en Firebase...</span>`;
+    }
+
+    try {
+      const getVal = id => {
+        const el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+      };
+
+      let sectionData = {};
+
+      if (key === 'about') {
+        sectionData = {
+          brandName: getVal('sec-input-brandName'),
+          tagline: getVal('sec-input-tagline'),
+          story: getVal('sec-input-story'),
+          mission: getVal('sec-input-mission'),
+          vision: getVal('sec-input-vision'),
+          quality: getVal('sec-input-quality'),
+          foundedYear: getVal('sec-input-foundedYear'),
+          location: getVal('sec-input-location'),
+          email: getVal('sec-input-email'),
+          phone: getVal('sec-input-phone'),
+          statsHappyClients: getVal('sec-input-statsHappyClients'),
+          statsTryonAccuracy: getVal('sec-input-statsTryonAccuracy'),
+          statsFastShipping: getVal('sec-input-statsFastShipping')
+        };
+      } else if (key === 'faq') {
+        const subtitle = getVal('sec-input-subtitle');
+        const rows = document.querySelectorAll('.faq-admin-row-card');
+        const items = [];
+        rows.forEach((r, idx) => {
+          const q = r.querySelector('.faq-field-q')?.value?.trim();
+          const a = r.querySelector('.faq-field-a')?.value?.trim();
+          const cat = r.querySelector('.faq-field-cat')?.value || 'ia';
+          if (q && a) {
+            items.push({ id: `faq-${idx + 1}`, cat, q, a });
+          }
+        });
+        sectionData = { subtitle, items };
+      } else if (key === 'envios') {
+        sectionData = {
+          freeShippingThreshold: Number(getVal('sec-input-freeShippingThreshold')) || 40000,
+          freeShippingBanner: getVal('sec-input-freeShippingBanner'),
+          standardTitle: getVal('sec-input-standardTitle'),
+          standardTime: getVal('sec-input-standardTime'),
+          standardCarrier: getVal('sec-input-standardCarrier'),
+          expressTitle: getVal('sec-input-expressTitle'),
+          expressTime: getVal('sec-input-expressTime'),
+          expressDesc: getVal('sec-input-expressDesc'),
+          pickupTitle: getVal('sec-input-pickupTitle'),
+          pickupTime: getVal('sec-input-pickupTime'),
+          pickupAddress: getVal('sec-input-pickupAddress'),
+          packagingTitle: getVal('sec-input-packagingTitle'),
+          packagingDesc: getVal('sec-input-packagingDesc')
+        };
+      } else if (key === 'cambios') {
+        sectionData = {
+          daysGuarantee: Number(getVal('sec-input-daysGuarantee')) || 30,
+          bannerTitle: getVal('sec-input-bannerTitle'),
+          bannerDesc: getVal('sec-input-bannerDesc'),
+          step1Title: getVal('sec-input-step1Title'),
+          step1Desc: getVal('sec-input-step1Desc'),
+          step2Title: getVal('sec-input-step2Title'),
+          step2Desc: getVal('sec-input-step2Desc'),
+          step3Title: getVal('sec-input-step3Title'),
+          step3Desc: getVal('sec-input-step3Desc'),
+          cond1: getVal('sec-input-cond1'),
+          cond2: getVal('sec-input-cond2'),
+          cond3: getVal('sec-input-cond3'),
+          whatsappNumber: getVal('sec-input-whatsappNumber')
+        };
+      } else if (key === 'contacto') {
+        sectionData = {
+          headerTitle: getVal('sec-input-headerTitle'),
+          headerSubtitle: getVal('sec-input-headerSubtitle'),
+          whatsapp: getVal('sec-input-whatsapp'),
+          whatsappDesc: getVal('sec-input-whatsappDesc'),
+          email: getVal('sec-input-email'),
+          emailDesc: getVal('sec-input-emailDesc'),
+          hoursTitle: getVal('sec-input-hoursTitle'),
+          hoursDesc: getVal('sec-input-hoursDesc'),
+          locationTitle: getVal('sec-input-locationTitle'),
+          locationDesc: getVal('sec-input-locationDesc')
+        };
+      } else if (key === 'terminos') {
+        sectionData = {
+          lastUpdated: getVal('sec-input-lastUpdated'),
+          art1Title: getVal('sec-input-art1Title'),
+          art1Body: getVal('sec-input-art1Body'),
+          art2Title: getVal('sec-input-art2Title'),
+          art2Body: getVal('sec-input-art2Body'),
+          art3Title: getVal('sec-input-art3Title'),
+          art3Body: getVal('sec-input-art3Body'),
+          art4Title: getVal('sec-input-art4Title'),
+          art4Body: getVal('sec-input-art4Body'),
+          art5Title: getVal('sec-input-art5Title'),
+          art5Body: getVal('sec-input-art5Body'),
+          art6Title: getVal('sec-input-art6Title'),
+          art6Body: getVal('sec-input-art6Body')
+        };
+      } else if (key === 'privacidad') {
+        sectionData = {
+          art1Title: getVal('sec-input-art1Title'),
+          art1Body: getVal('sec-input-art1Body'),
+          art2Title: getVal('sec-input-art2Title'),
+          art2Body: getVal('sec-input-art2Body'),
+          art3Title: getVal('sec-input-art3Title'),
+          art3Body: getVal('sec-input-art3Body'),
+          art4Title: getVal('sec-input-art4Title'),
+          art4Body: getVal('sec-input-art4Body')
+        };
+      }
+
+      if (window.PagesManager && PagesManager.saveSection) {
+        await PagesManager.saveSection(key, sectionData, _currentStoreId);
+      } else {
+        await fetch(`/api/stores/${encodeURIComponent(_currentStoreId)}/sections`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sectionKey: key, data: sectionData })
+        });
+      }
+
+      if (window.showToast) {
+        window.showToast(`✅ Sección "${key}" actualizada con éxito en Firebase Firestore`);
+      }
+    } catch (err) {
+      console.error('Error saving section:', err);
+      alert('Error al guardar la sección: ' + err.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
+    }
+  }
+
+  function resetCurrentSectionForm() {
+    if (!confirm('¿Restaurar esta sección a sus valores predeterminados?')) return;
+    if (window.PagesManager && PagesManager.resetSection) {
+      PagesManager.resetSection(_activeSectionSubtab, _currentStoreId);
+      const tabArea = document.getElementById('admin-tab-content-area');
+      if (tabArea) renderSectionsTab(tabArea);
     }
   }
 
@@ -1624,7 +2266,11 @@ const AdminPanel = (() => {
     }
 
     if (list.length === 0) {
-      const isFiltered = _productSearchQuery || _productFilter !== 'all' || _productStockFilter !== 'all';
+      const isFiltered = Boolean(
+        (_productSearch && _productSearch.trim() !== '') ||
+        _productTypeFilter !== 'todos' ||
+        _productStockFilter !== 'todos'
+      );
       tableWrap.innerHTML = `
         <div class="admin-empty-state" style="padding:48px 20px;text-align:center">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin:0 auto 12px;color:#94a3b8"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
@@ -2613,7 +3259,13 @@ const AdminPanel = (() => {
     submitNewProduct,
     addColorVariant,
     saveTracking,
-    updateOrderStatus
+    updateOrderStatus,
+    openSectionsEditor,
+    switchSectionSubtab,
+    saveCurrentSectionForm,
+    resetCurrentSectionForm,
+    addFaqItemRow,
+    removeFaqItemRow
   };
 })();
 

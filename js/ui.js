@@ -155,6 +155,11 @@
     let cleanName = (viewName || '').trim().replace(/^#\/?|^[/\\]+/, '');
     if (!cleanName) cleanName = 'inicio';
     if (cleanName === 'account' || cleanName === 'portal-duenos') cleanName = 'admin';
+    if (cleanName === 'preguntas-frecuentes') cleanName = 'faq';
+    if (cleanName === 'envios-y-entregas') cleanName = 'envios';
+    if (cleanName === 'cambios-y-devoluciones') cleanName = 'cambios';
+    if (cleanName === 'terminos-y-condiciones') cleanName = 'terminos';
+    if (cleanName === 'politica-de-privacidad') cleanName = 'privacidad';
 
     let target = document.getElementById(`view-${cleanName}`);
     if (!target) {
@@ -187,6 +192,8 @@
       updateTryOnViewUI();
     } else if (cleanName === 'admin') {
       if (window.AdminPanel) window.AdminPanel.init();
+    } else if (cleanName === 'sobre-nosotros') {
+      if (window.SobreNosotros) window.SobreNosotros.render();
     }
   };
 
@@ -350,8 +357,21 @@
     } else if (rawPath) {
       if (rawPath === '404' || rawPath === '404.html') {
         viewName = '404';
-      } else if (['inicio', 'probador', 'carrito', 'admin', 'account'].includes(rawPath)) {
-        viewName = rawPath === 'account' ? 'admin' : rawPath;
+      } else if ([
+        'inicio', 'probador', 'carrito', 'admin', 'account',
+        'faq', 'preguntas-frecuentes', 'envios', 'envios-y-entregas',
+        'cambios', 'cambios-y-devoluciones', 'contacto',
+        'sobre-nosotros', 'terminos', 'terminos-y-condiciones',
+        'privacidad', 'politica-de-privacidad'
+      ].includes(rawPath)) {
+        let mapped = rawPath;
+        if (mapped === 'account') mapped = 'admin';
+        else if (mapped === 'preguntas-frecuentes') mapped = 'faq';
+        else if (mapped === 'envios-y-entregas') mapped = 'envios';
+        else if (mapped === 'cambios-y-devoluciones') mapped = 'cambios';
+        else if (mapped === 'terminos-y-condiciones') mapped = 'terminos';
+        else if (mapped === 'politica-de-privacidad') mapped = 'privacidad';
+        viewName = mapped;
       } else if (!rawPath.includes('.')) {
         viewName = '404';
       }

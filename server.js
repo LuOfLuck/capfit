@@ -374,12 +374,86 @@ async function appHandler(req, res) {
       fullDomain: s.fullDomain || `${s.subdomain}.capfit.store`,
       name: s.name,
       tagline: s.tagline,
+      about: s.about || null,
       plan: s.plan,
       aiQuota: StoreManager.getAiQuotaStatus(s.id),
       active: s.active
     }));
     sendJson(res, 200, publicList);
     return;
+  }
+
+  // 0.2 GET & PUT /api/stores/:id/about (Sección Sobre Nosotros sincronizada con Firebase Firestore)
+  if (reqPath.startsWith('/api/stores/') && reqPath.endsWith('/about')) {
+    const parts = reqPath.split('/');
+    const storeTargetId = decodeURIComponent(parts[3] || '');
+    const store = StoreManager.getStoreById(storeTargetId);
+    if (!store) {
+      sendJson(res, 404, { error: 'Tienda no encontrada' });
+      return;
+    }
+
+    if (req.method === 'GET') {
+      const sections = StoreManager.getStoreSections(store.id);
+      sendJson(res, 200, { ok: true, storeId: store.id, about: (sections && sections.about) || store.about || null });
+      return;
+    }
+
+    if (req.method === 'PUT' || req.method === 'POST') {
+      try {
+        const raw = await readBody(req);
+        const body = JSON.parse(raw.toString() || '{}');
+        const updatedSections = StoreManager.updateStoreSections(store.id, 'about', body);
+        sendJson(res, 200, {
+          ok: true,
+          storeId: store.id,
+          about: updatedSections.about,
+          message: 'Sobre Nosotros sincronizado exitosamente con Firebase Firestore'
+        });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message || 'Error al guardar sobre nosotros' });
+      }
+      return;
+    }
+  }
+
+  // 0.3 GET & PUT /api/stores/:id/sections (Todas las secciones informativas: about, faq, envios, cambios, contacto, terminos, privacidad)
+  if (reqPath.startsWith('/api/stores/') && reqPath.endsWith('/sections')) {
+    const parts = reqPath.split('/');
+    const storeTargetId = decodeURIComponent(parts[3] || '');
+    const store = StoreManager.getStoreById(storeTargetId);
+    if (!store) {
+      sendJson(res, 404, { error: 'Tienda no encontrada' });
+      return;
+    }
+
+    if (req.method === 'GET') {
+      const sections = StoreManager.getStoreSections(store.id);
+      sendJson(res, 200, { ok: true, storeId: store.id, sections });
+      return;
+    }
+
+    if (req.method === 'PUT' || req.method === 'POST') {
+      try {
+        const raw = await readBody(req);
+        const body = JSON.parse(raw.toString() || '{}');
+        let updatedSections;
+        if (body.sectionKey && body.data) {
+          updatedSections = StoreManager.updateStoreSections(store.id, body.sectionKey, body.data);
+        } else {
+          updatedSections = StoreManager.updateStoreSections(store.id, null, body);
+        }
+        sendJson(res, 200, {
+          ok: true,
+          storeId: store.id,
+          sections: updatedSections,
+          message: 'Secciones guardadas y sincronizadas con Firebase Firestore'
+        });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message || 'Error al guardar secciones' });
+      }
+      return;
+    }
   }
 
   // 1. POST /api/admin/login (Login SuperAdmin o Dueño de Tienda tradicional / compatibilidad)
@@ -621,7 +695,7 @@ async function appHandler(req, res) {
 
   // 2. GET /api/products (Público y Backoffice para la tienda actual)
   if (reqPath === '/api/products' && req.method === 'GET') {
-    const targetStoreId = qs.store || currentStore.id;
+    const targetStoreId = qs.store || qs.storeId || currentStore.id;
     const products = StoreManager.readStoreProducts(targetStoreId);
     sendJson(res, 200, products);
     return;
