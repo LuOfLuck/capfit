@@ -586,7 +586,7 @@ function createWatermarkedCanvas(imgSrc) {
 
       ctx.font = `600 ${Math.round(w * 0.03)}px "Plus Jakarta Sans", sans-serif`;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.fillText(`${capName} · capfit.luofluck.tech`, padding, bannerY + bannerHeight * 0.72);
+      ctx.fillText(`${capName} · capfit.store`, padding, bannerY + bannerHeight * 0.72);
 
       // Right watermark callout
       ctx.textAlign = 'right';

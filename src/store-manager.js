@@ -12,6 +12,27 @@ try {
 }
 
 // In-Memory Cloud-Synced Cache for instantaneous response and high performance
+const RESERVED_SUBDOMAINS = [
+  'www',
+  'capfit',
+  'account',
+  'app',
+  'shop',
+  'shpo',
+  'blog',
+  'api',
+  'admin',
+  'portal',
+  'dashboard',
+  'auth',
+  'mail',
+  'status',
+  'principal',
+  'root',
+  'static',
+  'assets'
+];
+
 let cachedStores = [];
 const cachedProducts = new Map(); // storeId -> Array of products
 const cachedOrders = new Map();   // storeId -> Array of orders
@@ -167,42 +188,87 @@ function getStoreBySubdomain(subdomain) {
 function resolveStoreFromRequest(req) {
   const host = (req.headers.host || '').toLowerCase();
 
-  // 1. Headers explícitos
-  const headerStore = req.headers['x-store-id'] || req.headers['x-store-subdomain'];
-  if (headerStore) {
-    const s = getStoreById(headerStore) || getStoreBySubdomain(headerStore);
-    if (s) return s;
-  }
-
-  // 2. Query string (?store=tienda1 o ?tienda=tienda1)
+  // 1. Query string (?store=tienda1 o ?tienda=tienda1) - TIENE PRIORIDAD MÁXIMA
   try {
     const urlObj = new URL(req.url, `http://${host || 'localhost'}`);
     const qsStore = urlObj.searchParams.get('store') || urlObj.searchParams.get('tienda');
     if (qsStore) {
-      const s = getStoreById(qsStore) || getStoreBySubdomain(qsStore);
-      if (s) return s;
+      const cleanQs = qsStore.trim().toLowerCase();
+      if (!cleanQs.startsWith('ais-')) {
+        if (cleanQs === 'www' || cleanQs === 'capfit' || cleanQs === 'principal' || cleanQs === 'shop' || cleanQs === 'shpo') {
+          return getStoreById('principal') || getAllStores()[0];
+        }
+        const s = getStoreById(cleanQs) || getStoreBySubdomain(cleanQs);
+        if (s) return s;
+      }
     }
   } catch (_) {}
 
-  // 3. Subdominio en Host header
-  const hostWithoutPort = host.split(':')[0];
-  const parts = hostWithoutPort.split('.');
-  if (parts.length >= 2) {
-    const sub = parts[0];
-    if (sub === 'account') {
-      return {
-        id: 'account_portal',
-        subdomain: 'account',
-        fullDomain: 'account.capfit.store',
-        name: 'Portal Dueños de Tienda CAPFIT',
-        tagline: 'Gestión y Backoffice para Socios',
-        isAccountPortal: true,
-        active: true
-      };
+  // 2. Headers explícitos
+  const headerStore = (req.headers['x-store-id'] || req.headers['x-store-subdomain'] || '').toLowerCase();
+  if (headerStore && !headerStore.startsWith('ais-')) {
+    if (headerStore === 'www' || headerStore === 'capfit' || headerStore === 'principal' || headerStore === 'shop' || headerStore === 'shpo') {
+      return getStoreById('principal') || getAllStores()[0];
     }
-    if (parts.length >= 3 && sub !== 'www' && sub !== 'api' && sub !== 'ais-dev' && sub !== 'ais-pre') {
-      const s = getStoreBySubdomain(sub);
-      if (s) return s;
+    const s = getStoreById(headerStore) || getStoreBySubdomain(headerStore);
+    if (s) return s;
+  }
+
+  // 3. Subdominio y Dominio en Host header
+  const hostWithoutPort = host.split(':')[0];
+
+  // Si el dominio es capfit.store o www.capfit.store -> siempre es la tienda principal
+  if (hostWithoutPort === 'capfit.store' || hostWithoutPort === 'www.capfit.store') {
+    return getStoreById('principal') || getAllStores()[0];
+  }
+
+  if (
+    !hostWithoutPort.includes('run.app') &&
+    !hostWithoutPort.includes('localhost') &&
+    !hostWithoutPort.includes('127.0.0.1') &&
+    !hostWithoutPort.startsWith('ais-') &&
+    !hostWithoutPort.includes('aistudio')
+  ) {
+    const parts = hostWithoutPort.split('.');
+    if (parts.length >= 2) {
+      const sub = parts[0];
+      // Subdominios reservados de CAPFIT
+      if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'shpo') {
+        return getStoreById('principal') || getAllStores()[0];
+      }
+      if (sub === 'app') {
+        const p = getStoreById('principal') || getAllStores()[0];
+        return {
+          ...p,
+          isAppPortal: true
+        };
+      }
+      if (sub === 'blog') {
+        return {
+          id: 'capfit_blog',
+          subdomain: 'blog',
+          fullDomain: 'blog.capfit.store',
+          name: 'Blog CAPFIT Oficial',
+          tagline: 'Tendencias Urbanas, Moda y Probadores Virtuales con IA',
+          isBlogPortal: true,
+          active: true
+        };
+      }
+      if (sub === 'account') {
+        return {
+          id: 'account_portal',
+          subdomain: 'account',
+          fullDomain: 'account.capfit.store',
+          name: 'Portal Dueños de Tienda CAPFIT',
+          tagline: 'Gestión y Backoffice para Socios',
+          isAccountPortal: true,
+          active: true
+        };
+      }
+      if (parts.length >= 3 && !RESERVED_SUBDOMAINS.includes(sub)) {
+        const s = getStoreBySubdomain(sub);
+        if (s) return s;
+      }
     }
   }
 
@@ -439,6 +505,9 @@ function createStore({ subdomain, name, username, password, plan, aiMonthlyLimit
     .replace(/^-+|-+$/g, '');
 
   if (!cleanSub) throw new Error('El subdominio es obligatorio y debe ser alfanumérico.');
+  if (RESERVED_SUBDOMAINS.includes(cleanSub)) {
+    throw new Error(`El subdominio "${cleanSub}" está reservado por el sistema oficial de CAPFIT y no puede ser utilizado.`);
+  }
   if (stores.some(s => s.subdomain.toLowerCase() === cleanSub)) {
     throw new Error(`El subdominio "${cleanSub}.capfit.store" ya está registrado.`);
   }
@@ -554,6 +623,29 @@ function getDefaultSectionsForStore(store) {
   const brandName = about.brandName || storeName;
 
   return {
+    home: {
+      heroTitle: (store && store.heroTitle) || 'Probátela.\nComprá con confianza.',
+      heroSubtitle: (store && store.tagline) || 'Usá IA para verte con tus gorras favoritas antes de comprarlas.',
+      heroBadge: '🔥 PROBADOR CON IA EN VIVO',
+      heroCtaPrimary: 'PROBAR AHORA →',
+      heroCtaSecondary: 'Ver catálogo',
+      heroProofCount: '+3.500 personas ya probaron',
+      heroRatingText: '★★★★★ 4.9 (327 opiniones)',
+      announcementActive: true,
+      announcementText1: 'Envío gratis en compras mayores a $39.999',
+      announcementText2: '30 días para cambios y devoluciones',
+      announcementText3: '¿Necesitás ayuda? Escribinos por WhatsApp',
+      trust1Title: 'Probá en 3 pasos',
+      trust1Desc: 'Elegí, subí tu foto y mirá el resultado.',
+      trust2Title: 'Envíos a todo el país',
+      trust2Desc: 'Envío gratis en compras mayores a $39.999.',
+      trust3Title: '30 días para cambios',
+      trust3Desc: 'Si no te convence, lo cambiás sin problema.',
+      trust4Title: 'Compra 100% segura',
+      trust4Desc: 'Tus datos están protegidos siempre.',
+      catalogHeadline: 'Gorras más vendidas',
+      catalogSubtitle: 'Elegí tu modelo favorito y probalo con nuestro probador virtual con Inteligencia Artificial'
+    },
     about: {
       brandName: brandName,
       tagline: about.tagline || (store && store.tagline) || 'Probadores virtuales de gorras y accesorios con IA.',
@@ -683,8 +775,10 @@ function getStoreSections(storeId) {
 
   // Merge sobre nosotros: si ya tiene store.about, sincronizar
   const mergedAbout = { ...defaults.about, ...(store.about || {}), ...(saved.about || {}) };
+  const mergedHome = { ...defaults.home, ...(saved.home || {}) };
 
   return {
+    home: mergedHome,
     about: mergedAbout,
     faq: { ...defaults.faq, ...(saved.faq || {}) },
     envios: { ...defaults.envios, ...(saved.envios || {}) },

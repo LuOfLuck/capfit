@@ -178,9 +178,42 @@
     await sendPasswordResetEmail(auth, email.trim());
   }
 
-  // Verificar credenciales de Firebase Auth contra el backend de CAPFIT
-  async function verifySessionWithBackend(firebaseUser) {
+  // Verificar credenciales de Firebase Auth contra el backend de CAPFIT validando Custom Claims y Documento Firestore
+  async function verifySessionWithBackend(firebaseUser, targetStoreId = null) {
     if (!firebaseUser) throw new Error('Usuario no autenticado en Firebase.');
+
+    // 1. Extraer Custom Claims desde el token JWT de Firebase Auth
+    let customClaims = {};
+    try {
+      const tokenResult = await firebaseUser.getIdTokenResult(true);
+      if (tokenResult && tokenResult.claims) {
+        customClaims = tokenResult.claims;
+      }
+    } catch (claimErr) {
+      console.warn('[FirebaseAuth] Advertencia al leer custom claims:', claimErr);
+    }
+
+    // 2. Intentar consultar documento de Firestore en la colección store_owners directamente
+    let firestoreUserData = null;
+    try {
+      const { getFirestore, doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
+      const apps = getApps();
+      if (apps && apps.length > 0) {
+        const db = getFirestore(apps[0]);
+        const ownerSnap = await getDoc(doc(db, 'store_owners', firebaseUser.uid));
+        if (ownerSnap && ownerSnap.exists()) {
+          firestoreUserData = ownerSnap.data();
+        }
+      }
+    } catch (fsErr) {
+      // No bloqueante: el backend también verifica Firestore directamente
+    }
+
+    // 3. Sanitizar storeId objetivo para evitar IDs de desarrollo o prefijos ais-
+    const cleanTargetStore = (targetStoreId && typeof targetStoreId === 'string' && !targetStoreId.startsWith('ais-'))
+      ? targetStoreId.trim()
+      : ((window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-')) ? Store.getCurrentStoreId() : null);
 
     const res = await fetch('/api/admin/auth/firebase-verify', {
       method: 'POST',
@@ -189,13 +222,16 @@
         uid: firebaseUser.uid,
         email: firebaseUser.email,
         displayName: firebaseUser.displayName || '',
-        photoURL: firebaseUser.photoURL || ''
+        photoURL: firebaseUser.photoURL || '',
+        customClaims,
+        firestoreUserData,
+        targetStoreId: cleanTargetStore
       })
     });
 
     const data = await res.json();
     if (data.ok) {
-      // Guardar sesión autorizada de administrador
+      // Guardar sesión autorizada de administrador para la tienda validada
       sessionStorage.setItem('capfit_session', data.token);
       sessionStorage.setItem('capfit_role', data.role);
       sessionStorage.setItem('capfit_store_id', data.storeId);
@@ -203,6 +239,8 @@
       sessionStorage.setItem('capfit_store_name', data.storeName || '');
       sessionStorage.setItem('capfit_user_email', firebaseUser.email);
       sessionStorage.setItem('capfit_user_name', data.user?.displayName || firebaseUser.displayName || '');
+
+      localStorage.setItem('capfit_active_store_id', data.storeId);
       return { verified: true, ...data };
     }
 

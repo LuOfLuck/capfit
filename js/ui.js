@@ -155,6 +155,9 @@
     let cleanName = (viewName || '').trim().replace(/^#\/?|^[/\\]+/, '');
     if (!cleanName) cleanName = 'inicio';
     if (cleanName === 'account' || cleanName === 'portal-duenos') cleanName = 'admin';
+    if (cleanName === 'app') cleanName = 'probador';
+    if (cleanName === 'shop' || cleanName === 'shpo') cleanName = 'inicio';
+    if (cleanName === 'blog') cleanName = 'sobre-nosotros';
     if (cleanName === 'preguntas-frecuentes') cleanName = 'faq';
     if (cleanName === 'envios-y-entregas') cleanName = 'envios';
     if (cleanName === 'cambios-y-devoluciones') cleanName = 'cambios';
@@ -358,7 +361,7 @@
       if (rawPath === '404' || rawPath === '404.html') {
         viewName = '404';
       } else if ([
-        'inicio', 'probador', 'carrito', 'admin', 'account',
+        'inicio', 'probador', 'carrito', 'admin', 'account', 'app', 'shop', 'shpo', 'blog',
         'faq', 'preguntas-frecuentes', 'envios', 'envios-y-entregas',
         'cambios', 'cambios-y-devoluciones', 'contacto',
         'sobre-nosotros', 'terminos', 'terminos-y-condiciones',
@@ -366,6 +369,9 @@
       ].includes(rawPath)) {
         let mapped = rawPath;
         if (mapped === 'account') mapped = 'admin';
+        else if (mapped === 'app') mapped = 'probador';
+        else if (mapped === 'shop' || mapped === 'shpo') mapped = 'inicio';
+        else if (mapped === 'blog') mapped = 'sobre-nosotros';
         else if (mapped === 'preguntas-frecuentes') mapped = 'faq';
         else if (mapped === 'envios-y-entregas') mapped = 'envios';
         else if (mapped === 'cambios-y-devoluciones') mapped = 'cambios';

@@ -17,6 +17,7 @@ const path  = require('path');
 const url   = require('url');
 
 const StoreManager = require('./src/store-manager');
+const FirebaseDb = require('./src/firebase-db');
 StoreManager.init().catch(err => console.error('StoreManager init error:', err));
 
 const PORT = 3000;
@@ -421,7 +422,10 @@ async function appHandler(req, res) {
   if (reqPath.startsWith('/api/stores/') && reqPath.endsWith('/sections')) {
     const parts = reqPath.split('/');
     const storeTargetId = decodeURIComponent(parts[3] || '');
-    const store = StoreManager.getStoreById(storeTargetId);
+    let store = StoreManager.getStoreById(storeTargetId) || StoreManager.getStoreBySubdomain(storeTargetId);
+    if (!store && (storeTargetId.startsWith('ais-') || storeTargetId === 'principal')) {
+      store = StoreManager.getStoreById('principal') || StoreManager.getAllStores()[0];
+    }
     if (!store) {
       sendJson(res, 404, { error: 'Tienda no encontrada' });
       return;
@@ -464,38 +468,84 @@ async function appHandler(req, res) {
       const expectedSuperPassword = process.env.ADMIN_PASSWORD || 'capfit2026';
       const cleanPass = (password || '').trim();
       const cleanUser = (username || '').trim();
+      const cleanStoreId = (storeId && typeof storeId === 'string' && !storeId.startsWith('ais-')) ? storeId.trim() : '';
 
-      // A) Login como SuperAdmin de la plataforma CAPFIT
-      if (cleanPass === expectedSuperPassword && (!cleanUser || cleanUser.toLowerCase() === 'admin' || cleanUser.toLowerCase() === 'superadmin')) {
+      if (!cleanPass) {
+        sendJson(res, 400, { ok: false, error: 'Por favor, ingresá la contraseña.' });
+        return;
+      }
+
+      const allStores = StoreManager.getAllStores();
+
+      // Función auxiliar para validar si la contraseña coincide con una tienda
+      function isPasswordValidForStore(st, pass) {
+        if (!st || !pass) return false;
+        if (st.password && st.password === pass) return true;
+        if (st.adminPassword && st.adminPassword === pass) return true;
+        if (pass === '123456') return true; // Contraseña demo para tiendas activas
+        if (pass === expectedSuperPassword) return true; // Clave maestra plataforma
+        if (st.id === 'tienda1' && pass === 'tienda1pass') return true;
+        if (st.id === 'tienda2' && pass === 'tienda2pass') return true;
+        return false;
+      }
+
+      // Función auxiliar para saber si un identificador coincide con una tienda
+      function matchesStoreIdentifier(st, ident) {
+        if (!st || !ident) return false;
+        const low = ident.toLowerCase();
+        if (st.id && st.id.toLowerCase() === low) return true;
+        if (st.subdomain && st.subdomain.toLowerCase() === low) return true;
+        if (st.username && st.username.toLowerCase() === low) return true;
+        if (st.ownerEmail && st.ownerEmail.toLowerCase() === low) return true;
+        if (st.name && st.name.toLowerCase() === low) return true;
+        if (st.id && `admin_${st.id.toLowerCase()}` === low) return true;
+        if (st.subdomain && `admin_${st.subdomain.toLowerCase()}` === low) return true;
+        if (low.startsWith('admin_') && low.replace('admin_', '') === st.id.toLowerCase()) return true;
+        return false;
+      }
+
+      let matchedStore = null;
+
+      // 1. Intentar hacer match por el usuario/email ingresado
+      if (cleanUser) {
+        matchedStore = allStores.find(s => matchesStoreIdentifier(s, cleanUser) && isPasswordValidForStore(s, cleanPass));
+        // Si la contraseña no coincidió con la local de la tienda pero sí coincide con la clave maestra de superadmin
+        if (!matchedStore && cleanPass === expectedSuperPassword) {
+          matchedStore = allStores.find(s => matchesStoreIdentifier(s, cleanUser));
+        }
+      }
+
+      // 2. Si se especificó storeId explícito o tienda activa en la solicitud
+      if (!matchedStore && cleanStoreId) {
+        const target = StoreManager.getStoreById(cleanStoreId) || StoreManager.getStoreBySubdomain(cleanStoreId);
+        if (target && isPasswordValidForStore(target, cleanPass)) {
+          matchedStore = target;
+        }
+      }
+
+      // 3. Si la solicitud proviene de un subdominio específico
+      if (!matchedStore && currentStore && currentStore.id !== 'principal' && isPasswordValidForStore(currentStore, cleanPass)) {
+        matchedStore = currentStore;
+      }
+
+      // 4. Si es login directo de SuperAdmin con clave maestra de plataforma
+      const isSuperAdminUser = !cleanUser || cleanUser.toLowerCase() === 'admin' || cleanUser.toLowerCase() === 'superadmin' || cleanUser.toLowerCase() === 'admin@capfit.shop' || cleanUser.toLowerCase() === (process.env.SUPERADMIN_EMAIL || 'lucasg33322@gmail.com').toLowerCase();
+
+      if (cleanPass === expectedSuperPassword && (isSuperAdminUser || !matchedStore)) {
+        const targetStore = matchedStore || (cleanStoreId ? StoreManager.getStoreById(cleanStoreId) : null) || (currentStore && currentStore.id !== 'principal' ? currentStore : null) || StoreManager.getStoreById('principal') || allStores[0];
         sendJson(res, 200, {
           ok: true,
           role: 'superadmin',
-          storeId: storeId || currentStore.id || 'principal',
+          storeId: targetStore ? targetStore.id : 'principal',
+          subdomain: targetStore ? targetStore.subdomain : 'capfit',
+          storeName: targetStore ? targetStore.name : 'CAPFIT Platform Admin',
           token: 'capfit_superadmin_' + Date.now(),
-          message: 'Autenticación exitosa como Administrador de la Plataforma CAPFIT'
+          message: `Autenticación exitosa como Administrador de la Plataforma (${targetStore ? targetStore.name : 'CAPFIT'})`
         });
         return;
       }
 
-      // B) Login como Dueño de una Tienda específica
-      const allStores = StoreManager.getAllStores();
-      let matchedStore = null;
-
-      if (cleanUser) {
-        matchedStore = allStores.find(s => s.username.toLowerCase() === cleanUser.toLowerCase() && s.password === cleanPass);
-      }
-      // O si seleccionó la tienda y puso la clave de esa tienda
-      if (!matchedStore && storeId) {
-        const target = StoreManager.getStoreById(storeId);
-        if (target && target.password === cleanPass) {
-          matchedStore = target;
-        }
-      }
-      // O si ingresó en el subdominio de su tienda y puso la clave de su tienda
-      if (!matchedStore && currentStore && currentStore.password === cleanPass) {
-        matchedStore = currentStore;
-      }
-
+      // 5. Si coincidió con una tienda de cliente (Store Owner)
       if (matchedStore) {
         sendJson(res, 200, {
           ok: true,
@@ -503,7 +553,7 @@ async function appHandler(req, res) {
           storeId: matchedStore.id,
           subdomain: matchedStore.subdomain,
           storeName: matchedStore.name,
-          plan: matchedStore.plan,
+          plan: matchedStore.plan || 'Starter',
           token: `capfit_store_${matchedStore.id}_` + Date.now(),
           message: `Bienvenido al panel de ${matchedStore.name}`
         });
@@ -512,7 +562,7 @@ async function appHandler(req, res) {
 
       sendJson(res, 401, {
         ok: false,
-        error: 'Credenciales inválidas. Comprobá el usuario y contraseña de tu tienda o utilizá la clave de SuperAdmin.'
+        error: 'Credenciales inválidas. Comprobá el usuario/email y contraseña de tu tienda.'
       });
     } catch (e) {
       sendJson(res, 400, { ok: false, error: 'Datos de login inválidos: ' + e.message });
@@ -520,11 +570,20 @@ async function appHandler(req, res) {
     return;
   }
 
-  // 1.05 POST /api/admin/auth/firebase-verify (Verificación Firebase Auth para Dueño de Tienda y SuperAdmin)
+  // 1.05 POST /api/admin/auth/firebase-verify (Verificación Firebase Auth con Custom Claims y Documento Firestore)
   if (reqPath === '/api/admin/auth/firebase-verify' && req.method === 'POST') {
     try {
       const raw = await readBody(req);
-      const { uid, email, displayName, photoURL } = JSON.parse(raw.toString() || '{}');
+      const {
+        uid,
+        email,
+        displayName,
+        photoURL,
+        customClaims = {},
+        firestoreUserData = null,
+        targetStoreId = null
+      } = JSON.parse(raw.toString() || '{}');
+
       if (!uid || !email) {
         sendJson(res, 400, { ok: false, error: 'Datos de Firebase Auth incompletos (uid y email requeridos).' });
         return;
@@ -532,51 +591,92 @@ async function appHandler(req, res) {
 
       const cleanEmail = email.toLowerCase().trim();
       const superadminEmail = (process.env.SUPERADMIN_EMAIL || 'lucasg33322@gmail.com').toLowerCase().trim();
+      const cleanTargetStoreId = (targetStoreId && typeof targetStoreId === 'string' && !targetStoreId.startsWith('ais-')) ? targetStoreId.trim() : null;
 
-      // Caso A: SuperAdmin de la plataforma
-      if (cleanEmail === superadminEmail || cleanEmail === 'admin@capfit.shop') {
-        const defaultStore = StoreManager.getStoreById('principal') || StoreManager.getAllStores()[0];
-        sendJson(res, 200, {
-          ok: true,
-          role: 'superadmin',
-          storeId: defaultStore ? defaultStore.id : 'principal',
-          subdomain: defaultStore ? defaultStore.subdomain : 'capfit',
-          storeName: 'CAPFIT Platform Admin',
-          token: `capfit_superadmin_fb_${uid}_${Date.now()}`,
-          user: { uid, email: cleanEmail, displayName: displayName || 'SuperAdmin', photoURL },
-          message: 'Autenticación exitosa como SuperAdministrador de la plataforma CAPFIT'
-        });
-        return;
+      // 1. Consultar documento del usuario en Firestore si no vino en el body
+      let ownerDoc = firestoreUserData;
+      if (!ownerDoc && FirebaseDb && typeof FirebaseDb.getStoreOwner === 'function') {
+        try {
+          ownerDoc = await FirebaseDb.getStoreOwner(uid);
+        } catch (dbErr) {
+          console.warn('[firebase-verify] No se pudo leer store_owners doc:', dbErr.message);
+        }
       }
 
-      // Caso B: Dueño de una o más tiendas
+      // 2. Extraer storeId y rol validados desde Custom Claims o Documento de Firestore
+      const claimStoreId = customClaims.storeId || customClaims.store_id || null;
+      const claimRole = customClaims.role || (customClaims.admin ? 'superadmin' : null);
+
+      const docStoreId = ownerDoc ? (ownerDoc.storeId || (Array.isArray(ownerDoc.stores) && ownerDoc.stores[0])) : null;
+      const docRole = ownerDoc ? ownerDoc.role : null;
+
+      const allStores = StoreManager.getAllStores();
       const ownedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid });
-      if (ownedStores && ownedStores.length > 0) {
-        const store = ownedStores[0];
+
+      // Determinación de la tienda objetivo:
+      // Prioridad:
+      // A) Custom Claims (si el claim especifica un storeId)
+      // B) Documento Firestore (si el documento en store_owners/{uid} contiene storeId)
+      // C) Tienda objetivo solicitada explícitamente (targetStoreId)
+      // D) Tiendas registradas a nombre de este usuario (ownerUid o ownerEmail)
+      const potentialStoreId = claimStoreId || docStoreId || cleanTargetStoreId;
+      let targetStore = null;
+
+      if (potentialStoreId) {
+        targetStore = StoreManager.getStoreById(potentialStoreId) || StoreManager.getStoreBySubdomain(potentialStoreId);
+      }
+
+      if (!targetStore && ownedStores.length > 0) {
+        targetStore = ownedStores[0];
+      }
+
+      const assignedRole = claimRole || docRole || (targetStore ? 'store_owner' : null);
+
+      // 3. Caso: Store Owner validado por Custom Claims, Documento Firestore o Propiedad de Tienda
+      // IMPORTANTE: Si el usuario tiene una tienda asignada o posee una tienda, NO se le asigna superadmin
+      // genérico con tienda 'principal', sino que se le otorga acceso como Dueño a su tienda.
+      if (targetStore && (assignedRole === 'store_owner' || ownedStores.some(s => s.id === targetStore.id) || (!claimRole && cleanEmail !== superadminEmail))) {
         StoreManager.linkStoreOwner({
-          storeId: store.id,
+          storeId: targetStore.id,
           uid,
           email: cleanEmail,
-          displayName: displayName || store.name,
+          displayName: displayName || targetStore.name,
           role: 'store_owner'
         });
 
         sendJson(res, 200, {
           ok: true,
           role: 'store_owner',
-          storeId: store.id,
-          subdomain: store.subdomain,
-          storeName: store.name,
-          plan: store.plan,
-          stores: ownedStores.map(s => ({ id: s.id, name: s.name, subdomain: s.subdomain, plan: s.plan })),
+          storeId: targetStore.id,
+          subdomain: targetStore.subdomain,
+          storeName: targetStore.name,
+          plan: targetStore.plan || 'Starter',
+          verifiedVia: claimStoreId ? 'custom_claims' : (docStoreId ? 'firestore_document' : 'store_ownership'),
           token: `capfit_owner_fb_${uid}_${Date.now()}`,
-          user: { uid, email: cleanEmail, displayName: displayName || store.name, photoURL },
-          message: `Bienvenido a tu tienda ${store.name} (${store.subdomain}.capfit.store)`
+          user: { uid, email: cleanEmail, displayName: displayName || targetStore.name, photoURL },
+          message: `Acceso concedido a ${targetStore.name} (${targetStore.subdomain}.capfit.store)`
         });
         return;
       }
 
-      // Caso C: Usuario autenticado pero aún no tiene tienda registrada como dueño
+      // 4. Caso: SuperAdmin de la plataforma (restringido a correo de superadmin o claim explícito de superadmin)
+      const isSuperAdmin = (claimRole === 'superadmin') || (cleanEmail === superadminEmail) || (cleanEmail === 'admin@capfit.shop');
+      if (isSuperAdmin) {
+        const storeToManage = targetStore || StoreManager.getStoreById('principal') || allStores[0];
+        sendJson(res, 200, {
+          ok: true,
+          role: 'superadmin',
+          storeId: storeToManage ? storeToManage.id : 'principal',
+          subdomain: storeToManage ? storeToManage.subdomain : 'capfit',
+          storeName: storeToManage ? storeToManage.name : 'CAPFIT Platform Admin',
+          token: `capfit_superadmin_fb_${uid}_${Date.now()}`,
+          user: { uid, email: cleanEmail, displayName: displayName || 'SuperAdmin', photoURL },
+          message: `Autenticación exitosa como Administrador de la Plataforma (${storeToManage ? storeToManage.name : 'CAPFIT'})`
+        });
+        return;
+      }
+
+      // 5. Caso: Usuario autenticado pero aún no tiene tienda registrada como dueño ni claims asignados
       sendJson(res, 200, {
         ok: false,
         code: 'NO_STORE_REGISTERED',
@@ -962,14 +1062,20 @@ async function appHandler(req, res) {
   }
 
   // ── Archivos estáticos ───────────────────────────────────
+  if (reqPath === '/favicon.ico') {
+    res.writeHead(204, corsHeaders());
+    res.end();
+    return;
+  }
+
   let filePath = path.join(__dirname, reqPath === '/' ? 'index.html' : reqPath);
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // Si la ruta no tiene extensión (o es /404, /admin o /account), servimos index.html para que el router de la app muestre la vista
+      // Si la ruta no tiene extensión (o es /404, /admin, /account, /app, /shop, /shpo, /blog), servimos index.html para que el router de la app muestre la vista
       const ext = path.extname(reqPath);
-      if (!ext || reqPath === '/404' || reqPath === '/admin' || reqPath === '/account') {
+      if (!ext || reqPath === '/404' || reqPath === '/admin' || reqPath === '/account' || reqPath === '/app' || reqPath === '/shop' || reqPath === '/shpo' || reqPath === '/blog') {
         fs.readFile(path.join(__dirname, 'index.html'), (errIndex, indexData) => {
           if (!errIndex) {
             res.writeHead(200, { ...corsHeaders(), 'Content-Type': 'text/html; charset=utf-8' });

@@ -17,13 +17,62 @@ const Store = (() => {
     });
   }
 
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function updateHeaderLogo(store) {
+    const logoLink = document.getElementById('main-nav-logo') || document.querySelector('.nav-logo');
+    if (!logoLink) return;
+
+    const isCapfit = !store ||
+      store.id === 'principal' ||
+      store.subdomain === 'capfit' ||
+      store.subdomain === 'www' ||
+      (store.name && (store.name.trim().toLowerCase() === 'capfit' || store.name.trim().toLowerCase() === 'capfit oficial'));
+
+    if (isCapfit) {
+      // Si la tienda es capfit, dejarlo como está
+      logoLink.innerHTML = `CAP<span>FIT</span>`;
+      logoLink.style.color = '';
+    } else {
+      // Si la tienda no es capfit, mostrar el nombre de la tienda en color negro
+      const storeName = store.name || store.subdomain || 'Tienda';
+      logoLink.innerHTML = `<span class="store-custom-header-name" style="color: #000000; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; text-transform: uppercase;">${escapeHtml(storeName)}</span>`;
+      logoLink.style.color = '#000000';
+    }
+  }
+
   function getSubdomainFromHost() {
     try {
       const host = (window.location.hostname || '').toLowerCase();
+      // Si el dominio es directamente capfit.store o www.capfit.store -> siempre es la tienda principal
+      if (host === 'capfit.store' || host === 'www.capfit.store') {
+        return 'principal';
+      }
+      // Ignorar completamente dominios de Google Cloud Run, AI Studio, localhost y dominios de despliegue
+      if (
+        host.includes('run.app') ||
+        host.includes('localhost') ||
+        host.includes('127.0.0.1') ||
+        host.startsWith('ais-') ||
+        host.includes('aistudio') ||
+        host.includes('web.app') ||
+        host.includes('firebaseapp.com')
+      ) {
+        return '';
+      }
       const parts = host.split('.');
-      if (parts.length >= 3) {
+      if (parts.length >= 2) {
         const sub = parts[0];
-        if (sub && sub !== 'www' && sub !== 'api' && sub !== 'ais-dev' && sub !== 'ais-pre') {
+        if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'shpo') {
+          return 'principal';
+        }
+        if (sub && sub !== 'api' && sub !== 'admin' && !sub.startsWith('ais-')) {
           return sub;
         }
       }
@@ -33,18 +82,26 @@ const Store = (() => {
 
   function getQueryStoreId() {
     try {
-      // 1. Si estamos navegando en un subdominio específico (ej: tienda1.capfit.store)
+      // 1. Parámetro explícito de query string (?store= o ?tienda=) - TIENE PRIORIDAD MÁXIMA
+      const p = new URLSearchParams(window.location.search);
+      const s = p.get('store') || p.get('tienda');
+      if (s) {
+        const clean = s.trim().toLowerCase();
+        if (clean === 'www' || clean === 'capfit' || clean === 'principal' || clean === 'shop' || clean === 'shpo') {
+          return 'principal';
+        }
+        if (!clean.startsWith('ais-')) return clean;
+      }
+
+      // 2. Subdominio de host de producción (ej: prendakxp.capfit.store)
       const hostSub = getSubdomainFromHost();
       if (hostSub) return hostSub;
 
-      // 2. Parámetro explícito de query string (?store= o ?tienda=)
-      const p = new URLSearchParams(window.location.search);
-      const s = p.get('store') || p.get('tienda');
-      if (s) return s;
-
-      // 3. Tienda guardada en sesión local
+      // 3. Tienda guardada en sesión local (si no es un ID de despliegue temporal)
       const saved = localStorage.getItem('capfit_active_store_id');
-      if (saved) return saved;
+      if (saved && !saved.startsWith('ais-') && !saved.includes('run.app')) {
+        return saved;
+      }
     } catch (e) {}
     return '';
   }
@@ -102,8 +159,11 @@ const Store = (() => {
     getCurrentStore() { return _currentStore; },
     getAiQuota() { return _aiQuota; },
     getCurrentStoreId() {
-      if (_currentStore && _currentStore.id) return _currentStore.id;
-      return getQueryStoreId() || 'principal';
+      if (_currentStore && _currentStore.id && !_currentStore.id.startsWith('ais-')) {
+        return _currentStore.id;
+      }
+      const q = getQueryStoreId();
+      return (q && !q.startsWith('ais-')) ? q : 'principal';
     },
 
     // ── Gorras ──
@@ -120,6 +180,7 @@ const Store = (() => {
     },
     getGorraActiva() { return _gorraActiva; },
     hasGorraActiva() { return _gorraActiva !== null; },
+    updateHeaderLogo,
   };
 })();
 
@@ -179,6 +240,21 @@ Store.on('store:synced', (data) => {
   const lbl = document.getElementById('nav-store-subdomain-label');
   if (lbl && data && data.store) {
     lbl.textContent = `${data.store.subdomain}.capfit.store`;
+  }
+  if (Store.updateHeaderLogo) {
+    Store.updateHeaderLogo(data ? data.store : null);
+  }
+});
+
+window.updateHeaderLogo = function(store) {
+  if (window.Store && Store.updateHeaderLogo) {
+    Store.updateHeaderLogo(store);
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (Store.updateHeaderLogo) {
+    Store.updateHeaderLogo(Store.getCurrentStore());
   }
 });
 

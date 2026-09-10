@@ -13,7 +13,7 @@ const AdminPanel = (() => {
   let _products = [];
   let _orders = [];
   let _activeTab = 'catalogo'; // 'catalogo' | 'pedidos' | 'nuevo' | 'secciones' | 'tiendas'
-  let _activeSectionSubtab = 'about'; // 'about' | 'faq' | 'envios' | 'cambios' | 'contacto' | 'terminos' | 'privacidad'
+  let _activeSectionSubtab = 'home'; // 'home' | 'about' | 'faq' | 'envios' | 'cambios' | 'contacto' | 'terminos' | 'privacidad'
   let _productSearch = '';
   let _productStockFilter = 'todos'; // 'todos' | 'bajo' | 'agotado' | 'disponible'
   let _productTypeFilter = 'todos'; // 'todos' | 'gorra' | 'anteojos' | 'gorro'
@@ -23,8 +23,18 @@ const AdminPanel = (() => {
   let _editingProduct = null;
 
   // Multi-tenant, SaaS & Firebase Auth State
+  function sanitizeStoreId(s) {
+    if (!s || typeof s !== 'string') return '';
+    const clean = s.trim();
+    if (clean.startsWith('ais-') || clean.includes('run.app') || clean.includes('localhost')) {
+      return '';
+    }
+    return clean;
+  }
+
   let _adminRole = sessionStorage.getItem(ROLE_KEY) || sessionStorage.getItem('capfit_role') || 'store_owner';
-  let _currentStoreId = sessionStorage.getItem(STORE_ID_KEY) || sessionStorage.getItem('capfit_store_id') || (window.Store && Store.getCurrentStoreId ? Store.getCurrentStoreId() : 'principal');
+  let _storedStore = sanitizeStoreId(sessionStorage.getItem(STORE_ID_KEY)) || sanitizeStoreId(sessionStorage.getItem('capfit_store_id'));
+  let _currentStoreId = _storedStore || (window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-') ? Store.getCurrentStoreId() : 'principal');
   let _currentStoreName = sessionStorage.getItem(STORE_NAME_KEY) || sessionStorage.getItem('capfit_store_name') || 'CAPFIT Store';
   let _currentSubdomain = sessionStorage.getItem(SUBDOMAIN_KEY) || sessionStorage.getItem('capfit_store_subdomain') || 'tienda1';
   let _userEmail = sessionStorage.getItem(USER_EMAIL_KEY) || '';
@@ -36,6 +46,14 @@ const AdminPanel = (() => {
 
   function isLoggedIn() {
     return !!(sessionStorage.getItem(SESSION_KEY) || sessionStorage.getItem('capfit_session'));
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   function getStoreQuery() {
@@ -77,7 +95,9 @@ const AdminPanel = (() => {
     try {
       if (!window.CapfitAuth) throw new Error('Módulo Firebase Auth no está listo. Recargá la página.');
       const user = await CapfitAuth.signInWithGoogle();
-      const verifyRes = await CapfitAuth.verifySessionWithBackend(user);
+      const targetStore = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : null;
+      const cleanTargetStore = (targetStore && !targetStore.startsWith('ais-')) ? targetStore : null;
+      const verifyRes = await CapfitAuth.verifySessionWithBackend(user, cleanTargetStore);
 
       if (verifyRes.verified) {
         _adminRole = verifyRes.role || 'store_owner';
@@ -127,7 +147,7 @@ const AdminPanel = (() => {
     }
   }
 
-  async function loginWithFirebaseEmail(email, password) {
+  async function loginWithFirebaseEmail(emailOrUser, password) {
     const errorEl = document.getElementById('admin-login-error');
     if (errorEl) errorEl.style.display = 'none';
 
@@ -139,42 +159,48 @@ const AdminPanel = (() => {
     }
 
     try {
-      const cleanEmail = (email || '').trim();
+      const cleanInput = (emailOrUser || '').trim();
       const cleanPass = (password || '').trim();
 
-      if (!cleanEmail || !cleanPass) {
-        throw new Error('Por favor completá tu correo y contraseña.');
+      if (!cleanInput || !cleanPass) {
+        throw new Error('Por favor completá tu usuario/correo y contraseña.');
       }
 
-      // Si no es un email con @, intentar login de tienda tradicional directamente
-      if (!cleanEmail.includes('@')) {
-        await login(cleanEmail, cleanPass);
+      const activeStore = (window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-')) ? Store.getCurrentStoreId() : null;
+
+      // Si no es un email con @, intentar login tradicional por usuario de tienda directamente
+      if (!cleanInput.includes('@')) {
+        await login(cleanInput, cleanPass, activeStore);
         return;
       }
 
-      if (!window.CapfitAuth) throw new Error('Módulo de autenticación no disponible.');
+      // Si es un correo con @, intentar primero Firebase Auth
+      if (!window.CapfitAuth) {
+        await login(cleanInput, cleanPass, activeStore);
+        return;
+      }
       
       let user;
       try {
-        user = await CapfitAuth.signInWithEmail(cleanEmail, cleanPass);
+        user = await CapfitAuth.signInWithEmail(cleanInput, cleanPass);
       } catch (authErr) {
         // Fallback al backend por si es una cuenta local de tienda o credenciales especiales
         try {
-          await login(cleanEmail, cleanPass);
+          await login(cleanInput, cleanPass, activeStore);
           return;
         } catch (backendErr) {
           throw authErr;
         }
       }
 
-      const verifyRes = await CapfitAuth.verifySessionWithBackend(user);
+      const verifyRes = await CapfitAuth.verifySessionWithBackend(user, activeStore);
 
       if (verifyRes.verified) {
         _adminRole = verifyRes.role || 'store_owner';
         _currentStoreId = verifyRes.storeId || 'principal';
         _currentStoreName = verifyRes.storeName || 'Mi Tienda';
         _currentSubdomain = verifyRes.subdomain || 'tienda1';
-        _userEmail = user.email || cleanEmail;
+        _userEmail = user.email || cleanInput;
         _userName = user.displayName || '';
 
         sessionStorage.setItem(SESSION_KEY, verifyRes.token);
@@ -273,10 +299,13 @@ const AdminPanel = (() => {
     if (errorEl) errorEl.style.display = 'none';
 
     try {
+      const candidateStore = storeId || _currentStoreId || (window.Store && Store.getCurrentStoreId ? Store.getCurrentStoreId() : null);
+      const cleanStore = (candidateStore && typeof candidateStore === 'string' && !candidateStore.startsWith('ais-')) ? candidateStore.trim() : null;
+
       const payload = {
         username: (username || '').trim(),
         password: (password || '').trim(),
-        storeId: storeId || _currentStoreId
+        storeId: cleanStore
       };
 
       const res = await fetch('/api/admin/login', {
@@ -301,6 +330,7 @@ const AdminPanel = (() => {
       sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
       sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
       sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
+      localStorage.setItem('capfit_active_store_id', _currentStoreId);
 
       if (window.showToast) {
         window.showToast(data.message || '¡Sesión de administración iniciada!');
@@ -826,6 +856,12 @@ const AdminPanel = (() => {
           <div class="auth-header">
             <h2 class="auth-title">Bienvenido de vuelta</h2>
             <p class="auth-sub">Accedé a tu cuenta para gestionar tu catálogo, pedidos y configuración de tu tienda.</p>
+            ${_currentStoreId && !_currentStoreId.startsWith('ais-') ? `
+              <div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;color:#334155;padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:600">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981"></span>
+                <span>Tienda activa: <strong>${_currentStoreName || _currentStoreId}</strong></span>
+              </div>
+            ` : ''}
           </div>
 
           <!-- Botón de Continuar con Google -->
@@ -841,13 +877,13 @@ const AdminPanel = (() => {
 
           <!-- Divisor -->
           <div class="auth-divider">
-            <span>o continúa con tu correo</span>
+            <span>o continúa con tus credenciales</span>
           </div>
 
           <form onsubmit="event.preventDefault(); AdminPanel.submitFirebaseEmailLogin();">
             <div class="auth-field-group">
-              <label class="auth-label" for="admin-email-input">Correo electrónico</label>
-              <input type="text" id="admin-email-input" class="auth-input" placeholder="tu@email.com" required autocomplete="username">
+              <label class="auth-label" for="admin-email-input">Correo electrónico o Usuario de Tienda</label>
+              <input type="text" id="admin-email-input" class="auth-input" placeholder="tu@email.com o usuario de tienda" required autocomplete="username">
             </div>
 
             <div class="auth-field-group">
@@ -1259,6 +1295,7 @@ const AdminPanel = (() => {
 
   function renderSectionsTab(container) {
     const subtabs = [
+      { key: 'home', label: '🏠 Portada & Inicio', view: 'inicio' },
       { key: 'about', label: 'ℹ️ Sobre Nosotros', view: 'sobre-nosotros' },
       { key: 'faq', label: '❓ Preguntas Frecuentes', view: 'faq' },
       { key: 'envios', label: '🚚 Envíos & Entregas', view: 'envios' },
@@ -1282,8 +1319,8 @@ const AdminPanel = (() => {
             </span>
             <span style="color:#94a3b8;font-size:0.82rem">Tienda activa: <strong>${escapeHtml(_currentStoreName)}</strong> (${escapeHtml(_currentStoreId)})</span>
           </div>
-          <h3 style="margin:0;font-size:1.3rem;font-weight:800;color:#fff">Edición de Páginas y Secciones Informativas</h3>
-          <p style="margin:4px 0 0;font-size:0.85rem;color:#cbd5e1">Los cambios se guardan en la nube (Firebase Firestore) y se reflejan al instante en la tienda de tus clientes.</p>
+          <h3 style="margin:0;font-size:1.3rem;font-weight:800;color:#fff">Edición de Páginas y Secciones de la Tienda</h3>
+          <p style="margin:4px 0 0;font-size:0.85rem;color:#cbd5e1">Personalizá portada, hero, textos, anuncios y páginas informativas. Se guardan en la nube y se reflejan al instante.</p>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <button type="button" class="admin-btn-sec" onclick="navigateToView('${currentSub.view}')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25)">
@@ -1340,6 +1377,124 @@ const AdminPanel = (() => {
   }
 
   function renderSectionFormFields(key, d) {
+    if (key === 'home') {
+      return `
+        <div class="section-form-grid">
+          <!-- Portada Hero -->
+          <div class="full-width" style="margin-top:4px;margin-bottom:8px">
+            <div style="font-weight:700;font-size:0.95rem;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px">
+              🎯 Portada & Hero Principal
+            </div>
+          </div>
+          
+          <div class="full-width">
+            <label class="admin-label">Título Principal (H1) <span style="font-weight:400;color:var(--gray-500);font-size:0.8rem">(usá Enter para saltos de línea)</span></label>
+            <textarea id="sec-input-heroTitle" class="admin-textarea" rows="2" placeholder="Probátela.&#10;Comprá con confianza.">${escapeHtml(d.heroTitle || 'Probátela.\nComprá con confianza.')}</textarea>
+          </div>
+
+          <div class="full-width">
+            <label class="admin-label">Subtítulo / Bajada del Hero</label>
+            <input type="text" id="sec-input-heroSubtitle" class="admin-input" value="${escapeHtml(d.heroSubtitle || 'Usá IA para verte con tus gorras favoritas antes de comprarlas.')}">
+          </div>
+
+          <div>
+            <label class="admin-label">Texto del Botón Principal (CTA)</label>
+            <input type="text" id="sec-input-heroCtaPrimary" class="admin-input" value="${escapeHtml(d.heroCtaPrimary || 'PROBAR AHORA →')}">
+          </div>
+
+          <div>
+            <label class="admin-label">Prueba Social (+ Usuarios que probaron)</label>
+            <input type="text" id="sec-input-heroProofCount" class="admin-input" value="${escapeHtml(d.heroProofCount || '+3.500 personas ya probaron')}">
+          </div>
+
+          <div class="full-width">
+            <label class="admin-label">Calificación y Reseñas</label>
+            <input type="text" id="sec-input-heroRatingText" class="admin-input" value="${escapeHtml(d.heroRatingText || '★★★★★ 4.9 (327 opiniones)')}">
+          </div>
+
+          <!-- Barra superior de anuncios -->
+          <div class="full-width" style="margin-top:16px;margin-bottom:8px">
+            <div style="font-weight:700;font-size:0.95rem;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+              <span>📢 Barra Superior de Anuncios</span>
+              <label style="font-size:0.82rem;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="sec-input-announcementActive" ${d.announcementActive !== false ? 'checked' : ''}> Mostrar barra
+              </label>
+            </div>
+          </div>
+
+          <div class="full-width">
+            <label class="admin-label">Anuncio 1 (Izquierda)</label>
+            <input type="text" id="sec-input-announcementText1" class="admin-input" value="${escapeHtml(d.announcementText1 || 'Envío gratis en compras mayores a $39.999')}">
+          </div>
+
+          <div>
+            <label class="admin-label">Anuncio 2 (Centro)</label>
+            <input type="text" id="sec-input-announcementText2" class="admin-input" value="${escapeHtml(d.announcementText2 || '30 días para cambios y devoluciones')}">
+          </div>
+
+          <div>
+            <label class="admin-label">Anuncio 3 (Derecha)</label>
+            <input type="text" id="sec-input-announcementText3" class="admin-input" value="${escapeHtml(d.announcementText3 || '¿Necesitás ayuda? Escribinos por WhatsApp')}">
+          </div>
+
+          <!-- Beneficios / Tarjetas de confianza -->
+          <div class="full-width" style="margin-top:16px;margin-bottom:8px">
+            <div style="font-weight:700;font-size:0.95rem;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px">
+              🛡️ Tarjetas de Confianza & Beneficios
+            </div>
+          </div>
+
+          <div>
+            <label class="admin-label">Beneficio 1: Título</label>
+            <input type="text" id="sec-input-trust1Title" class="admin-input" value="${escapeHtml(d.trust1Title || 'Probá en 3 pasos')}">
+          </div>
+          <div>
+            <label class="admin-label">Beneficio 1: Descripción</label>
+            <input type="text" id="sec-input-trust1Desc" class="admin-input" value="${escapeHtml(d.trust1Desc || 'Elegí, subí tu foto y mirá el resultado.')}">
+          </div>
+
+          <div>
+            <label class="admin-label">Beneficio 2: Título</label>
+            <input type="text" id="sec-input-trust2Title" class="admin-input" value="${escapeHtml(d.trust2Title || 'Envíos a todo el país')}">
+          </div>
+          <div>
+            <label class="admin-label">Beneficio 2: Descripción</label>
+            <input type="text" id="sec-input-trust2Desc" class="admin-input" value="${escapeHtml(d.trust2Desc || 'Envío gratis en compras mayores a $39.999.')}">
+          </div>
+
+          <div>
+            <label class="admin-label">Beneficio 3: Título</label>
+            <input type="text" id="sec-input-trust3Title" class="admin-input" value="${escapeHtml(d.trust3Title || '30 días para cambios')}">
+          </div>
+          <div>
+            <label class="admin-label">Beneficio 3: Descripción</label>
+            <input type="text" id="sec-input-trust3Desc" class="admin-input" value="${escapeHtml(d.trust3Desc || 'Si no te convence, lo cambiás sin problema.')}">
+          </div>
+
+          <div>
+            <label class="admin-label">Beneficio 4: Título</label>
+            <input type="text" id="sec-input-trust4Title" class="admin-input" value="${escapeHtml(d.trust4Title || 'Compra 100% segura')}">
+          </div>
+          <div>
+            <label class="admin-label">Beneficio 4: Descripción</label>
+            <input type="text" id="sec-input-trust4Desc" class="admin-input" value="${escapeHtml(d.trust4Desc || 'Tus datos están protegidos siempre.')}">
+          </div>
+
+          <!-- Catálogo -->
+          <div class="full-width" style="margin-top:16px;margin-bottom:8px">
+            <div style="font-weight:700;font-size:0.95rem;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px">
+              🧢 Sección Catálogo
+            </div>
+          </div>
+
+          <div class="full-width">
+            <label class="admin-label">Título de la Sección de Catálogo</label>
+            <input type="text" id="sec-input-catalogHeadline" class="admin-input" value="${escapeHtml(d.catalogHeadline || 'Gorras más vendidas')}">
+          </div>
+        </div>
+      `;
+    }
+
     if (key === 'about') {
       return `
         <div class="section-form-grid">
@@ -1739,7 +1894,29 @@ const AdminPanel = (() => {
 
       let sectionData = {};
 
-      if (key === 'about') {
+      if (key === 'home') {
+        const annCheck = document.getElementById('sec-input-announcementActive');
+        sectionData = {
+          heroTitle: getVal('sec-input-heroTitle'),
+          heroSubtitle: getVal('sec-input-heroSubtitle'),
+          heroCtaPrimary: getVal('sec-input-heroCtaPrimary'),
+          heroProofCount: getVal('sec-input-heroProofCount'),
+          heroRatingText: getVal('sec-input-heroRatingText'),
+          announcementActive: annCheck ? annCheck.checked : true,
+          announcementText1: getVal('sec-input-announcementText1'),
+          announcementText2: getVal('sec-input-announcementText2'),
+          announcementText3: getVal('sec-input-announcementText3'),
+          trust1Title: getVal('sec-input-trust1Title'),
+          trust1Desc: getVal('sec-input-trust1Desc'),
+          trust2Title: getVal('sec-input-trust2Title'),
+          trust2Desc: getVal('sec-input-trust2Desc'),
+          trust3Title: getVal('sec-input-trust3Title'),
+          trust3Desc: getVal('sec-input-trust3Desc'),
+          trust4Title: getVal('sec-input-trust4Title'),
+          trust4Desc: getVal('sec-input-trust4Desc'),
+          catalogHeadline: getVal('sec-input-catalogHeadline')
+        };
+      } else if (key === 'about') {
         sectionData = {
           brandName: getVal('sec-input-brandName'),
           tagline: getVal('sec-input-tagline'),

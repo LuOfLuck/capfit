@@ -36,6 +36,28 @@
       const defaultLocation = 'Buenos Aires, Argentina';
 
       return {
+        home: {
+          heroTitle: (currentStore && currentStore.heroTitle) || 'Probátela.\nComprá con confianza.',
+          heroSubtitle: (currentStore && currentStore.tagline) || 'Usá IA para verte con tus gorras favoritas antes de comprarlas.',
+          heroBadge: '🔥 PROBADOR CON IA EN VIVO',
+          heroCtaPrimary: 'PROBAR AHORA →',
+          heroCtaSecondary: 'Ver catálogo',
+          heroProofCount: '+3.500 personas ya probaron',
+          heroRatingText: '★★★★★ 4.9 (327 opiniones)',
+          announcementActive: true,
+          announcementText1: 'Envío gratis en compras mayores a $39.999',
+          announcementText2: '30 días para cambios y devoluciones',
+          announcementText3: '¿Necesitás ayuda? Escribinos por WhatsApp',
+          trust1Title: 'Probá en 3 pasos',
+          trust1Desc: 'Elegí, subí tu foto y mirá el resultado.',
+          trust2Title: 'Envíos a todo el país',
+          trust2Desc: 'Envío gratis en compras mayores a $39.999.',
+          trust3Title: '30 días para cambios',
+          trust3Desc: 'Si no te convence, lo cambiás sin problema.',
+          trust4Title: 'Compra 100% segura',
+          trust4Desc: 'Tus datos están protegidos siempre.',
+          catalogHeadline: 'Gorras más vendidas'
+        },
         about: {
           brandName: storeName,
           tagline: (currentStore && currentStore.tagline) || 'Probadores virtuales de gorras y accesorios con IA. Comprá con confianza, probá primero.',
@@ -164,6 +186,7 @@
         if (raw) {
           const parsed = JSON.parse(raw);
           return {
+            home: { ...defaults.home, ...(parsed.home || {}) },
             about: { ...defaults.about, ...(parsed.about || {}) },
             faq: { ...defaults.faq, ...(parsed.faq || {}) },
             envios: { ...defaults.envios, ...(parsed.envios || {}) },
@@ -255,6 +278,7 @@
     // ── RENDERIZADO DINÁMICO DE VISTAS ──
     renderAll() {
       const sections = this.getSections();
+      this.renderHome(sections.home);
       this.renderAbout(sections.about);
       this.renderFAQ(sections.faq);
       this.renderEnvios(sections.envios);
@@ -262,6 +286,76 @@
       this.renderContacto(sections.contacto);
       this.renderTerminos(sections.terminos);
       this.renderPrivacidad(sections.privacidad);
+    },
+
+    renderHome(data) {
+      const d = data || this.getSection('home');
+      if (!d) return;
+
+      const heroTitle = document.getElementById('hero-display-title');
+      if (heroTitle && d.heroTitle) {
+        heroTitle.innerHTML = escapeHtml(d.heroTitle).replace(/\n/g, '<br>');
+      }
+
+      const heroSub = document.getElementById('hero-display-sub');
+      if (heroSub && d.heroSubtitle) {
+        heroSub.textContent = d.heroSubtitle;
+      }
+
+      const heroCta = document.getElementById('hero-display-cta');
+      if (heroCta && d.heroCtaPrimary) {
+        heroCta.textContent = d.heroCtaPrimary;
+      }
+
+      const heroProof = document.getElementById('hero-display-proof');
+      if (heroProof && d.heroProofCount) {
+        heroProof.textContent = d.heroProofCount;
+      }
+
+      const heroRating = document.getElementById('hero-display-rating');
+      if (heroRating && d.heroRatingText) {
+        heroRating.textContent = d.heroRatingText;
+      }
+
+      // Barra superior de anuncios
+      const topBanner = document.getElementById('main-top-banner');
+      if (topBanner) {
+        if (d.announcementActive === false) {
+          topBanner.style.display = 'none';
+        } else {
+          topBanner.style.display = 'flex';
+          const b1 = document.getElementById('top-banner-item-1');
+          const b2 = document.getElementById('top-banner-item-2');
+          const b3 = document.getElementById('top-banner-item-3');
+          if (b1 && d.announcementText1) b1.textContent = d.announcementText1;
+          if (b2 && d.announcementText2) b2.textContent = d.announcementText2;
+          if (b3 && d.announcementText3) b3.textContent = d.announcementText3;
+        }
+      }
+
+      // Tarjetas de confianza
+      const t1t = document.getElementById('trust-card-title-1');
+      const t1d = document.getElementById('trust-card-desc-1');
+      if (t1t && d.trust1Title) t1t.textContent = d.trust1Title;
+      if (t1d && d.trust1Desc) t1d.textContent = d.trust1Desc;
+
+      const t2t = document.getElementById('trust-card-title-2');
+      const t2d = document.getElementById('trust-card-desc-2');
+      if (t2t && d.trust2Title) t2t.textContent = d.trust2Title;
+      if (t2d && d.trust2Desc) t2d.textContent = d.trust2Desc;
+
+      const t3t = document.getElementById('trust-card-title-3');
+      const t3d = document.getElementById('trust-card-desc-3');
+      if (t3t && d.trust3Title) t3t.textContent = d.trust3Title;
+      if (t3d && d.trust3Desc) t3d.textContent = d.trust3Desc;
+
+      const t4t = document.getElementById('trust-card-title-4');
+      const t4d = document.getElementById('trust-card-desc-4');
+      if (t4t && d.trust4Title) t4t.textContent = d.trust4Title;
+      if (t4d && d.trust4Desc) t4d.textContent = d.trust4Desc;
+
+      const catHead = document.getElementById('catalog-display-headline');
+      if (catHead && d.catalogHeadline) catHead.textContent = d.catalogHeadline;
     },
 
     renderAbout(data) {
