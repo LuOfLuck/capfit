@@ -93,7 +93,7 @@ const AdminPanel = (() => {
     }
 
     try {
-      if (!window.CapfitAuth) throw new Error('Módulo Firebase Auth no está listo. Recargá la página.');
+      if (!window.CapfitAuth) throw new Error('Módulo Auth no está listo. Recargá la página.');
       const user = await CapfitAuth.signInWithGoogle();
       const targetStore = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : null;
       const cleanTargetStore = (targetStore && !targetStore.startsWith('ais-')) ? targetStore : null;
@@ -241,11 +241,11 @@ const AdminPanel = (() => {
     const btn = document.getElementById('btn-register-submit');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<span>⏳ Creando tienda en Firebase...</span>`;
+      btn.innerHTML = `<span>⏳ Creando tienda...</span>`;
     }
 
     try {
-      if (!window.CapfitAuth) throw new Error('Módulo Firebase Auth no disponible.');
+      if (!window.CapfitAuth) throw new Error('Módulo Auth no disponible.');
 
       let user = CapfitAuth.getCurrentUser();
       if (!user) {
@@ -856,12 +856,7 @@ const AdminPanel = (() => {
           <div class="auth-header">
             <h2 class="auth-title">Bienvenido de vuelta</h2>
             <p class="auth-sub">Accedé a tu cuenta para gestionar tu catálogo, pedidos y configuración de tu tienda.</p>
-            ${_currentStoreId && !_currentStoreId.startsWith('ais-') ? `
-              <div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;color:#334155;padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:600">
-                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981"></span>
-                <span>Tienda activa: <strong>${_currentStoreName || _currentStoreId}</strong></span>
-              </div>
-            ` : ''}
+           
           </div>
 
           <!-- Botón de Continuar con Google -->
@@ -1170,15 +1165,10 @@ const AdminPanel = (() => {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="admin-badge-status">
               <span class="pulse-dot"></span>
-              ${isSuper ? '👑 SuperAdmin SaaS' : '🏪 Dueño de Tienda'}
+              ${isSuper ? '👑 SuperAdmin SaaS' : ' Dueño de Tienda'}
             </div>
-            <span style="background:#0f172a;color:#38bdf8;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-family:monospace;font-weight:700" title="Portal de Configuración de Dueños">
-              account.capfit.store
-            </span>
-            <span class="saas-store-domain" title="Subdominio público de tus clientes">${_currentSubdomain}.capfit.store</span>
-            <span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:0.72rem;padding:3px 8px;border-radius:999px;font-weight:600" title="Base de Datos Cloud Firebase Firestore & Auth Activos">
-              🔥 Firebase Firestore & Auth
-            </span>
+   
+  
             ${_userEmail ? `
               <span style="display:inline-flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-weight:600">
                 👤 ${_userEmail}
@@ -1311,23 +1301,7 @@ const AdminPanel = (() => {
 
     container.innerHTML = `
       <!-- Header Banner -->
-      <div style="background:#0f172a;border-radius:12px;padding:20px;color:#fff;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span style="background:#38bdf8;color:#0f172a;font-size:0.75rem;font-weight:800;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:0.5px">
-              Personalizador de Tienda
-            </span>
-            <span style="color:#94a3b8;font-size:0.82rem">Tienda activa: <strong>${escapeHtml(_currentStoreName)}</strong> (${escapeHtml(_currentStoreId)})</span>
-          </div>
-          <h3 style="margin:0;font-size:1.3rem;font-weight:800;color:#fff">Edición de Páginas y Secciones de la Tienda</h3>
-          <p style="margin:4px 0 0;font-size:0.85rem;color:#cbd5e1">Personalizá portada, hero, textos, anuncios y páginas informativas. Se guardan en la nube y se reflejan al instante.</p>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <button type="button" class="admin-btn-sec" onclick="navigateToView('${currentSub.view}')" style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25)">
-            👁️ Ver "${currentSub.label.replace(/^[^\s]+\s/, '')}" en Tienda
-          </button>
-        </div>
-      </div>
+      
 
       <!-- Navigation Subtabs -->
       <div class="section-editor-subtabs-nav">
@@ -1367,7 +1341,7 @@ const AdminPanel = (() => {
               </button>
               <button type="submit" class="admin-btn-primary" id="btn-save-section-submit" style="display:inline-flex;align-items:center;gap:8px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                <span>Guardar en Firebase Firestore</span>
+                <span>Guardar</span>
               </button>
             </div>
           </div>
@@ -1883,7 +1857,7 @@ const AdminPanel = (() => {
     const oldHtml = btn ? btn.innerHTML : '';
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = `<span>⏳ Guardando en Firebase...</span>`;
+      btn.innerHTML = `<span>⏳ Guardando...</span>`;
     }
 
     try {
@@ -2030,7 +2004,7 @@ const AdminPanel = (() => {
       }
 
       if (window.showToast) {
-        window.showToast(`✅ Sección "${key}" actualizada con éxito en Firebase Firestore`);
+        window.showToast(`✅ Sección "${key}" actualizada con éxito`);
       }
     } catch (err) {
       console.error('Error saving section:', err);
@@ -2058,19 +2032,16 @@ const AdminPanel = (() => {
       <!-- Cloud Database Banner -->
       <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:1.4rem">🔥</span>
+          
           <div>
-            <div style="font-size:0.86rem;font-weight:700;color:#065f46;display:flex;align-items:center;gap:8px">
-              <span>Base de Datos Global: Firebase Firestore</span>
-              <span style="background:#10b981;color:#fff;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700">EN LÍNEA • PLAN SPARK GRATIS</span>
-            </div>
+           
             <div style="font-size:0.75rem;color:var(--gray-600);margin-top:3px">
               Proyecto: <code>applied-sunlight-dgtt6</code> | Base: <code>ai-studio-capfit-89d6a925-ec0e-426b-9d91-c793f721e963</code> | Tablas: <code>stores</code>, <code>products</code>, <code>orders</code>, <code>ai_logs</code>
             </div>
           </div>
         </div>
         <div style="font-size:0.76rem;font-weight:600;color:#047857;background:#ecfdf5;padding:6px 12px;border-radius:6px;border:1px solid #a7f3d0">
-          ✓ Persistencia global para todas las tiendas
+           Persistencia global para todas las tiendas
         </div>
       </div>
 
@@ -2351,18 +2322,7 @@ const AdminPanel = (() => {
       <div class="admin-panel-card">
         <!-- Store Database Sync Banner -->
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:1.15rem">🔥</span>
-            <div>
-              <div style="font-size:0.83rem;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px">
-                <span>Base de Datos del Cliente: Firebase Firestore</span>
-                <span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700">PERSISTENCIA ACTIVA</span>
-              </div>
-              <div style="font-size:0.73rem;color:var(--gray-500);margin-top:2px">
-                Ruta aislada: <code>/stores/${_currentStoreId}/products</code> · Gorras, anteojos y accesorios guardados por cliente.
-              </div>
-            </div>
-          </div>
+ 
           <button class="admin-btn-sec-sm" onclick="AdminPanel.syncCatalogToFirestore()" title="Forzar sincronización de este catálogo en Firestore" style="display:inline-flex;align-items:center;gap:6px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             Sincronizar con Firestore
