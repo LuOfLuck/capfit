@@ -4,11 +4,11 @@
  * Incluye rate limiting, verificación de cuota por tienda y auto-reintegro si falla.
  */
 
-const { readBody, sendJson } = require('../_lib/http-helpers');
-const { applyRateLimit, resolveAndValidateStore } = require('../_lib/guard');
-const { checkAndDeductAiCredit, refundAiCredit } = require('../_lib/quota');
-const { editGPTImage } = require('../_lib/fal-client');
-const CONFIG = require('../../js/config');
+const { readBody, sendJson } = require('../_lib/http-helpers.js');
+const { applyRateLimit, resolveAndValidateStore } = require('../_lib/guard.js');
+const { checkAndDeductAiCredit, refundAiCredit } = require('../_lib/quota.js');
+const { editGPTImage } = require('../_lib/fal-client.js');
+const CONFIG = require('../../js/config.js');
 
 module.exports = async function handleGptEdit(req, res) {
   const start = Date.now();

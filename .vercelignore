@@ -1,0 +1,3 @@
+# Ignorar archivos exclusivos de desarrollo local para el despliegue en Vercel
+server.js
+tests/

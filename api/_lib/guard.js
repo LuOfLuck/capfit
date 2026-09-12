@@ -3,13 +3,17 @@
  * Capa de seguridad: Validación de origen, Rate Limiting y Protección anti-abuso de cuota por tienda.
  */
 
-const { sendJson } = require('./http-helpers');
+const { sendJson } = require('./http-helpers.js');
 let StoreManager = null;
 
 try {
-  StoreManager = require('../../src/store-manager');
+  StoreManager = require('../../src/store-manager.js');
 } catch (e) {
-  console.warn('StoreManager no encontrado en api/lib/guard:', e.message);
+  try {
+    StoreManager = require('../../src/store-manager');
+  } catch (err) {
+    console.warn('StoreManager no encontrado en api/lib/guard:', err.message);
+  }
 }
 
 // ── Rate Limiter en Memoria ──────────────────────────────────────────────────

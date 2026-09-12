@@ -3,8 +3,8 @@
  * Proxy seguro para peticiones a Claude / Anthropic Messages API
  */
 
-const { readBody, proxyRequest, sendJson } = require('../_lib/http-helpers');
-const { applyRateLimit } = require('../_lib/guard');
+const { readBody, proxyRequest, sendJson } = require('../_lib/http-helpers.js');
+const { applyRateLimit } = require('../_lib/guard.js');
 
 module.exports = async function handleAnthropic(req, res) {
   const start = Date.now();

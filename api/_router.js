@@ -11,25 +11,33 @@
 const path = require('path');
 const fs = require('fs');
 
-const { readBody, corsHeaders, sendJson, proxyRequest } = require('./_lib/http-helpers');
-const handleGptEdit = require('./_handlers/gpt-edit');
-const handleFalSubmit = require('./_handlers/fal-submit');
-const handleFalStatus = require('./_handlers/fal-status');
-const handleFalResult = require('./_handlers/fal-result');
-const handleAnthropic = require('./_handlers/anthropic');
+const { readBody, corsHeaders, sendJson, proxyRequest } = require('./_lib/http-helpers.js');
+const handleGptEdit = require('./_handlers/gpt-edit.js');
+const handleFalSubmit = require('./_handlers/fal-submit.js');
+const handleFalStatus = require('./_handlers/fal-status.js');
+const handleFalResult = require('./_handlers/fal-result.js');
+const handleAnthropic = require('./_handlers/anthropic.js');
 
 let StoreManager = null;
 try {
-  StoreManager = require('../src/store-manager');
+  StoreManager = require('../src/store-manager.js');
 } catch (e) {
-  console.warn('StoreManager no encontrado en api/_router:', e.message);
+  try {
+    StoreManager = require('../src/store-manager');
+  } catch (err) {
+    console.warn('StoreManager no encontrado en api/_router:', err.message);
+  }
 }
 
 let FirebaseDb = null;
 try {
-  FirebaseDb = require('../src/firebase-db');
+  FirebaseDb = require('../src/firebase-db.js');
 } catch (e) {
-  console.warn('FirebaseDb no encontrado en api/_router:', e.message);
+  try {
+    FirebaseDb = require('../src/firebase-db');
+  } catch (err) {
+    console.warn('FirebaseDb no encontrado en api/_router:', err.message);
+  }
 }
 
 // ── Helpers de Autenticación ────────────────────────────────────────────────

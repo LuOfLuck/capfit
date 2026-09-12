@@ -3,9 +3,9 @@
  * Manejador para GET /api/fal/status (Polling de estado en cola de fal.ai)
  */
 
-const { sendJson } = require('../_lib/http-helpers');
-const { applyRateLimit } = require('../_lib/guard');
-const { getStatus } = require('../_lib/fal-client');
+const { sendJson } = require('../_lib/http-helpers.js');
+const { applyRateLimit } = require('../_lib/guard.js');
+const { getStatus } = require('../_lib/fal-client.js');
 
 module.exports = async function handleFalStatus(req, res, qs = {}) {
   const start = Date.now();

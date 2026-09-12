@@ -4,8 +4,8 @@
  * No depende de req/res de Vercel ni http nativo.
  */
 
-const { httpsReq } = require('./http-helpers');
-const CONFIG = require('../../js/config');
+const { httpsReq } = require('./http-helpers.js');
+const CONFIG = require('../../js/config.js');
 
 /**
  * Sube un Data URI base64 al almacenamiento efímero de fal.ai y retorna una URL pública HTTPS

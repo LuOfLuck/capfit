@@ -42,9 +42,36 @@ const MIME = {
   '.svg':  'image/svg+xml',
 };
 
+// Headers CORS para servidor de desarrollo local
+function corsHeaders(req) {
+  const origin = (req && req.headers && req.headers.origin) ? req.headers.origin : '*';
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Store-Id',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+}
+
+function sendJson(res, status, data, req) {
+  res.writeHead(status, {
+    ...corsHeaders(req),
+    'Content-Type': 'application/json'
+  });
+  res.end(JSON.stringify(data));
+}
+
 // Reutilización centralizada del enrutador unificado de API (/api/*)
-const { corsHeaders, sendJson } = require('./api/_lib/http-helpers');
-const handleApi = require('./api/_router');
+let handleApi = null;
+try {
+  handleApi = require('./api/_router.js');
+} catch (e) {
+  try {
+    handleApi = require('./api/_router');
+  } catch (err) {
+    console.warn('[SERVER] Warning api/_router:', err.message);
+  }
+}
 
 async function appHandler(req, res) {
   try {

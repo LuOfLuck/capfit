@@ -8,15 +8,23 @@ let StoreManager = null;
 let FirebaseDb = null;
 
 try {
-  StoreManager = require('../../src/store-manager');
+  StoreManager = require('../../src/store-manager.js');
 } catch (e) {
-  console.warn('StoreManager no disponible en api/lib/quota:', e.message);
+  try {
+    StoreManager = require('../../src/store-manager');
+  } catch (err) {
+    console.warn('StoreManager no disponible en api/lib/quota:', e.message);
+  }
 }
 
 try {
-  FirebaseDb = require('../../src/firebase-db');
+  FirebaseDb = require('../../src/firebase-db.js');
 } catch (e) {
-  console.warn('FirebaseDb no disponible en api/lib/quota:', e.message);
+  try {
+    FirebaseDb = require('../../src/firebase-db');
+  } catch (err) {
+    console.warn('FirebaseDb no disponible en api/lib/quota:', e.message);
+  }
 }
 
 function getCurrentPeriod() {

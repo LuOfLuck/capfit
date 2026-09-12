@@ -3,9 +3,9 @@
  * Manejador para GET /api/fal/result (Obtención de resultado procesado en fal.ai)
  */
 
-const { sendJson } = require('../_lib/http-helpers');
-const { applyRateLimit } = require('../_lib/guard');
-const { getResult } = require('../_lib/fal-client');
+const { sendJson } = require('../_lib/http-helpers.js');
+const { applyRateLimit } = require('../_lib/guard.js');
+const { getResult } = require('../_lib/fal-client.js');
 
 module.exports = async function handleFalResult(req, res, qs = {}) {
   const start = Date.now();

@@ -4,10 +4,10 @@
  * Aplica rate limiting, cuotas mensuales por tienda y reintegros en caso de fallo 5xx.
  */
 
-const { readBody, sendJson } = require('../_lib/http-helpers');
-const { applyRateLimit, resolveAndValidateStore } = require('../_lib/guard');
-const { checkAndDeductAiCredit, refundAiCredit } = require('../_lib/quota');
-const { submitTryOn } = require('../_lib/fal-client');
+const { readBody, sendJson } = require('../_lib/http-helpers.js');
+const { applyRateLimit, resolveAndValidateStore } = require('../_lib/guard.js');
+const { checkAndDeductAiCredit, refundAiCredit } = require('../_lib/quota.js');
+const { submitTryOn } = require('../_lib/fal-client.js');
 
 module.exports = async function handleFalSubmit(req, res, qs = {}) {
   const start = Date.now();
