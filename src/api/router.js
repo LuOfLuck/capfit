@@ -1,5 +1,5 @@
 /**
- * api/_router.js
+ * src/api/router.js
  * Enrutador unificado y centralizado para todos los endpoints de la API (/api/*).
  *
  * Consolida el 100% de la lógica de backend bajo una arquitectura limpia y desacoplada,
@@ -11,32 +11,32 @@
 const path = require('path');
 const fs = require('fs');
 
-const { readBody, corsHeaders, sendJson, proxyRequest } = require('./_lib/http-helpers.js');
-const handleGptEdit = require('./_handlers/gpt-edit.js');
-const handleFalSubmit = require('./_handlers/fal-submit.js');
-const handleFalStatus = require('./_handlers/fal-status.js');
-const handleFalResult = require('./_handlers/fal-result.js');
-const handleAnthropic = require('./_handlers/anthropic.js');
+const { readBody, corsHeaders, sendJson, proxyRequest } = require('./lib/http-helpers.js');
+const handleGptEdit = require('./handlers/gpt-edit.js');
+const handleFalSubmit = require('./handlers/fal-submit.js');
+const handleFalStatus = require('./handlers/fal-status.js');
+const handleFalResult = require('./handlers/fal-result.js');
+const handleAnthropic = require('./handlers/anthropic.js');
 
 let StoreManager = null;
 try {
-  StoreManager = require('../src/store-manager.js');
+  StoreManager = require('../store-manager.js');
 } catch (e) {
   try {
-    StoreManager = require('../src/store-manager');
+    StoreManager = require('../store-manager');
   } catch (err) {
-    console.warn('StoreManager no encontrado en api/_router:', err.message);
+    console.warn('StoreManager no encontrado en src/api/router:', err.message);
   }
 }
 
 let FirebaseDb = null;
 try {
-  FirebaseDb = require('../src/firebase-db.js');
+  FirebaseDb = require('../firebase-db.js');
 } catch (e) {
   try {
-    FirebaseDb = require('../src/firebase-db');
+    FirebaseDb = require('../firebase-db');
   } catch (err) {
-    console.warn('FirebaseDb no encontrado en api/_router:', err.message);
+    console.warn('FirebaseDb no encontrado en src/api/router:', err.message);
   }
 }
 
@@ -689,7 +689,7 @@ module.exports = async function handleApi(req, res) {
       const safeBase = path.basename(filename || 'gorra', origExt).replace(/[^a-zA-Z0-9_-]/g, '_');
       const safeFilename = `${safeBase}_${Date.now()}.webp`;
 
-      const uploadDir = path.join(__dirname, '..', 'assets', 'gorras');
+      const uploadDir = path.join(__dirname, '..', '..', 'assets', 'gorras');
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }

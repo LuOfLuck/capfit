@@ -64,12 +64,12 @@ function sendJson(res, status, data, req) {
 // Reutilización centralizada del enrutador unificado de API (/api/*)
 let handleApi = null;
 try {
-  handleApi = require('./api/_router.js');
+  handleApi = require('./src/api/router.js');
 } catch (e) {
   try {
-    handleApi = require('./api/_router');
+    handleApi = require('./src/api/router');
   } catch (err) {
-    console.warn('[SERVER] Warning api/_router:', err.message);
+    console.warn('[SERVER] Warning src/api/router:', err.message);
   }
 }
 

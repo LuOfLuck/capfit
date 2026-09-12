@@ -6,7 +6,7 @@
  * cumpliendo estrictamente con el límite del plan Hobby de Vercel (1 función / 12 máx).
  */
 
-const handleApi = require('./_router.js');
+const handleApi = require('../src/api/router.js');
 
 module.exports = async function handler(req, res) {
   return handleApi(req, res);

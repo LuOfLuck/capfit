@@ -1,11 +1,20 @@
 /**
- * api/lib/fal-client.js
+ * src/api/lib/fal-client.js
  * Cliente unificado y puro para interacción con fal.ai (FASHN Try-On y GPT Image 2 Edit).
  * No depende de req/res de Vercel ni http nativo.
  */
 
 const { httpsReq } = require('./http-helpers.js');
-const CONFIG = require('../../js/config.js');
+let CONFIG = null;
+try {
+  CONFIG = require('../../../js/config.js');
+} catch (e) {
+  try {
+    CONFIG = require('../../../js/config');
+  } catch (_) {
+    CONFIG = { aiModelRoute: 'fal-ai/gpt-image-2/edit' };
+  }
+}
 
 /**
  * Sube un Data URI base64 al almacenamiento efímero de fal.ai y retorna una URL pública HTTPS
@@ -37,14 +46,12 @@ async function uploadDataURItoFal(dataURI, falKey) {
     content_type: mimeType
   }));
 
-  // 1. Intento primario con rest.fal.ai
   let init = await httpsReq('rest.fal.ai', '/storage/upload/initiate', 'POST', {
     'Authorization': 'Key ' + falKey,
     'Content-Type': 'application/json',
     'Content-Length': initBody.length,
   }, initBody);
 
-  // 2. Fallback con rest.alpha.fal.ai
   if (init.status !== 200) {
     init = await httpsReq('rest.alpha.fal.ai', '/storage/upload/initiate', 'POST', {
       'Authorization': 'Key ' + falKey,
@@ -83,7 +90,6 @@ async function uploadDataURItoFal(dataURI, falKey) {
 async function submitTryOn(model = 'fal-ai/fashn/tryon/v1.5', payload, falKey) {
   const preparedPayload = { ...payload };
 
-  // Subir fotos a fal storage si vienen en base64
   const [personURL, garmentURL] = await Promise.all([
     uploadDataURItoFal(preparedPayload.model_image, falKey),
     uploadDataURItoFal(preparedPayload.garment_image, falKey)
@@ -121,9 +127,8 @@ async function getResult(model = 'fal-ai/fashn/tryon/v1.5', reqId, falKey) {
 
 /**
  * Ejecuta edición de imagen con GPT-Image (GPT-Image-2.5 Flare o GPT-Image-2) en fal.ai
- * Convierte automáticamente imágenes base64 a URLs públicas antes de llamar
  */
-async function editGPTImage(payload, falKey, modelRoute = CONFIG.aiModelRoute) {
+async function editGPTImage(payload, falKey, modelRoute = (CONFIG && CONFIG.aiModelRoute)) {
   const prepared = { ...payload };
 
   if (Array.isArray(prepared.image_urls) && prepared.image_urls.length > 0) {
@@ -133,7 +138,7 @@ async function editGPTImage(payload, falKey, modelRoute = CONFIG.aiModelRoute) {
   }
 
   const bodyBuffer = Buffer.from(JSON.stringify(prepared));
-  const activeRoute = modelRoute || CONFIG.aiModelRoute;
+  const activeRoute = modelRoute || (CONFIG && CONFIG.aiModelRoute) || 'fal-ai/gpt-image-2/edit';
   const route = activeRoute.startsWith('/') ? activeRoute : '/' + activeRoute;
 
   return httpsReq('fal.run', route, 'POST', {

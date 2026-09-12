@@ -1,5 +1,5 @@
 /**
- * api/lib/quota.js
+ * src/api/lib/quota.js
  * Gestión y control estricto de cuota mensual de IA por tienda.
  * Disponible tanto en Vercel Serverless como en server.js local.
  */
@@ -8,22 +8,22 @@ let StoreManager = null;
 let FirebaseDb = null;
 
 try {
-  StoreManager = require('../../src/store-manager.js');
+  StoreManager = require('../../store-manager.js');
 } catch (e) {
   try {
-    StoreManager = require('../../src/store-manager');
+    StoreManager = require('../../store-manager');
   } catch (err) {
-    console.warn('StoreManager no disponible en api/lib/quota:', e.message);
+    console.warn('StoreManager no disponible en src/api/lib/quota:', err.message);
   }
 }
 
 try {
-  FirebaseDb = require('../../src/firebase-db.js');
+  FirebaseDb = require('../../firebase-db.js');
 } catch (e) {
   try {
-    FirebaseDb = require('../../src/firebase-db');
+    FirebaseDb = require('../../firebase-db');
   } catch (err) {
-    console.warn('FirebaseDb no disponible en api/lib/quota:', e.message);
+    console.warn('FirebaseDb no disponible en src/api/lib/quota:', err.message);
   }
 }
 
@@ -48,7 +48,6 @@ async function checkAndDeductAiCredit(storeId) {
     return StoreManager.checkAndDeductAiCredit(sId);
   }
 
-  // Fallback si StoreManager no está enlazado
   return {
     ok: true,
     storeId: sId,
