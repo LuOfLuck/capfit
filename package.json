@@ -5,7 +5,12 @@
     "dev": "node server.js",
     "start": "node server.js",
     "build": "echo 'Build complete'",
-    "lint": "echo 'No lint issues'"
+    "lint": "echo 'No lint issues'",
+    "test:rules": "mocha tests/firestore-rules.test.js"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "mocha": "^10.7.3"
   },
   "dependencies": {
     "@gradio/client": "^2.2.1",

@@ -1,153 +1,106 @@
-# Resumen Técnico - CapFit
+# CapFit — E-Commerce Multi-Tenant de Gorras con Probador Virtual IA
 
-## JavaScript Files
+CapFit es una plataforma de comercio electrónico multi-tenant de gorras y accesorios urbanos con probador virtual en tiempo real potenciado por Inteligencia Artificial (fal.ai FASHN y OpenAI / GPT-Image-2).
 
-### [...route].js
-**Ruta:** `api/[...route].js`
-**Líneas:** 108
-**Descripción:** Archivo JavaScript
-```js
-// api/fal/[...route].js
-// Proxy para fal.ai — la API key viene de variable de entorno, nunca del browser
-// Vercel: configurar FAL_KEY en Settings → Environment Variables...
+---
+
+## 🏗️ Arquitectura del Sistema
+
+El proyecto opera bajo una arquitectura híbrida optimizada para máximo rendimiento y simplicidad de despliegue:
+- **Frontend:** Vanilla JavaScript (ES6+), HTML5 semántico y CSS3 responsivo. Sin frameworks pesados ni build step intrusivo.
+- **Backend de Producción:** Vercel Serverless Functions (`/api/*`).
+- **Backend de Desarrollo Local:** Servidor Node.js nativo (`server.js`) con paridad total de endpoints y proxy seguro de IA.
+- **Persistencia en la Nube:** Firebase Firestore para gestión multi-tienda, catálogo de productos, órdenes, cuotas mensuales de IA y contenidos dinámicos.
+- **Pagos:** Checkout integrado con Mercado Pago (`js/mercadopago.js`).
+
+---
+
+## 📁 Estructura Modular de Archivos
+
+```
+capfit/
+├── index.html                   # Entry point de la aplicación SPA
+├── server.js                    # Servidor de desarrollo local (Node.js nativo)
+├── vercel.json                  # Configuración de rutas y builds para Vercel
+├── api/                         # Funciones Serverless (Vercel)
+│   ├── fal/
+│   │   ├── submit.js            # Encola peticiones a fal.ai (FASHN)
+│   │   ├── status.js            # Consulta estado (IN_QUEUE / IN_PROGRESS / COMPLETED)
+│   │   └── result.js            # Recupera URL de la imagen generada
+│   ├── gpt/
+│   │   └── edit.js              # Proxy para modelo gpt-image-2
+│   ├── stores/                  # API multi-tenant (tiendas, secciones, productos)
+│   └── mercadopago/             # Endpoints de creación de preferencias y webhooks
+├── js/
+│   ├── config.js                # Parámetros globales y configuración de la app
+│   ├── ui.js                    # Inicialización visual y observadores de interacción
+│   ├── mercadopago.js           # Integración con Mercado Pago SDK
+│   ├── core/                    # Módulos centrales
+│   │   ├── router.js            # Enrutador SPA basado en hash y rutas virtuales
+│   │   ├── store.js             # Estado global reactivo y sincronización de datos
+│   │   └── firebase-client.js   # Wrapper para Firestore y Authentication
+│   ├── utils/                   # Utilidades puras
+│   │   ├── dom.js               # Helpers para manipulación segura del DOM
+│   │   ├── format.js            # Formato de precios (ARS) y fechas
+│   │   └── image-utils.js       # Compresión canvas de fotos (<= 1024px, 85% JPEG)
+│   └── features/                # Módulos funcionales desacoplados (< 300 líneas)
+│       ├── tryon/               # Probador Virtual
+│       │   ├── camera.js        # Acceso y control de webcam
+│       │   ├── face-detection.js# Validación geométrica y detección de rostro
+│       │   └── tryon.js         # Orquestador del flujo IA, compresión y polling
+│       ├── catalog/             # Catálogo de productos y filtrado por categoría
+│       ├── cart/                # Carrito de compras y cálculo de totales
+│       ├── admin/               # Panel de administración multi-tienda
+│       │   ├── admin-auth.js    # Autenticación y control de roles
+│       │   ├── admin-quota.js   # Monitor de consumo de cuota mensual de IA
+│       │   ├── admin-orders.js  # Gestión y cambio de estado de pedidos
+│       │   └── admin-products.js# CRUD de productos y carga de imágenes
+│       └── pages/               # Páginas dinámicas e institucionales
+│           ├── sections-data.js # Textos y secciones por defecto
+│           └── pages-render.js  # Renderizado DOM de FAQ, envíos, términos, etc.
+└── css/
+    └── style.css                # Estilos globales y temas visuales
 ```
 
-### anthropic.js
-**Ruta:** `api/anthropic.js`
-**Líneas:** 59
-**Descripción:** Archivo JavaScript
-```js
-// api/anthropic.js
-// Proxy para Anthropic API — la key viene de variable de entorno
-// Vercel: configurar ANTHROPIC_KEY en Settings → Environment Variables...
+---
+
+## 🧠 Flujo del Probador Virtual con IA
+
+1. **Captura / Subida de Foto:** El usuario se toma una foto con su cámara o sube un archivo desde su galería.
+2. **Validación de Rostro:** `FaceDetection.verifyFace` comprueba la presencia de rostro antes de enviar datos al servidor para no malgastar cuota.
+3. **Compresión en Cliente:** `comprimirFoto` redimensiona la imagen a máximo 1024px con 85% de calidad JPEG, garantizando que el payload nunca exceda el límite de Vercel (4.5 MB).
+4. **Control de Cuota:** Cada tienda dispone de un límite configurable (ej. 100 fotos/mes). Si la cuota se agota, se retorna HTTP 429 con mensaje claro al usuario.
+5. **Polling de Estado Real:**
+   - La UI muestra el tiempo transcurrido en segundos reales (reemplazando barras de progreso aleatorias).
+   - Consulta `/api/fal/status` reconociendo estados `IN_QUEUE` ("En cola…") y `IN_PROGRESS` ("Generando prenda y ajustando rostro…").
+6. **Resiliencia y Reintentos:**
+   - Si se alcanzan los 60 segundos de espera, el cliente ejecuta 2 consultas adicionales al endpoint de resultado con 3 segundos de pausa antes de notificar error.
+   - En caso de fallo, se preserva el `reqId` y la foto procesada, permitiendo al usuario reintentar con un solo clic.
+   - Fallback visual con banner de advertencia si la IA no logra procesar la prenda.
+
+---
+
+## 🔒 Seguridad y Manejo de Claves
+
+- **Zero Client-Side Secrets:** Las API keys de fal.ai (`FAL_KEY`) y OpenAI (`OPENAI_API_KEY`) residen exclusivamente en variables de entorno del servidor.
+- **Aislamiento Multi-Tenant:** Todas las consultas a Firestore validan el `storeId` para evitar acceso cruzado entre comercios.
+- **Transacciones Seguras:** El flujo de pago de Mercado Pago se inicializa mediante preferencias firmadas en backend.
+
+---
+
+## 🚀 Despliegue y Configuración
+
+### Variables de Entorno Requeridas:
+```env
+FAL_KEY=tu_clave_de_fal_ai
+OPENAI_API_KEY=tu_clave_de_openai
+MERCADOPAGO_ACCESS_TOKEN=tu_access_token
+FIREBASE_CONFIG={"apiKey":"...","projectId":"..."}
 ```
 
-### background.js
-**Ruta:** `js/background.js`
-**Líneas:** 41
-**Descripción:** Archivo JavaScript
-```js
-// ── Fondo animado con ondas ──
-(function () {
-  const c = document.getElementById('bg-canvas');...
+### Ejecución Local:
+```bash
+npm install
+npm run dev
+# Servidor escuchando en http://localhost:3000
 ```
-
-### camera.js
-**Ruta:** `js/camera.js`
-**Líneas:** 53
-**Descripción:** Archivo JavaScript
-```js
-// ── Cámara y captura de foto ──
-let mediaStream = null;
-...
-```
-
-### catalogo.js
-**Ruta:** `js/catalogo.js`
-**Líneas:** 59
-**Descripción:** Archivo JavaScript
-```js
-
-let gorras       = [];       // datos del JSON
-let gorraActiva  = null;     // gorra seleccionada actualmente...
-```
-
-### config.js
-**Ruta:** `js/config.js`
-**Líneas:** 17
-**Descripción:** Archivo JavaScript
-```js
-// ── CAPFIT CONFIG ──
-// Editá estos valores para personalizar el sitio
-...
-```
-
-### piropos.js
-**Ruta:** `js/piropos.js`
-**Líneas:** 24
-**Descripción:** Archivo JavaScript
-```js
-// ── Lista de piropos ──
-// Editá, agregá o quitá los que quieras
-const PIROPOS = [...
-```
-
-### tryon.js
-**Ruta:** `js/tryon.js`
-**Líneas:** 128
-**Descripción:** Archivo JavaScript
-```js
-// ── fal.ai FASHN Virtual Try-On ──
-// La API key vive en el servidor (variable de entorno), nunca en el browser.
-// Flujo: browser → /api/fal/submit → queue.fal.run...
-```
-
-### ui.js
-**Ruta:** `js/ui.js`
-**Líneas:** 11
-**Descripción:** Archivo JavaScript
-```js
-// ── UI helpers: fade-in observer ──
-document.addEventListener('DOMContentLoaded', () => {
-  const obs = new IntersectionObserver(entries => {...
-```
-
-### server.js
-**Ruta:** `server.js`
-**Líneas:** 178
-**Descripción:** Archivo JavaScript
-```js
-/**
- * CAPFIT — Proxy Server (solo para desarrollo local)
- * Lee las API keys del archivo .env...
-```
-
-## HTML Files
-
-### index.html
-**Ruta:** `index.html`
-**Líneas:** 293
-**Descripción:** Archivo HTML
-```html
-<!DOCTYPE html>
-<html lang="es">
-<head>...
-```
-
-## CSS Files
-
-### style.css
-**Ruta:** `css/style.css`
-**Líneas:** 119
-**Descripción:** Archivo CSS
-```css
-/* ── RESET & VARIABLES ── */
-:root {
-  --black: #0a0a0a;...
-```
-
-## Database & Persistence
-El catálogo de productos, órdenes y configuración de tiendas se gestiona 100% en la nube mediante **Firebase Firestore** (`stores`, `products`, `orders`, `ai_logs`, `store_owners`), sin dependencia de archivos JSON locales.
-
-## JSON Files
-
-### package.json
-**Ruta:** `package.json`
-**Líneas:** 6
-**Descripción:** Archivo JSON
-```json
-{
-  "dependencies": {
-    "dotenv": "^17.4.2"...
-```
-
-### vercel.json
-**Ruta:** `vercel.json`
-**Líneas:** 29
-**Descripción:** Archivo JSON
-```json
-{
-  "version": 2,
-  "builds": [...
-```
-

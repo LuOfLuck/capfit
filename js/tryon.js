@@ -37,64 +37,43 @@ function setTryOnProcessingState(isProcessing) {
   }
 }
 
-function startTryOnProgress() {
-  setTryOnProcessingState(true);
-  document.getElementById('loading-overlay').style.display = 'flex';
-  const fill = document.getElementById('tryon-progress-fill');
-  const pct = document.getElementById('tryon-progress-pct');
-  const stepIds = ['chk-step-1', 'chk-step-2', 'chk-step-3', 'chk-step-4', 'chk-step-5'];
+let tryOnTimer = null;
+let tryOnStartTime = 0;
+let lastTryOnRequest = null;
 
-  if (tryOnProgressInterval) clearInterval(tryOnProgressInterval);
-
-  let currentPct = 0;
-  if (fill) fill.style.width = '0%';
-  if (pct) pct.textContent = '0%';
-
-  function updateStepState(stepIndex) {
-    stepIds.forEach((id, idx) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const iconSpan = el.querySelector('.chk-icon');
-      if (idx < stepIndex) {
-        el.className = 'tryon-check-item done';
-        if (iconSpan) iconSpan.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
-      } else if (idx === stepIndex) {
-        el.className = 'tryon-check-item active';
-        if (iconSpan) iconSpan.innerHTML = `<span class="spin-dot"></span>`;
-      } else {
-        el.className = 'tryon-check-item';
-        if (iconSpan) iconSpan.innerHTML = `<span class="empty-circle"></span>`;
-      }
-    });
+function updateElapsedProgressText(customLabel) {
+  const elapsed = Math.round((Date.now() - tryOnStartTime) / 1000);
+  const pctEl = document.getElementById('tryon-progress-pct');
+  if (pctEl) {
+    pctEl.textContent = customLabel ? `${customLabel} (${elapsed}s)` : `Procesando… ${elapsed}s`;
   }
+}
 
-  updateStepState(0);
+function startTryOnProgress(initialLabel = 'Conectando con IA...') {
+  setTryOnProcessingState(true);
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
 
-  tryOnProgressInterval = setInterval(() => {
-    if (currentPct < 92) {
-      currentPct += Math.floor(Math.random() * 4) + 2;
-      if (currentPct > 92) currentPct = 92;
-      if (fill) fill.style.width = currentPct + '%';
-      if (pct) pct.textContent = currentPct + '%';
+  tryOnStartTime = Date.now();
+  if (tryOnProgressInterval) clearInterval(tryOnProgressInterval);
+  if (tryOnTimer) clearInterval(tryOnTimer);
+  tryOnTimer = setInterval(() => updateElapsedProgressText(), 1000);
 
-      let stepIdx = 0;
-      if (currentPct >= 75) stepIdx = 3;
-      else if (currentPct >= 50) stepIdx = 2;
-      else if (currentPct >= 25) stepIdx = 1;
-      
-      updateStepState(stepIdx);
-    }
-  }, 220);
+  const fill = document.getElementById('tryon-progress-fill');
+  if (fill) fill.style.width = '15%';
+  updateElapsedProgressText(initialLabel);
+  setStep(1);
 }
 
 function finishTryOnProgress() {
   if (tryOnProgressInterval) clearInterval(tryOnProgressInterval);
+  if (tryOnTimer) { clearInterval(tryOnTimer); tryOnTimer = null; }
   const fill = document.getElementById('tryon-progress-fill');
   const pct = document.getElementById('tryon-progress-pct');
   const stepIds = ['chk-step-1', 'chk-step-2', 'chk-step-3', 'chk-step-4', 'chk-step-5'];
 
   if (fill) fill.style.width = '100%';
-  if (pct) pct.textContent = '100%';
+  if (pct) pct.textContent = '100% · ¡Listo!';
 
   stepIds.forEach(id => {
     const el = document.getElementById(id);
@@ -118,8 +97,17 @@ function resetResult() {
   setStep(1);
 }
 
-function setStep(n) {
+function setStep(n, customLabel = null) {
   const stepIds = ['chk-step-1', 'chk-step-2', 'chk-step-3', 'chk-step-4', 'chk-step-5'];
+  const pcts = [20, 45, 75, 90, 100];
+  const fill = document.getElementById('tryon-progress-fill');
+  if (fill && pcts[n - 1] !== undefined) {
+    fill.style.width = `${pcts[n - 1]}%`;
+  }
+  if (customLabel) {
+    updateElapsedProgressText(customLabel);
+  }
+
   stepIds.forEach((id, idx) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -145,19 +133,46 @@ function setStep(n) {
   }
 }
 
-function showError(msg) {
+function showError(msg, canRetry = true) {
+  if (tryOnTimer) { clearInterval(tryOnTimer); tryOnTimer = null; }
   setTryOnProcessingState(false);
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'none';
   const errorMsg = document.getElementById('error-msg');
   if (errorMsg) errorMsg.textContent = msg;
   const errorBox = document.getElementById('error-box');
+
+  let retryBtn = document.getElementById('btn-tryon-retry');
+  if (!retryBtn && errorBox) {
+    retryBtn = document.createElement('button');
+    retryBtn.id = 'btn-tryon-retry';
+    retryBtn.className = 'btn-hero-secondary';
+    retryBtn.style.cssText = 'margin-top:10px;padding:8px 18px;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;';
+    retryBtn.innerHTML = '🔄 Reintentar prueba';
+    retryBtn.onclick = () => retryLastTryOn();
+    errorBox.appendChild(retryBtn);
+  }
+  if (retryBtn) retryBtn.style.display = canRetry && lastTryOnRequest ? 'inline-flex' : 'none';
   if (errorBox) errorBox.style.display = 'flex';
 }
 
-// Muestra la foto original sin editar como fallback
+async function retryLastTryOn() {
+  const errorBox = document.getElementById('error-box');
+  if (errorBox) errorBox.style.display = 'none';
+  const fbNotice = document.getElementById('tryon-fallback-notice');
+  if (fbNotice) fbNotice.style.display = 'none';
+
+  if (!lastTryOnRequest) {
+    if (typeof retryPhoto === 'function') retryPhoto();
+    return;
+  }
+  await runVirtualTryOn(lastTryOnRequest.photoDataURL, lastTryOnRequest.garmentImgPath, lastTryOnRequest.reqId);
+}
+
+// Muestra la foto original sin editar como fallback con banner y botón de reintento
 function showPhotoFallback(photoDataURL) {
   console.warn('[tryon] Mostrando foto original como fallback');
+  if (tryOnTimer) { clearInterval(tryOnTimer); tryOnTimer = null; }
   setTryOnProcessingState(false);
   const ri = document.getElementById('result-img');
   if (!ri) return;
@@ -166,6 +181,20 @@ function showPhotoFallback(photoDataURL) {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.style.display = 'none';
     ri.style.display = 'block';
+
+    let fbNotice = document.getElementById('tryon-fallback-notice');
+    const box = document.getElementById('camera-box');
+    if (!fbNotice && box) {
+      fbNotice = document.createElement('div');
+      fbNotice.id = 'tryon-fallback-notice';
+      fbNotice.style.cssText = 'position:absolute;bottom:12px;left:12px;right:12px;background:rgba(239,68,68,0.95);color:#fff;padding:10px 14px;border-radius:12px;font-size:0.8rem;font-weight:600;display:flex;align-items:center;justify-content:space-between;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,0.3);';
+      fbNotice.innerHTML = `
+        <span>⚠️ No pudimos procesar tu foto con IA — mostrando tu foto original</span>
+        <button onclick="retryLastTryOn()" style="background:#fff;color:#dc2626;border:none;padding:5px 12px;border-radius:8px;font-weight:700;font-size:0.75rem;cursor:pointer;">Reintentar</button>
+      `;
+      box.appendChild(fbNotice);
+    }
+    if (fbNotice) fbNotice.style.display = 'flex';
   };
 }
 
@@ -195,13 +224,26 @@ function setWhatsAppLink() {
 }
 
 const PROMPTS_POR_TIPO = {
-  gorra: 'A realistic photograph of the person naturally wearing the baseball cap, high quality, accurate fitting on head, clean lighting',
-  anteojo: 'A realistic photograph of the person naturally wearing the sunglasses, high quality, clean lighting',
-  default: 'A realistic photograph of the person naturally wearing the item, high quality, clean lighting',
+  gorra: 'Pone la gorra a esta persona',
+  anteojo: 'Pone los anteojos a esta persona',
+  anteojos: 'Pone los anteojos a esta persona',
+  gorro: 'Pone el gorro a esta persona',
+  remera: 'Pone la remera a esta persona',
+  buzo: 'Pone el buzo a esta persona',
+  campera: 'Pone la campera a esta persona',
+  pantalon: 'Pone el pantalón a esta persona',
+  default: 'Pone la prenda a esta persona',
 };
 
 function getPromptParaTipo(tipo) {
-  return PROMPTS_POR_TIPO[tipo] || PROMPTS_POR_TIPO.default;
+  if (CONFIG.getPromptParaPrenda) {
+    return CONFIG.getPromptParaPrenda(tipo);
+  }
+  const t = String(tipo || '').toLowerCase().trim();
+  return (CONFIG.promptsPorTipo && CONFIG.promptsPorTipo[t])
+    || PROMPTS_POR_TIPO[t]
+    || (CONFIG.promptsPorTipo && CONFIG.promptsPorTipo.default)
+    || PROMPTS_POR_TIPO.default;
 }
 
 // Helper para extraer URL de imagen de cualquier estructura de respuesta de fal.ai / OpenAI
@@ -250,10 +292,12 @@ function extractImageUrl(data) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  ENTRADA PRINCIPAL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-async function runVirtualTryOn(photoDataURL, garmentImgPath) {
+async function runVirtualTryOn(photoDataURL, garmentImgPath, existingReqId = null) {
   window.lastUserPhoto = photoDataURL;
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
   const tipo = item?.tipo || 'gorra';
+  const fbNotice = document.getElementById('tryon-fallback-notice');
+  if (fbNotice) fbNotice.style.display = 'none';
 
   console.log('[TRYON] ========== INICIO ==========');
   console.log('[TRYON] Motor activo:', CONFIG.aiModel);
@@ -261,10 +305,23 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
   console.log('[TRYON] proxyBase:', CONFIG.proxyBase);
   console.log('[TRYON] garmentImgPath:', garmentImgPath);
 
-  startTryOnProgress();
+  startTryOnProgress(CONFIG.uiMessages?.uploadingAndQueuing || 'Comprimiendo y preparando imagen...');
 
   try {
-    setStep(1);
+    setStep(1, 'Comprimiendo y preparando imagen...');
+
+    // 1. Compresión en cliente para prevenir 413
+    let compressedPhoto = photoDataURL;
+    if (typeof window.comprimirFoto === 'function') {
+      try {
+        compressedPhoto = await window.comprimirFoto(photoDataURL, 1024, 0.85);
+      } catch (e) {
+        console.warn('[TRYON] Error en comprimirFoto, usando imagen directa:', e);
+      }
+    }
+
+    lastTryOnRequest = { photoDataURL: compressedPhoto, garmentImgPath, reqId: existingReqId };
+
     console.log('[TRYON] Step 1: Cargando imagen del producto...');
 
     let garmentDataURI;
@@ -280,10 +337,10 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
     }
 
     console.log('[TRYON] Dispatching a motor:', CONFIG.aiModel);
-    if (CONFIG.aiModel === 'gpt-image-2') {
-      await runGPTImage2(photoDataURL, garmentDataURI, tipo);
+    if ((CONFIG.aiModel && CONFIG.aiModel.startsWith('gpt-image')) || CONFIG.aiModel === 'gpt-image-2.5-flare') {
+      await runGPTImage2(compressedPhoto, garmentDataURI, tipo);
     } else {
-      await runFASHN(photoDataURL, garmentDataURI);
+      await runFASHN(compressedPhoto, garmentDataURI, existingReqId);
     }
 
     setWhatsAppLink();
@@ -299,23 +356,26 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  GPT-IMAGE-2 (fal.ai / openai / gpt-image-2 / edit)
+//  GPT-IMAGE (fal.ai / openai / gpt-image-2.5-flare / edit)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   const proxy = CONFIG.proxyBase;
   const storeId = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : '';
   console.log('[GPT2] Iniciando, proxy:', proxy, '| storeId:', storeId);
 
-  setStep(2);
+  setStep(2, 'Conectando con modelo de IA...');
 
-  const prompt = getPromptParaTipo(tipo);
+  const prompt = (CONFIG.getPromptParaPrenda ? CONFIG.getPromptParaPrenda(tipo) : null)
+    || (CONFIG.promptsPorTipo && CONFIG.promptsPorTipo[tipo])
+    || getPromptParaTipo(tipo);
   console.log('[GPT2] Tipo:', tipo, '| Prompt:', prompt);
 
   const payload = {
     prompt,
     image_urls: [photoDataURL, garmentDataURI],
-    quality: 'low',
-    image_size: 'square',
+    quality: CONFIG.aiQuality || 'low',
+    image_size: CONFIG.aiImageSize || 'auto',
+    output_compression: 80,
     output_format: 'jpeg',
   };
 
@@ -338,15 +398,34 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
       throw new Error(msg);
     }
 
-    setStep(3);
+    setStep(3, 'Generando prenda y ajustando iluminación...');
 
     if (!resp.ok) {
       const t = await resp.text();
-      console.error('[GPT2] ERROR HTTP', resp.status, ':', t.slice(0, 500));
-      throw new Error('GPT-Image-2 error (' + resp.status + '): ' + t);
+      let errMsg = `Error (${resp.status})`;
+      try {
+        const parsed = JSON.parse(t);
+        errMsg = parsed.error || errMsg;
+      } catch (_) {
+        if (t.includes('<!doctype') || t.includes('<html')) {
+          errMsg = `El servidor devolvió un error inesperado (código ${resp.status})`;
+        } else {
+          errMsg = t.slice(0, 200);
+        }
+      }
+      console.error('[GPT2] ERROR HTTP', resp.status, ':', errMsg);
+      throw new Error(errMsg);
     }
 
-    const data = await resp.json();
+    const contentType = resp.headers.get('content-type') || '';
+    let data;
+    if (!contentType.includes('application/json')) {
+      const raw = await resp.text();
+      console.error('[GPT2] Se esperaba JSON pero se recibió:', contentType, raw.slice(0, 300));
+      throw new Error('Respuesta inválida del servidor (formato no esperado)');
+    } else {
+      data = await resp.json();
+    }
     console.log('[GPT2] Response data:', data);
 
     const imgURL = extractImageUrl(data);
@@ -364,7 +443,7 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
       });
     }
 
-    setStep(4);
+    setStep(4, 'Descargando resultado final...');
     mostrarResultado(imgURL);
     console.log('[GPT2] Resultado mostrado correctamente');
 
@@ -377,7 +456,7 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  FASHN TRY-ON (fal-ai/fashn/tryon)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-async function runFASHN(photoDataURL, garmentDataURI) {
+async function runFASHN(photoDataURL, garmentDataURI, existingReqId = null) {
   const proxy = CONFIG.proxyBase;
   const storeId = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : '';
   const model = CONFIG.aiModel === 'fashn-v1.6'
@@ -385,46 +464,70 @@ async function runFASHN(photoDataURL, garmentDataURI) {
     : 'fal-ai/fashn/tryon/v1.5';
 
   console.log('[FASHN] Iniciando try-on con modelo:', model, '| storeId:', storeId);
-  setStep(2);
 
-  const payload = {
-    model_image: photoDataURL,
-    garment_image: garmentDataURI,
-    category: 'tops',
-  };
+  let reqId = existingReqId;
 
-  const submitUrl = `${proxy}/api/fal/submit?model=${encodeURIComponent(model)}${storeId ? `&store=${encodeURIComponent(storeId)}` : ''}`;
-  const submitResp = await fetch(submitUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  if (submitResp.status === 429) {
-    let errData = {};
-    try { errData = await submitResp.json(); } catch(e) {}
-    const msg = errData.error || 'Esta tienda alcanzó su límite mensual de 100 fotos con IA.';
-    throw new Error(msg);
-  }
-
-  if (!submitResp.ok) {
-    const errTxt = await submitResp.text();
-    throw new Error(`Error FASHN submit (${submitResp.status}): ${errTxt}`);
-  }
-
-  const submitData = await submitResp.json();
-  const reqId = submitData.request_id;
   if (!reqId) {
-    const directUrl = extractImageUrl(submitData);
-    if (directUrl) {
-      setStep(4);
-      mostrarResultado(directUrl);
-      return;
+    setStep(2, 'Enviando imagen a cola de procesamiento en fal.ai...');
+
+    const payload = {
+      model_image: photoDataURL,
+      garment_image: garmentDataURI,
+      category: 'tops',
+    };
+
+    const submitUrl = `${proxy}/api/fal/submit?model=${encodeURIComponent(model)}${storeId ? `&store=${encodeURIComponent(storeId)}` : ''}`;
+    const submitResp = await fetch(submitUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (submitResp.status === 429) {
+      let errData = {};
+      try { errData = await submitResp.json(); } catch(e) {}
+      const msg = errData.error || 'Esta tienda alcanzó su límite mensual de 100 fotos con IA.';
+      throw new Error(msg);
     }
-    throw new Error('FASHN no devolvió request_id');
+
+    if (!submitResp.ok) {
+      const errTxt = await submitResp.text();
+      let errMsg = `Error FASHN submit (${submitResp.status})`;
+      try {
+        const parsed = JSON.parse(errTxt);
+        errMsg = parsed.error || errMsg;
+      } catch (_) {
+        if (errTxt.includes('<!doctype') || errTxt.includes('<html')) {
+          errMsg = `El servidor devolvió un error inesperado (código ${submitResp.status})`;
+        } else {
+          errMsg = errTxt.slice(0, 200);
+        }
+      }
+      throw new Error(errMsg);
+    }
+
+    const submitContentType = submitResp.headers.get('content-type') || '';
+    let submitData;
+    if (!submitContentType.includes('application/json')) {
+      throw new Error('Respuesta no válida del servidor al enviar a FASHN');
+    } else {
+      submitData = await submitResp.json();
+    }
+    reqId = submitData.request_id;
+    if (lastTryOnRequest) lastTryOnRequest.reqId = reqId;
+
+    if (!reqId) {
+      const directUrl = extractImageUrl(submitData);
+      if (directUrl) {
+        setStep(4, 'Listo');
+        mostrarResultado(directUrl);
+        return;
+      }
+      throw new Error('FASHN no devolvió request_id');
+    }
   }
 
-  setStep(3);
+  setStep(2, 'En cola de procesamiento en fal.ai…');
   let status = 'IN_QUEUE';
   let attempts = 0;
   const maxAttempts = 30;
@@ -439,26 +542,34 @@ async function runFASHN(photoDataURL, garmentDataURI) {
       const statusData = await statusResp.json();
       status = statusData.status || status;
       console.log(`[FASHN] Status attempt ${attempts}:`, status);
-      if (status === 'FAILED') {
-        throw new Error('Procesamiento FASHN falló en el servidor');
+
+      if (status === 'IN_QUEUE') {
+        setStep(2, `En cola de procesamiento en fal.ai…`);
+      } else if (status === 'IN_PROGRESS') {
+        setStep(3, `Generando prenda y ajustando rostro…`);
+      } else if (status === 'FAILED') {
+        throw new Error('El procesamiento en fal.ai falló en el servidor');
       }
     }
   }
 
-  if (status !== 'COMPLETED') {
-    throw new Error('Tiempo de espera agotado al procesar FASHN');
-  }
-
+  // Si a los 60s no completó el status, intentar 2 veces más el endpoint result con 3s de pausa
+  let imgURL = null;
   const resultUrl = `${proxy}/api/fal/result?model=${encodeURIComponent(model)}&reqId=${encodeURIComponent(reqId)}`;
-  const resultResp = await fetch(resultUrl);
-  if (!resultResp.ok) {
-    throw new Error(`Error obteniendo resultado FASHN (${resultResp.status})`);
+
+  for (let extra = 1; extra <= 2; extra++) {
+    setStep(3, `Consultando resultado final (intento ${extra})...`);
+    const resultResp = await fetch(resultUrl);
+    if (resultResp.ok) {
+      const resultData = await resultResp.json();
+      imgURL = extractImageUrl(resultData);
+      if (imgURL) break;
+    }
+    await new Promise(r => setTimeout(r, 3000));
   }
 
-  const resultData = await resultResp.json();
-  const imgURL = extractImageUrl(resultData);
   if (!imgURL) {
-    throw new Error('No se encontró URL de imagen en el resultado de FASHN');
+    throw new Error('Tiempo de espera agotado. Podés pulsar "Reintentar" para verificar nuevamente el resultado.');
   }
 
   // Sincronizar cuota de IA consumida
@@ -468,7 +579,7 @@ async function runFASHN(photoDataURL, garmentDataURI) {
     });
   }
 
-  setStep(4);
+  setStep(4, 'Renderizando resultado...');
   mostrarResultado(imgURL);
 }
 
@@ -733,9 +844,16 @@ function processUploadedImage(file) {
             }
           }
 
-          // Compresión JPEG a 85% calidad
-          const compressedDataURL = canvas.toDataURL('image/jpeg', 0.85);
-          resolve(compressedDataURL);
+          // Compresión JPEG a 85% calidad con garantía de payload seguro
+          let finalDataURL = canvas.toDataURL('image/jpeg', 0.85);
+          if (typeof window.comprimirFoto === 'function') {
+            try {
+              finalDataURL = await window.comprimirFoto(finalDataURL, 1024, 0.85);
+            } catch (e) {
+              console.warn('[processUploadedImage] comprimirFoto fallback:', e);
+            }
+          }
+          resolve(finalDataURL);
         } catch (err) {
           reject(err && err.message ? err : new Error('Error al procesar y redimensionar la imagen en el cliente.'));
         }

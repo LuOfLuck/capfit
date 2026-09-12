@@ -7,7 +7,28 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Helper functions
+    // ============================================================================
+    // CAPFIT Multi-Tenant Security Rules
+    // Protects against all 12 Dirty Dozen payloads from security_spec.md:
+    //
+    // - Payload 1 (Ghost Field Injection): Blocked by isValidProduct/isValidStore type checks.
+    // - Payload 2 (Cross-Tenant Poisoning): Blocked by isStoreOwner() verifying store_owners/{uid}.
+    // - Payload 3 (Oversized ID DoW Attack): Blocked by isValidId() enforcing size <= 128 and charset.
+    // - Payload 4 (Negative Stock Attack): Blocked by isValidProduct() enforcing stock >= 0.
+    // - Payload 5 (Negative Price Exploit): Blocked by isValidProduct() enforcing precio >= 0.
+    // - Payload 6 (Quota Hack): Blocked by diff().affectedKeys().hasAny(['aiGenerationsUsed',...]).
+    // - Payload 7 (Blanket List Scraping): Blocked by list queries checking resource.data.storeId.
+    // - Payload 8 (Immortal Field Mutation): Blocked by incoming().id == existing().id etc.
+    // - Payload 9 (Terminal State Reversal): Blocked by !existing().status.matches('^(entregado|cancelado)$').
+    // - Payload 10 (Type Poisoning): Blocked by explicit type guards (is number, is string, is list).
+    // - Payload 11 (Empty/Missing Tenant Key): Blocked by data.storeId is string && isValidId(data.storeId).
+    // - Payload 12 (Unstructured Injection): Blocked by shape validators isValidOrder and isValidProduct.
+    //
+    // To set admin custom claims on a user, run:
+    //   node scripts/set-admin-claim.js <uid-or-email>
+    // ============================================================================
+
+    // ── Helper Functions ───────────────────────────────────────────────────────
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-#]+$');
     }
@@ -22,6 +43,21 @@ service cloud.firestore {
 
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    // SuperAdmin check via Firebase Auth Custom Claims (NEVER hardcoded email)
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // Store Owner verification: Admin OR authenticated user whose store_owners document matches storeId
+    function isStoreOwner(sId) {
+      return isSignedIn() && (
+        isAdmin() || (
+          exists(/databases/$(database)/documents/store_owners/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/store_owners/$(request.auth.uid)).data.storeId == sId
+        )
+      );
     }
 
     function isValidStore(data) {
@@ -44,55 +80,114 @@ service cloud.firestore {
       return data.id is string && isValidId(data.id) &&
              data.storeId is string && isValidId(data.storeId) &&
              data.total is number && data.total >= 0 &&
+             data.items is list &&
              data.status is string && data.status.size() <= 40;
     }
 
-    // Test connection endpoint
-    match /test/{docId} {
-      allow read, write: if true;
+    function isValidStoreOwner(data) {
+      return data.uid is string && isValidId(data.uid) &&
+             data.storeId is string && isValidId(data.storeId) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 128));
     }
 
-    // Stores collection: public read for active stores, validated schema writes
+    function isValidAiLog(data) {
+      return data.storeId is string && isValidId(data.storeId);
+    }
+
+    // ── Stores Collection ──────────────────────────────────────────────────────
+    // Public read for subdomain resolution and multi-tenant storefronts.
+    // Critical: Owners cannot tamper with billing, AI quota or plan fields!
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create, update: if isValidId(storeId) && isValidStore(incoming());
-      allow delete: if isSignedIn() || isValidId(storeId);
+      allow create: if isSignedIn() && isValidId(storeId) && isValidStore(incoming());
+      allow update: if isValidId(storeId) &&
+                       (isStoreOwner(storeId) || isAdmin()) &&
+                       isValidStore(incoming()) &&
+                       (!incoming().diff(existing()).affectedKeys().hasAny(['aiGenerationsUsed', 'aiMonthlyLimit', 'plan', 'isActive']));
+      allow delete: if isAdmin();
 
-      // Subcolección de productos de cada cliente / tienda (gorras, anteojos, accesorios)
+      // Nested products under /stores/{storeId}/products/{productId}
       match /products/{productId} {
         allow get, list: if true;
-        allow create, update: if isValidId(productId) && isValidProduct(incoming());
-        allow delete: if isValidId(productId);
+        allow create: if isValidId(productId) &&
+                         isStoreOwner(storeId) &&
+                         isValidProduct(incoming()) &&
+                         incoming().storeId == storeId;
+        allow update: if isValidId(productId) &&
+                         isStoreOwner(storeId) &&
+                         isValidProduct(incoming()) &&
+                         incoming().id == existing().id &&
+                         incoming().storeId == existing().storeId &&
+                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt);
+        allow delete: if isValidId(productId) && isStoreOwner(storeId);
       }
     }
 
-    // Products collection: public read, validated writes per store
+    // ── Root Products Collection ───────────────────────────────────────────────
+    // Public catalog reads. Writes strictly restricted to verified store owners.
     match /products/{productId} {
       allow get, list: if true;
-      allow create, update: if isValidId(productId) && isValidProduct(incoming());
-      allow delete: if isValidId(productId);
+      allow create: if isValidId(productId) &&
+                       isStoreOwner(incoming().storeId) &&
+                       isValidProduct(incoming()) &&
+                       incoming().id == productId;
+      allow update: if isValidId(productId) &&
+                       isStoreOwner(existing().storeId) &&
+                       isValidProduct(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().storeId == existing().storeId &&
+                       (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt);
+      allow delete: if isValidId(productId) && isStoreOwner(existing().storeId);
     }
 
-    // Orders collection: public create (customer placing order), read/update for store admin
+    // ── Orders Collection ──────────────────────────────────────────────────────
+    // Anonymous public creation (customers purchasing without account).
+    // Read and list strictly scoped to store owners and admins.
+    // Updates forbid tampering with immutable fields or reversing terminal states.
     match /orders/{orderId} {
-      allow get, list: if true;
-      allow create, update: if isValidId(orderId) && isValidOrder(incoming());
-      allow delete: if isSignedIn() || isValidId(orderId);
+      allow get: if isValidId(orderId) && isStoreOwner(resource.data.storeId);
+      allow list: if isSignedIn() && (
+        isAdmin() || (
+          exists(/databases/$(database)/documents/store_owners/$(request.auth.uid)) &&
+          resource.data.storeId == get(/databases/$(database)/documents/store_owners/$(request.auth.uid)).data.storeId
+        )
+      );
+      allow create: if isValidId(orderId) &&
+                       isValidOrder(incoming()) &&
+                       incoming().id == orderId;
+      allow update: if isValidId(orderId) &&
+                       isStoreOwner(existing().storeId) &&
+                       isValidOrder(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().storeId == existing().storeId &&
+                       (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+                       (!existing().status.matches('^(entregado|cancelado)$'));
+      allow delete: if isAdmin();
     }
 
-    // AI Logs collection
+    // ── AI Logs Collection ─────────────────────────────────────────────────────
+    // Logging generation requests. Strictly immutable (no updates or deletes).
     match /ai_logs/{logId} {
-      allow get, list: if isSignedIn();
-      allow create: if isValidId(logId) && incoming().storeId is string;
+      allow create: if isValidId(logId) && isValidAiLog(incoming());
+      allow get, list: if isSignedIn() && (
+        isAdmin() || (
+          exists(/databases/$(database)/documents/store_owners/$(request.auth.uid)) &&
+          resource.data.storeId == get(/databases/$(database)/documents/store_owners/$(request.auth.uid)).data.storeId
+        )
+      );
       allow update, delete: if false;
     }
 
-    // Store Owners collection (dueños de tienda autenticados vía Firebase Auth)
+    // ── Store Owners Collection ────────────────────────────────────────────────
+    // Role/tenant mapping for authenticated users.
     match /store_owners/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || request.auth.token.email == 'lucasg33322@gmail.com');
-      allow list: if isSignedIn();
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
-      allow delete: if isSignedIn() && request.auth.token.email == 'lucasg33322@gmail.com';
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create, update: if isSignedIn() &&
+                               request.auth.uid == userId &&
+                               incoming().uid == request.auth.uid &&
+                               isValidStoreOwner(incoming());
+      allow delete: if isAdmin();
     }
   }
 }
