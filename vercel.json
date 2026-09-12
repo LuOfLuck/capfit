@@ -1,16 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/serverless.js", "use": "@vercel/node" },
-    { "src": "api/**/*.js", "use": "@vercel/node" },
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "css/**", "use": "@vercel/static" },
-    { "src": "js/**", "use": "@vercel/static" },
-    { "src": "assets/**", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/serverless.js" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api", "destination": "/api/[...slug]" },
+    { "source": "/api/(.*)", "destination": "/api/[...slug]" },
+    { "source": "/((?!api/|css/|js/|assets/|favicon.ico|.*\\..*).*)", "destination": "/index.html" }
   ]
 }
