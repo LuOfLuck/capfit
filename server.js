@@ -61,9 +61,9 @@ function sendJson(res, status, data, req) {
   res.end(JSON.stringify(data));
 }
 
-// Pre-carga estática de index.html:
-// 1) Asegura que el analizador NFT (@vercel/nft) de Vercel detecte y empaquete index.html.
-// 2) Mantiene index.html en memoria para servirlo instantáneamente con 0 latencia de disco.
+// Pre-carga estática de index.html, CSS y JS:
+// 1) Asegura que el analizador NFT (@vercel/nft) de Vercel detecte y empaquete los archivos estáticos clave.
+// 2) Mantiene los archivos en memoria RAM para servirlos instantáneamente con 0 latencia de disco.
 let cachedIndexHtml = null;
 try {
   cachedIndexHtml = fs.readFileSync(path.join(__dirname, 'index.html'));
@@ -73,6 +73,36 @@ try {
   } catch (err) {
     console.warn('[SERVER] Warning al precargar index.html:', err.message);
   }
+}
+
+const memoryStaticFiles = {};
+function preloadDirectoryToMemory(relDir) {
+  const roots = [__dirname, process.cwd()];
+  for (const root of roots) {
+    const fullDir = path.join(root, relDir);
+    if (!fs.existsSync(fullDir)) continue;
+    try {
+      const items = fs.readdirSync(fullDir, { withFileTypes: true });
+      for (const item of items) {
+        const itemRel = path.join(relDir, item.name).replace(/\\/g, '/');
+        if (item.isDirectory()) {
+          preloadDirectoryToMemory(itemRel);
+        } else if (item.isFile()) {
+          try {
+            const buf = fs.readFileSync(path.join(fullDir, item.name));
+            memoryStaticFiles[itemRel] = buf;
+            memoryStaticFiles['/' + itemRel] = buf;
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  }
+}
+try {
+  preloadDirectoryToMemory('css');
+  preloadDirectoryToMemory('js');
+} catch (err) {
+  console.warn('[SERVER] Warning al precargar css/js a memoria:', err.message);
 }
 
 function resolveStaticFile(reqPath) {
@@ -162,7 +192,21 @@ async function appHandler(req, res) {
       }
     }
 
-    // 5. Servir archivo estático físico (CSS, JS, imágenes, fuentes, etc.)
+    // 5. Servir archivo estático (Memoria RAM directa o Disco físico)
+    const normalizedKey = reqPath.replace(/^\/+/, '');
+    if (memoryStaticFiles[reqPath] || memoryStaticFiles[normalizedKey]) {
+      const data = memoryStaticFiles[reqPath] || memoryStaticFiles[normalizedKey];
+      const fileExt = path.extname(reqPath).toLowerCase();
+      const mime = MIME[fileExt] || 'application/octet-stream';
+      res.writeHead(200, {
+        ...corsHeaders(req),
+        'Content-Type': mime,
+        'Cache-Control': 'public, max-age=86400'
+      });
+      res.end(data);
+      return;
+    }
+
     const targetFile = resolveStaticFile(reqPath);
     if (targetFile) {
       try {

@@ -96,6 +96,15 @@ module.exports = async function handleApi(req, res) {
   let reqPath = urlObj.pathname.replace(/\/$/, '') || '/';
   const qs = Object.fromEntries(urlObj.searchParams.entries());
 
+  // Resolver sub-ruta en Vercel cuando la petición llega a través de api/[...slug]
+  if (reqPath === '/api/[...slug]' || reqPath.startsWith('/api/[...slug]')) {
+    const rawSlug = (req.query && req.query.slug) || qs.slug;
+    if (rawSlug) {
+      const slugParts = Array.isArray(rawSlug) ? rawSlug : [rawSlug];
+      reqPath = '/api/' + slugParts.join('/');
+    }
+  }
+
   // En caso de que Vercel rewrite o slug pase un path sin prefijo /api
   if (!reqPath.startsWith('/api') && reqPath !== '/') {
     reqPath = '/api/' + reqPath.replace(/^\//, '');
