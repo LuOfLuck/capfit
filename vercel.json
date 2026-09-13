@@ -1,4 +1,22 @@
 {
+  "functions": {
+    "server.js": {
+      "includeFiles": [
+        "index.html",
+        "css/**",
+        "js/**",
+        "assets/**",
+        "src/**",
+        "404.webp"
+      ]
+    },
+    "api/[...slug].js": {
+      "includeFiles": [
+        "src/**",
+        "index.html"
+      ]
+    }
+  },
   "rewrites": [
     { "source": "/api", "destination": "/api/[...slug]" },
     { "source": "/api/(.*)", "destination": "/api/[...slug]" },

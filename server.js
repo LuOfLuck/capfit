@@ -61,6 +61,40 @@ function sendJson(res, status, data, req) {
   res.end(JSON.stringify(data));
 }
 
+// Pre-carga estática de index.html:
+// 1) Asegura que el analizador NFT (@vercel/nft) de Vercel detecte y empaquete index.html.
+// 2) Mantiene index.html en memoria para servirlo instantáneamente con 0 latencia de disco.
+let cachedIndexHtml = null;
+try {
+  cachedIndexHtml = fs.readFileSync(path.join(__dirname, 'index.html'));
+} catch (e) {
+  try {
+    cachedIndexHtml = fs.readFileSync(path.join(process.cwd(), 'index.html'));
+  } catch (err) {
+    console.warn('[SERVER] Warning al precargar index.html:', err.message);
+  }
+}
+
+function resolveStaticFile(reqPath) {
+  const cleanPath = (reqPath === '/' ? 'index.html' : reqPath).replace(/^\/+/, '');
+  const searchRoots = [
+    __dirname,
+    process.cwd(),
+    path.resolve(__dirname, '..'),
+    path.resolve(process.cwd(), '..')
+  ];
+
+  for (const root of searchRoots) {
+    const candidate = path.join(root, cleanPath);
+    try {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return candidate;
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
 // Reutilización centralizada del enrutador unificado de API (/api/*)
 let handleApi = null;
 try {
@@ -90,41 +124,81 @@ async function appHandler(req, res) {
       return;
     }
 
-  // ── Archivos estáticos ───────────────────────────────────
-  if (reqPath === '/favicon.ico') {
-    res.writeHead(204, corsHeaders(req));
-    res.end();
-    return;
-  }
-
-  let filePath = path.join(__dirname, reqPath === '/' ? 'index.html' : reqPath);
-  if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
-
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      // Si la ruta no tiene extensión (o es /404, /admin, /account, /app, /shop, /shpo, /blog), servimos index.html para que el router de la app muestre la vista
-      const ext = path.extname(reqPath);
-      if (!ext || reqPath === '/404' || reqPath === '/admin' || reqPath === '/account' || reqPath === '/app' || reqPath === '/shop' || reqPath === '/shpo' || reqPath === '/blog') {
-        fs.readFile(path.join(__dirname, 'index.html'), (errIndex, indexData) => {
-          if (!errIndex) {
-            res.writeHead(200, { ...corsHeaders(), 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(indexData);
-            return;
-          }
-          res.writeHead(404, { 'Content-Type': 'text/plain' });
-          res.end('404: ' + reqPath);
-        });
+    // 3. Favicon rápido
+    if (reqPath === '/favicon.ico') {
+      const fav = resolveStaticFile('assets/favicon.ico') || resolveStaticFile('favicon.ico');
+      if (fav) {
+        res.writeHead(200, { ...corsHeaders(req), 'Content-Type': 'image/x-icon' });
+        res.end(fs.readFileSync(fav));
         return;
       }
-
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('404: ' + reqPath);
+      res.writeHead(204, corsHeaders(req));
+      res.end();
       return;
     }
-    const mime = MIME[path.extname(filePath)] || 'application/octet-stream';
-    res.writeHead(200, { ...corsHeaders(), 'Content-Type': mime });
-    res.end(data);
-  });
+
+    // 4. Si es la raíz "/" o una ruta de vista SPA sin extensión (ej: /admin, /account, /shop, /404, etc.)
+    const ext = path.extname(reqPath);
+    const isSpaRoute = !ext || reqPath === '/' || reqPath === '/index.html' ||
+      reqPath === '/404' || reqPath === '/admin' || reqPath === '/account' ||
+      reqPath === '/app' || reqPath === '/shop' || reqPath === '/shpo' || reqPath === '/blog';
+
+    if (isSpaRoute) {
+      if (!cachedIndexHtml) {
+        const p = resolveStaticFile('index.html');
+        if (p) {
+          try { cachedIndexHtml = fs.readFileSync(p); } catch (e) {}
+        }
+      }
+
+      if (cachedIndexHtml) {
+        res.writeHead(200, {
+          ...corsHeaders(req),
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache'
+        });
+        res.end(cachedIndexHtml);
+        return;
+      }
+    }
+
+    // 5. Servir archivo estático físico (CSS, JS, imágenes, fuentes, etc.)
+    const targetFile = resolveStaticFile(reqPath);
+    if (targetFile) {
+      try {
+        const data = fs.readFileSync(targetFile);
+        const fileExt = path.extname(targetFile).toLowerCase();
+        const mime = MIME[fileExt] || 'application/octet-stream';
+        const cacheHeader = (fileExt === '.html') ? 'no-cache' : 'public, max-age=86400';
+
+        res.writeHead(200, {
+          ...corsHeaders(req),
+          'Content-Type': mime,
+          'Cache-Control': cacheHeader
+        });
+        res.end(data);
+        return;
+      } catch (readErr) {
+        console.error('[SERVER] Error leyendo archivo estático:', targetFile, readErr.message);
+      }
+    }
+
+    // 6. Fallback a index.html si no es un archivo estático específico con extensión binaria
+    if (cachedIndexHtml && !ext.match(/\.(png|jpg|jpeg|webp|gif|svg|glb|gltf|css|js|map|ico)$/i)) {
+      res.writeHead(200, {
+        ...corsHeaders(req),
+        'Content-Type': 'text/html; charset=utf-8'
+      });
+      res.end(cachedIndexHtml);
+      return;
+    }
+
+    // 7. 404 limpio
+    res.writeHead(404, {
+      ...corsHeaders(req),
+      'Content-Type': 'text/plain; charset=utf-8'
+    });
+    res.end(`404: Archivo no encontrado (${reqPath})`);
   } catch (err) {
     console.error('[SERVER] Error no capturado en appHandler:', err);
     if (!res.headersSent) {
