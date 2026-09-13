@@ -1,12 +1,12 @@
 {
   "functions": {
     "api/[...slug].js": {
-      "includeFiles": "src/**"
+      "includeFiles": "{src/**,firebase-applet-config.json,js/**}"
     }
   },
   "rewrites": [
     { "source": "/api", "destination": "/api/[...slug]" },
-    { "source": "/api/(.*)", "destination": "/api/[...slug]" },
+    { "source": "/api/(.*)", "destination": "/api/[...slug]?slug=$1" },
     { "source": "/((?!api/|css/|js/|assets/|favicon.ico|.*\\..*).*)", "destination": "/index.html" }
   ]
 }

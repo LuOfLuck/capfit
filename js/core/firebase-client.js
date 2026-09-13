@@ -47,9 +47,16 @@ async function signInWithGoogle() {
   const { GoogleAuthProvider, signInWithPopup } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js');
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
-  const result = await signInWithPopup(auth, provider);
-  currentFirebaseUser = result.user;
-  return result.user;
+  try {
+    const result = await signInWithPopup(auth, provider);
+    currentFirebaseUser = result.user;
+    return result.user;
+  } catch (err) {
+    if (err.code === 'auth/unauthorized-domain') {
+      throw new Error(`El dominio '${window.location.hostname}' no está autorizado en Firebase. Añadilo en Firebase Console -> Authentication -> Settings -> Authorized domains.`);
+    }
+    throw err;
+  }
 }
 
 async function signInWithEmail(email, password) {

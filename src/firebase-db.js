@@ -17,11 +17,29 @@ const {
   getDocFromServer
 } = require('firebase/firestore');
 
-const firebaseConfig = require('../firebase-applet-config.json');
+let firebaseConfig;
+try {
+  firebaseConfig = require('../firebase-applet-config.json');
+} catch (e) {
+  try {
+    firebaseConfig = require('./firebase-applet-config.json');
+  } catch (e2) {
+    firebaseConfig = {
+      projectId: process.env.FIREBASE_PROJECT_ID || "capfit-6689b",
+      appId: process.env.FIREBASE_APP_ID || "1:278406793068:web:da02f07bf8b13afdeb1549",
+      apiKey: process.env.FIREBASE_API_KEY || "AIzaSyAFz9zUuRPgy4n-tYP-3BxwmXldMBMUmhA",
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN || "capfit-6689b.firebaseapp.com",
+      firestoreDatabaseId: process.env.FIREBASE_DATABASE_ID || "(default)",
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "capfit-6689b.firebasestorage.app",
+      messagingSenderId: "278406793068",
+      measurementId: "G-RJFGW1349J"
+    };
+  }
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
 
 let isConnected = false;
 let connectionError = null;
@@ -51,7 +69,11 @@ function handleFirestoreError(error, operationType, path) {
  */
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    const testPromise = getDocFromServer(doc(db, 'test', 'connection'));
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Connection check timeout')), 3000)
+    );
+    await Promise.race([testPromise, timeoutPromise]);
     isConnected = true;
     connectionError = null;
     console.log('✅ Conexión con Firebase Firestore verificada exitosamente.');

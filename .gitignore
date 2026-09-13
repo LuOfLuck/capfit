@@ -17,7 +17,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Lockfiles
-package-lock.json
+bun.lock*
 yarn.lock
 pnpm-lock.yaml
 
