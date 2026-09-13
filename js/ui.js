@@ -388,27 +388,15 @@
 
   // Initialize Scroll-triggered animations
   window.initScrollAnimations = function() {
-    if (!('IntersectionObserver' in window)) {
-      document.querySelectorAll('.fade-in').forEach(el => el.classList.add('visible'));
-      return;
-    }
-
     const obs = new IntersectionObserver(entries => {
       entries.forEach(e => {
         if (e.isIntersecting) {
           e.target.classList.add('visible');
         }
       });
-    }, { threshold: 0.05, rootMargin: '50px' });
+    }, { threshold: 0.1 });
 
-    document.querySelectorAll('.fade-in').forEach(el => {
-      // Si ya está en pantalla o es parte de la vista inicial, mostrarlo de inmediato
-      const rect = el.getBoundingClientRect();
-      if (rect.top < window.innerHeight && rect.bottom > 0) {
-        el.classList.add('visible');
-      }
-      obs.observe(el);
-    });
+    document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
   };
 
   // Setup DOM listeners

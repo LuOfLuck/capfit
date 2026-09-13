@@ -91,9 +91,6 @@
       return result.user;
     } catch (err) {
       console.error('Error Google Sign-In:', err);
-      if (err.code === 'auth/unauthorized-domain') {
-        throw new Error(`El dominio '${window.location.hostname}' no está autorizado en Firebase. Añadilo en Firebase Console -> Authentication -> Settings -> Authorized domains.`);
-      }
       if (err.code === 'auth/popup-blocked') {
         throw new Error('El navegador bloqueó la ventana emergente de Google. Permití ventanas emergentes o abrí la app en una pestaña nueva.');
       }
