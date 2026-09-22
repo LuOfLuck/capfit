@@ -294,7 +294,7 @@ async function executeTakePhoto() {
 
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
 
-  const maxW = CONFIG.aiModel === 'gpt-image-2' ? 512 : 768;
+  const maxW = (CONFIG.aiModel && CONFIG.aiModel.startsWith('gpt-image')) ? 512 : 768;
   const videoW = video.videoWidth || 640;
   const videoH = video.videoHeight || 480;
 
@@ -365,7 +365,7 @@ async function executeTakePhoto() {
   const liveTools = document.getElementById('cam-live-tools');
   if (liveTools) liveTools.style.display = 'none';
 
-  const quality = CONFIG.aiModel === 'gpt-image-2' ? 0.75 : 0.80;
+  const quality = (CONFIG.aiModel && CONFIG.aiModel.startsWith('gpt-image')) ? 0.75 : 0.80;
   const dataURL = canvas.toDataURL('image/jpeg', quality);
 
   if (mediaStream) {

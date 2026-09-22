@@ -468,6 +468,50 @@ function checkAndDeductAiCredit(storeId) {
   };
 }
 
+function refundAiCredit(storeId) {
+  try {
+    const stores = getAllStores();
+    const idx = stores.findIndex(s => s.id === storeId || s.subdomain === storeId);
+    if (idx === -1) {
+      return { ok: false, error: 'Tienda no registrada para reintegro de IA' };
+    }
+
+    const store = stores[idx];
+    const currentPeriod = getCurrentPeriod();
+
+    if (store.aiCurrentPeriod === currentPeriod && (Number(store.aiGenerationsUsed) || 0) > 0) {
+      store.aiGenerationsUsed = Math.max(0, (Number(store.aiGenerationsUsed) || 0) - 1);
+      saveStores(stores);
+
+      if (FirebaseDb && typeof FirebaseDb.logAITryOn === 'function') {
+        FirebaseDb.logAITryOn({
+          storeId: store.id,
+          storeName: store.name,
+          subdomain: store.subdomain,
+          period: currentPeriod,
+          quotaUsed: store.aiGenerationsUsed,
+          quotaLimit: store.aiMonthlyLimit !== undefined ? Number(store.aiMonthlyLimit) : 100,
+          status: 'refunded'
+        }).catch(err => console.warn('Firestore AI refund log note:', err.message));
+      }
+    }
+
+    const limit = store.aiMonthlyLimit !== undefined ? Number(store.aiMonthlyLimit) : 100;
+    return {
+      ok: true,
+      storeId: store.id,
+      storeName: store.name,
+      used: store.aiGenerationsUsed || 0,
+      limit,
+      remaining: Math.max(0, limit - (store.aiGenerationsUsed || 0)),
+      period: currentPeriod
+    };
+  } catch (err) {
+    console.error('Error en refundAiCredit:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
 function getAiQuotaStatus(storeId) {
   const stores = getAllStores();
   const store = stores.find(s => s.id === storeId || s.subdomain === storeId);
@@ -849,6 +893,7 @@ module.exports = {
   fetchStoreOrdersFromDb,
   writeStoreOrders,
   checkAndDeductAiCredit,
+  refundAiCredit,
   getAiQuotaStatus,
   createStore,
   updateStore,

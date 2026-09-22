@@ -1,5 +1,5 @@
 // api/gpt.js
-// Proxy para OpenAI GPT-Image-2 edit endpoint via fal.ai
+// Proxy para OpenAI GPT-Image edit endpoint via fal.ai con fallback automático
 
 const https = require('https');
 
@@ -55,42 +55,86 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    console.log('[gpt-image-2] Payload recibido:', JSON.stringify({
-      prompt: payload.prompt?.slice(0, 50),
-      image_urls_count: payload.image_urls?.length,
-      quality: payload.quality,
-      image_size: payload.image_size,
-      output_format: payload.output_format,
-    }));
-
     // Validar campos requeridos
     if (!payload.image_urls || !Array.isArray(payload.image_urls) || payload.image_urls.length === 0) {
       res.status(400).json({ error: 'image_urls es requerido y debe ser un array no vacío' });
       return;
     }
 
+    const primaryRoute = (payload.model_route || 'openai/gpt-image-2.5/sunburst/edit').replace(/^\//, '');
+    const fallbackRoute = (payload.fallback_route || 'openai/gpt-image-2/edit').replace(/^\//, '');
+
+    console.log(`[gpt-image] Payload recibido para ${primaryRoute}:`, JSON.stringify({
+      prompt: payload.prompt?.slice(0, 50),
+      image_urls_count: payload.image_urls?.length,
+      quality: payload.quality || 'medium',
+      image_size: payload.image_size || 'auto',
+      output_compression: payload.output_compression !== undefined ? payload.output_compression : 80,
+      output_format: payload.output_format || 'jpeg',
+    }));
+
+    const primaryPayload = {
+      prompt: payload.prompt,
+      image_urls: payload.image_urls,
+      quality: payload.quality || 'medium',
+      image_size: payload.image_size || 'auto',
+      output_compression: payload.output_compression !== undefined ? payload.output_compression : 80,
+      output_format: payload.output_format || 'jpeg',
+    };
+    const primaryBuffer = Buffer.from(JSON.stringify(primaryPayload));
+
     // Reenviar a fal.ai
-    const result = await httpsRequest(
+    let result = await httpsRequest(
       'fal.run',
-      '/openai/gpt-image-2/edit',
+      '/' + primaryRoute,
       'POST',
       {
         'Content-Type': 'application/json',
         'Authorization': 'Key ' + falKey,
-        'Content-Length': body.length,
+        'Content-Length': primaryBuffer.length,
       },
-      body
+      primaryBuffer
     );
 
-    console.log('[gpt-image-2] fal.ai status:', result.status);
-    console.log('[gpt-image-2] fal.ai response:', result.body.toString().slice(0, 300));
+    console.log(`[gpt-image] fal.ai ${primaryRoute} status:`, result.status);
+
+    const bodyStr = result.body ? result.body.toString() : '';
+    const is404 = result.status === 404;
+    const isModelNotFound = result.status === 400 && /model[_\s-]?not[_\s-]?found|invalid[_\s-]?model|unknown[_\s-]?model/i.test(bodyStr);
+    const isAvailabilityError = (result.status === 503 || result.status === 422 || result.status === 502) &&
+      /model|unavailable|not found|does not exist/i.test(bodyStr);
+
+    if (is404 || isModelNotFound || isAvailabilityError) {
+      console.log('[TRYON] Fallback a gpt-image-2 aplicado');
+      const fallbackPayload = {
+        prompt: payload.prompt,
+        image_urls: payload.image_urls,
+        quality: 'low',
+        image_size: 'square',
+        output_format: payload.output_format || 'jpeg',
+      };
+      const fallbackBuffer = Buffer.from(JSON.stringify(fallbackPayload));
+
+      result = await httpsRequest(
+        'fal.run',
+        '/' + fallbackRoute,
+        'POST',
+        {
+          'Content-Type': 'application/json',
+          'Authorization': 'Key ' + falKey,
+          'Content-Length': fallbackBuffer.length,
+        },
+        fallbackBuffer
+      );
+      console.log(`[TRYON] fal.ai fallback ${fallbackRoute} status:`, result.status);
+    }
 
     res.status(result.status)
        .setHeader('Content-Type', result.headers['content-type'] || 'application/json')
        .end(result.body);
 
   } catch (e) {
-    console.error('[gpt-image-2] error:', e.message);
+    console.error('[gpt-image] error:', e.message);
     res.status(502).json({ error: e.message });
   }
 };

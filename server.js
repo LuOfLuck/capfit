@@ -92,7 +92,7 @@ function httpsReq(hostname, path, method, headers, body) {
     const chunks = [];
     const req = https.request({ hostname, path, method, headers }, res => {
       res.on('data', c => chunks.push(c));
-      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks), json(){ return JSON.parse(this.body.toString()); } }));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks), json(){ return JSON.parse(this.body.toString()); } }));
     });
     req.on('error', reject);
     if (body && body.length > 0) req.write(body);
@@ -164,7 +164,7 @@ async function appHandler(req, res) {
     return;
   }
 
-   // ── /api/gpt/edit → fal.run/openai/gpt-image-2/edit ────
+   // ── /api/gpt/edit → fal.ai con nuevo modelo openai/gpt-image-2.5 y fallback a gpt-image-2 ────
   if (reqPath === '/api/gpt/edit') {
     const falKey = process.env.FAL_KEY || '';
 
@@ -185,7 +185,7 @@ async function appHandler(req, res) {
       return;
     }
     console.log(`[AI CUOTA] 1 crédito descontado para "${currentStore.name}". Usados este mes: ${quotaCheck.used}/${quotaCheck.limit} (Restantes: ${quotaCheck.remaining})`);
-    
+
     // ===== LOGS DE DEBUG =====
     console.log('');
     console.log('╔════════════════════════════════════════════╗');
@@ -194,42 +194,127 @@ async function appHandler(req, res) {
     console.log('║  FAL_KEY presente:  ', falKey ? '✓ SÍ' : '✗ NO');
     if (falKey) console.log('║  FAL_KEY preview:   ', falKey.slice(0, 12) + '...');
     console.log('╚════════════════════════════════════════════╝');
-    // =========================
 
     if (!falKey) {
       console.error('[DEBUG] ERROR: FAL_KEY no configurada en .env');
+      if (typeof StoreManager.refundAiCredit === 'function') {
+        StoreManager.refundAiCredit(currentStore.id);
+      }
       res.writeHead(500, corsHeaders());
       res.end(JSON.stringify({ error: 'FAL_KEY no configurada en .env' }));
       return;
     }
-    
-    console.log('[DEBUG] Leyendo body del request...');
-    
+
     try {
-      const body = await readBody(req);
-      console.log('[DEBUG] Body recibido: ' + body.length + ' bytes');
-      console.log('[DEBUG] Primeros 200 chars del body:', body.toString().slice(0, 200));
+      const rawBody = await readBody(req);
+      let payload;
+      try {
+        payload = JSON.parse(rawBody.toString());
+      } catch (e) {
+        if (typeof StoreManager.refundAiCredit === 'function') {
+          StoreManager.refundAiCredit(currentStore.id);
+        }
+        res.writeHead(400, corsHeaders());
+        res.end(JSON.stringify({ error: 'JSON inválido en body: ' + e.message }));
+        return;
+      }
 
-      console.log('[DEBUG] Enviando request a fal.run/openai/gpt-image-2/edit...');
-      console.log('[DEBUG] Headers:', {
-        'Content-Type': 'application/json',
-        'Authorization': 'Key ' + falKey.slice(0, 8) + '...',
-        'Content-Length': body.length
-      });
+      // Validar imágenes
+      if (!payload.image_urls || !Array.isArray(payload.image_urls) || payload.image_urls.length === 0) {
+        if (typeof StoreManager.refundAiCredit === 'function') {
+          StoreManager.refundAiCredit(currentStore.id);
+        }
+        res.writeHead(400, corsHeaders());
+        res.end(JSON.stringify({ error: 'image_urls es requerido y debe ser un array no vacío' }));
+        return;
+      }
 
-      proxyRequest('fal.run', '/openai/gpt-image-2/edit', 'POST', {
+      const primaryRoute = (payload.model_route || 'openai/gpt-image-2.5/sunburst/edit').replace(/^\//, '');
+      const fallbackRoute = (payload.fallback_route || 'openai/gpt-image-2/edit').replace(/^\//, '');
+
+      // Payload del cliente para modelo nuevo (gpt-image-2.5)
+      // quality: medium, image_size: auto, output_compression: 80
+      const primaryPayload = {
+        prompt: payload.prompt,
+        image_urls: payload.image_urls,
+        quality: payload.quality || 'medium',
+        image_size: payload.image_size || 'auto',
+        output_compression: payload.output_compression !== undefined ? payload.output_compression : 80,
+        output_format: payload.output_format || 'jpeg',
+      };
+      const primaryBuffer = Buffer.from(JSON.stringify(primaryPayload));
+
+      console.log(`[TRYON] Enviando request a fal.run/${primaryRoute}...`);
+      console.log(`[TRYON] Parámetros: quality=${primaryPayload.quality}, image_size=${primaryPayload.image_size}, compression=${primaryPayload.output_compression}`);
+
+      let falRes = await httpsReq('fal.run', '/' + primaryRoute, 'POST', {
         'Content-Type':   'application/json',
         'Authorization':  'Key ' + falKey,
-        'Content-Length': body.length,
-      }, body, res);
+        'Content-Length': primaryBuffer.length,
+      }, primaryBuffer);
 
-      console.log('[DEBUG] Request proxy enviada. Esperando respuesta de fal.ai...');
+      console.log(`[TRYON] Respuesta de fal.run/${primaryRoute}: status ${falRes.status}`);
 
-    } catch(e) { 
+      const bodyStr = falRes.body ? falRes.body.toString() : '';
+      const is404 = falRes.status === 404;
+      const isModelNotFound = falRes.status === 400 && /model[_\s-]?not[_\s-]?found|invalid[_\s-]?model|unknown[_\s-]?model/i.test(bodyStr);
+      const isAvailabilityError = (falRes.status === 503 || falRes.status === 422 || falRes.status === 502) &&
+        /model|unavailable|not found|does not exist/i.test(bodyStr);
+
+      // Reintentar una sola vez contra fallback si hay error de disponibilidad del modelo
+      if (is404 || isModelNotFound || isAvailabilityError) {
+        console.log('[TRYON] Fallback a gpt-image-2 aplicado');
+        console.log(`[TRYON] Causa: Status ${falRes.status} - ${bodyStr.slice(0, 150)}`);
+
+        // Parámetros antiguos para gpt-image-2: quality 'low', image_size 'square'
+        const fallbackPayload = {
+          prompt: payload.prompt,
+          image_urls: payload.image_urls,
+          quality: 'low',
+          image_size: 'square',
+          output_format: payload.output_format || 'jpeg',
+        };
+        const fallbackBuffer = Buffer.from(JSON.stringify(fallbackPayload));
+
+        console.log(`[TRYON] Reintentando contra fallback: fal.run/${fallbackRoute}...`);
+        falRes = await httpsReq('fal.run', '/' + fallbackRoute, 'POST', {
+          'Content-Type':   'application/json',
+          'Authorization':  'Key ' + falKey,
+          'Content-Length': fallbackBuffer.length,
+        }, fallbackBuffer);
+
+        console.log(`[TRYON] Respuesta de fallback fal.run/${fallbackRoute}: status ${falRes.status}`);
+      }
+
+      // Reintegrar crédito si fal responde con error de servidor (>= 500)
+      if (falRes.status >= 500) {
+        console.warn(`[TRYON] fal.ai devolvió error de servidor (${falRes.status}). Reintegrando crédito...`);
+        if (typeof StoreManager.refundAiCredit === 'function') {
+          const refund = StoreManager.refundAiCredit(currentStore.id);
+          console.log(`[AI CUOTA] 1 crédito reintegrado para "${currentStore.name}". Usados: ${refund.used}`);
+        }
+      }
+
+      const outHeaders = { ...corsHeaders() };
+      if (falRes.headers && falRes.headers['content-type']) {
+        outHeaders['Content-Type'] = falRes.headers['content-type'];
+      } else {
+        outHeaders['Content-Type'] = 'application/json';
+      }
+
+      res.writeHead(falRes.status, outHeaders);
+      res.end(falRes.body);
+
+    } catch (e) {
       console.error('[DEBUG] ERROR en /api/gpt/edit:', e.message);
       console.error('[DEBUG] Stack:', e.stack);
-      res.writeHead(500, corsHeaders()); 
-      res.end(JSON.stringify({ error: e.message })); 
+      // Reintegrar crédito en caso de error de servidor inesperado
+      if (typeof StoreManager.refundAiCredit === 'function') {
+        const refund = StoreManager.refundAiCredit(currentStore.id);
+        console.log(`[AI CUOTA] 1 crédito reintegrado por excepción para "${currentStore.name}". Usados: ${refund.used}`);
+      }
+      res.writeHead(500, corsHeaders());
+      res.end(JSON.stringify({ error: e.message }));
     }
     return;
   }

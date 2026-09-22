@@ -280,7 +280,7 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
     }
 
     console.log('[TRYON] Dispatching a motor:', CONFIG.aiModel);
-    if (CONFIG.aiModel === 'gpt-image-2') {
+    if (CONFIG.aiModel === 'gpt-image-2' || (CONFIG.aiModel && CONFIG.aiModel.startsWith('gpt-image'))) {
       await runGPTImage2(photoDataURL, garmentDataURI, tipo);
     } else {
       await runFASHN(photoDataURL, garmentDataURI);
@@ -299,28 +299,31 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  GPT-IMAGE-2 (fal.ai / openai / gpt-image-2 / edit)
+//  GPT-IMAGE TRY-ON (fal.ai / openai / gpt-image-2.5 / edit)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   const proxy = CONFIG.proxyBase;
   const storeId = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : '';
-  console.log('[GPT2] Iniciando, proxy:', proxy, '| storeId:', storeId);
+  console.log('[GPT] Iniciando, modelo:', CONFIG.aiModel, '| proxy:', proxy, '| storeId:', storeId);
 
   setStep(2);
 
   const prompt = getPromptParaTipo(tipo);
-  console.log('[GPT2] Tipo:', tipo, '| Prompt:', prompt);
+  console.log('[GPT] Tipo:', tipo, '| Prompt:', prompt);
 
   const payload = {
     prompt,
     image_urls: [photoDataURL, garmentDataURI],
-    quality: 'low',
-    image_size: 'square',
+    quality: 'medium',
+    image_size: 'auto',
+    output_compression: 80,
     output_format: 'jpeg',
+    model_route: CONFIG.aiModelRoute,
+    fallback_route: CONFIG.aiFallbackRoute,
   };
 
   const url = `${proxy}/api/gpt/edit${storeId ? `?store=${encodeURIComponent(storeId)}` : ''}`;
-  console.log('[GPT2] Fetching:', url);
+  console.log('[GPT] Fetching:', url);
 
   try {
     const resp = await fetch(url, {
@@ -329,7 +332,7 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
       body: JSON.stringify(payload),
     });
 
-    console.log('[GPT2] Response status:', resp.status);
+    console.log('[GPT] Response status:', resp.status);
 
     if (resp.status === 429) {
       let errData = {};
@@ -342,19 +345,19 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 
     if (!resp.ok) {
       const t = await resp.text();
-      console.error('[GPT2] ERROR HTTP', resp.status, ':', t.slice(0, 500));
-      throw new Error('GPT-Image-2 error (' + resp.status + '): ' + t);
+      console.error('[GPT] ERROR HTTP', resp.status, ':', t.slice(0, 500));
+      throw new Error('GPT-Image error (' + resp.status + '): ' + t);
     }
 
     const data = await resp.json();
-    console.log('[GPT2] Response data:', data);
+    console.log('[GPT] Response data:', data);
 
     const imgURL = extractImageUrl(data);
-    console.log('[GPT2] imgURL encontrada:', imgURL ? 'SÍ (' + imgURL.slice(0, 60) + '...)' : 'NO');
+    console.log('[GPT] imgURL encontrada:', imgURL ? 'SÍ (' + imgURL.slice(0, 60) + '...)' : 'NO');
 
     if (!imgURL) {
-      console.error('[GPT2] No imgURL en respuesta. Estructura:', data);
-      throw new Error('GPT-Image-2 no devolvió URL de imagen válida');
+      console.error('[GPT] No imgURL en respuesta. Estructura:', data);
+      throw new Error('El modelo de IA no devolvió URL de imagen válida');
     }
 
     // Sincronizar cuota de IA consumida
@@ -366,10 +369,10 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 
     setStep(4);
     mostrarResultado(imgURL);
-    console.log('[GPT2] Resultado mostrado correctamente');
+    console.log('[GPT] Resultado mostrado correctamente');
 
   } catch (e) {
-    console.error('[GPT2] ERROR en fetch:', e);
+    console.error('[GPT] ERROR en fetch:', e);
     throw e;
   }
 }

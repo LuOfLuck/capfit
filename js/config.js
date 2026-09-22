@@ -9,16 +9,15 @@ const CONFIG = {
   whatsappMsg:'Hola! Vi una gorra en CAPFIT y me encantó. ¡Quiero comprarla!',
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  //  MODELO DE IA — cambiá esta línea para testear
-  //
-  //  Opciones disponibles:
-  //    'gpt-image-2'  → OpenAI GPT-Image-2 edit  (~$0.015 en low, mejor para gorras)
-  //    'fashn-v1.6'   → FASHN Virtual Try-On v1.6 (~$0.075, especializado en ropa)
-  //    'fashn-v1.5'   → FASHN Virtual Try-On v1.5 (~$0.075, versión anterior)
+  //  MODELO DE IA CENTRALIZADO
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  aiModel: 'gpt-image-2',
+  aiModel: 'gpt-image-2.5-sunburst',
+  aiModelRoute: 'openai/gpt-image-2.5/sunburst/edit',   // ruta exacta en fal.ai
+  aiFallbackRoute: 'openai/gpt-image-2/edit',        // fallback si falla
 
   proxyBase: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? window.location.origin
     : '',
 };
+
+window.CONFIG = CONFIG;
