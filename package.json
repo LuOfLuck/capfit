@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
+    "deploy": "vercel --prod",
+    "test:rules": "node scripts/test-rules.js",
     "build": "echo 'Build complete'",
     "lint": "echo 'No lint issues'"
   },

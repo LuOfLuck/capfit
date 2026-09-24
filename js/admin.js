@@ -831,6 +831,29 @@ const AdminPanel = (() => {
     });
   }
 
+  function openStorefront() {
+    const host = (window.location.hostname || '').toLowerCase();
+    const sub = _currentSubdomain || 'principal';
+    if (host.includes('capfit.store')) {
+      if (sub === 'principal' || sub === 'capfit') {
+        window.open('https://capfit.store/', '_blank');
+      } else {
+        window.open(`https://${sub}.capfit.store/`, '_blank');
+      }
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('subdomain');
+      url.searchParams.delete('admin');
+      if (sub && sub !== 'principal' && sub !== 'capfit') {
+        url.searchParams.set('store', sub);
+      } else {
+        url.searchParams.delete('store');
+      }
+      url.hash = '#inicio';
+      window.open(url.toString(), '_blank');
+    }
+  }
+
   function renderLoginView() {
     const container = document.getElementById('admin-content-area');
     if (!container) return;
@@ -841,6 +864,14 @@ const AdminPanel = (() => {
     container.innerHTML = `
       <div class="auth-card">
         
+        <!-- Admin Subdomain Portal Badge -->
+        <div style="text-align:center;margin-bottom:18px">
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#0f172a;color:#ffffff;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;letter-spacing:0.5px">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981"></span>
+            admin.capfit.store · Panel de Control
+          </span>
+        </div>
+
         <!-- Segmented Tab Switcher -->
         <div class="auth-tabs">
           <button type="button" class="auth-tab-btn ${isLoginTab ? 'active' : ''}" onclick="AdminPanel.setPortalTab('login')">
@@ -1167,8 +1198,10 @@ const AdminPanel = (() => {
               <span class="pulse-dot"></span>
               ${isSuper ? '👑 SuperAdmin SaaS' : ' Dueño de Tienda'}
             </div>
+            <span style="display:inline-flex;align-items:center;gap:4px;background:#0f172a;color:#ffffff;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-weight:700;letter-spacing:0.5px">
+              ⚡ admin.capfit.store
+            </span>
    
-  
             ${_userEmail ? `
               <span style="display:inline-flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-weight:600">
                 👤 ${_userEmail}
@@ -1198,7 +1231,7 @@ const AdminPanel = (() => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             Refrescar
           </button>
-          <button class="admin-btn-outline" onclick="Store.switchStore('${_currentStoreId}')" title="Ver la tienda como cliente">
+          <button class="admin-btn-outline" onclick="AdminPanel.openStorefront()" title="Ver la tienda como cliente">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             Ver Tienda
           </button>
@@ -3346,6 +3379,7 @@ const AdminPanel = (() => {
   return {
     init: render,
     isLoggedIn,
+    openStorefront,
     login,
     logout,
     submitLogin,

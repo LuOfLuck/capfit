@@ -186,93 +186,128 @@ function getStoreBySubdomain(subdomain) {
 }
 
 function resolveStoreFromRequest(req) {
-  const host = (req.headers.host || '').toLowerCase();
-
-  // 1. Query string (?store=tienda1 o ?tienda=tienda1) - TIENE PRIORIDAD MÁXIMA
-  try {
-    const urlObj = new URL(req.url, `http://${host || 'localhost'}`);
-    const qsStore = urlObj.searchParams.get('store') || urlObj.searchParams.get('tienda');
-    if (qsStore) {
-      const cleanQs = qsStore.trim().toLowerCase();
-      if (!cleanQs.startsWith('ais-')) {
-        if (cleanQs === 'www' || cleanQs === 'capfit' || cleanQs === 'principal' || cleanQs === 'shop' || cleanQs === 'shpo') {
-          return getStoreById('principal') || getAllStores()[0];
-        }
-        const s = getStoreById(cleanQs) || getStoreBySubdomain(cleanQs);
-        if (s) return s;
-      }
-    }
-  } catch (_) {}
-
-  // 2. Headers explícitos
-  const headerStore = (req.headers['x-store-id'] || req.headers['x-store-subdomain'] || '').toLowerCase();
-  if (headerStore && !headerStore.startsWith('ais-')) {
-    if (headerStore === 'www' || headerStore === 'capfit' || headerStore === 'principal' || headerStore === 'shop' || headerStore === 'shpo') {
-      return getStoreById('principal') || getAllStores()[0];
-    }
-    const s = getStoreById(headerStore) || getStoreBySubdomain(headerStore);
-    if (s) return s;
-  }
-
-  // 3. Subdominio y Dominio en Host header
+  const host = (req.headers.host || '').toLowerCase().trim();
   const hostWithoutPort = host.split(':')[0];
 
-  // Si el dominio es capfit.store o www.capfit.store -> siempre es la tienda principal
-  if (hostWithoutPort === 'capfit.store' || hostWithoutPort === 'www.capfit.store') {
+  // Identificar si estamos en un entorno de desarrollo compartido o preview
+  const isDevOrSharedEnvironment = (
+    hostWithoutPort.includes('localhost') ||
+    hostWithoutPort.includes('127.0.0.1') ||
+    hostWithoutPort.includes('run.app') ||
+    hostWithoutPort.startsWith('ais-') ||
+    hostWithoutPort.includes('aistudio')
+  );
+
+  // 1. Resolver primero la tienda según el Host / Subdominio
+  let hostStore = null;
+
+  if (hostWithoutPort === 'admin.capfit.store' || hostWithoutPort.startsWith('admin.')) {
+    hostStore = {
+      id: 'admin_portal',
+      subdomain: 'admin',
+      fullDomain: 'admin.capfit.store',
+      name: 'Panel de Administración CAPFIT',
+      tagline: 'Backoffice y Administración Central',
+      isAdminPortal: true,
+      active: true
+    };
+  } else if (hostWithoutPort === 'capfit.store' || hostWithoutPort === 'www.capfit.store') {
+    hostStore = getStoreById('principal') || getAllStores()[0];
+  } else if (!isDevOrSharedEnvironment) {
+    // Buscar coincidencia exacta por fullDomain
+    const all = getAllStores();
+    const matchByDomain = all.find(s => (s.fullDomain || '').toLowerCase() === hostWithoutPort);
+    if (matchByDomain) {
+      hostStore = matchByDomain;
+    } else {
+      // Buscar por subdominio en dominios propios (*.capfit.store / *.capfit.shop)
+      const parts = hostWithoutPort.split('.');
+      if (parts.length >= 2) {
+        const sub = parts[0];
+        if (sub === 'admin' || sub === 'account') {
+          hostStore = {
+            id: 'admin_portal',
+            subdomain: 'admin',
+            fullDomain: 'admin.capfit.store',
+            name: 'Panel de Administración CAPFIT',
+            tagline: 'Backoffice y Administración Central',
+            isAdminPortal: true,
+            active: true
+          };
+        } else if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'shpo') {
+          hostStore = getStoreById('principal') || all[0];
+        } else if (sub === 'blog') {
+          hostStore = {
+            id: 'capfit_blog',
+            subdomain: 'blog',
+            fullDomain: 'blog.capfit.store',
+            name: 'Blog CAPFIT Oficial',
+            tagline: 'Tendencias Urbanas, Moda y Probadores Virtuales con IA',
+            isBlogPortal: true,
+            active: true
+          };
+        } else {
+          const matchBySub = getStoreBySubdomain(sub);
+          if (matchBySub) {
+            hostStore = matchBySub;
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Extraer parámetro ?store= o ?tienda= si está presente
+  let qsStore = null;
+  try {
+    const urlObj = new URL(req.url, `http://${host || 'localhost'}`);
+    qsStore = urlObj.searchParams.get('store') || urlObj.searchParams.get('tienda');
+  } catch (_) {}
+
+  // 3. Validación y Protección Anti-Abuso:
+  // Si el host ya pertenece a una tienda específica, el query param solo se acepta si coincide con ella;
+  // de lo contrario, se ignora el query param y se usa estrictamente la tienda del host.
+  if (hostStore) {
+    if (qsStore) {
+      const cleanQs = qsStore.trim().toLowerCase();
+      const hostId = (hostStore.id || '').toLowerCase();
+      const hostSub = (hostStore.subdomain || '').toLowerCase();
+      if (cleanQs !== hostId && cleanQs !== hostSub) {
+        // Discrepancia detectada: intento de consumo de cuota cruzada o spoofing.
+        // Se preserva la tienda resuelta por el host.
+        return hostStore;
+      }
+    }
+    return hostStore;
+  }
+
+  // 4. En entorno de desarrollo / preview compartido (localhost o Cloud Run):
+  // Permitir selección explícita mediante ?store= siempre y cuando sea una tienda real y existente.
+  if (qsStore) {
+    const cleanQs = qsStore.trim().toLowerCase();
+    if (cleanQs === 'admin') {
+      return {
+        id: 'admin_portal',
+        subdomain: 'admin',
+        fullDomain: 'admin.capfit.store',
+        name: 'Panel de Administración CAPFIT',
+        tagline: 'Backoffice y Administración Central',
+        isAdminPortal: true,
+        active: true
+      };
+    }
+    if (cleanQs === 'www' || cleanQs === 'capfit' || cleanQs === 'principal') {
+      return getStoreById('principal') || getAllStores()[0];
+    }
+    // Validación estricta: sólo aceptar tiendas previamente registradas
+    const validStore = getStoreById(cleanQs) || getStoreBySubdomain(cleanQs);
+    if (validStore && validStore.active !== false) {
+      return validStore;
+    }
+    // Si no es válida, nunca aceptar storeId arbitrario: fallback seguro
     return getStoreById('principal') || getAllStores()[0];
   }
 
-  if (
-    !hostWithoutPort.includes('run.app') &&
-    !hostWithoutPort.includes('localhost') &&
-    !hostWithoutPort.includes('127.0.0.1') &&
-    !hostWithoutPort.startsWith('ais-') &&
-    !hostWithoutPort.includes('aistudio')
-  ) {
-    const parts = hostWithoutPort.split('.');
-    if (parts.length >= 2) {
-      const sub = parts[0];
-      // Subdominios reservados de CAPFIT
-      if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'shpo') {
-        return getStoreById('principal') || getAllStores()[0];
-      }
-      if (sub === 'app') {
-        const p = getStoreById('principal') || getAllStores()[0];
-        return {
-          ...p,
-          isAppPortal: true
-        };
-      }
-      if (sub === 'blog') {
-        return {
-          id: 'capfit_blog',
-          subdomain: 'blog',
-          fullDomain: 'blog.capfit.store',
-          name: 'Blog CAPFIT Oficial',
-          tagline: 'Tendencias Urbanas, Moda y Probadores Virtuales con IA',
-          isBlogPortal: true,
-          active: true
-        };
-      }
-      if (sub === 'account') {
-        return {
-          id: 'account_portal',
-          subdomain: 'account',
-          fullDomain: 'account.capfit.store',
-          name: 'Portal Dueños de Tienda CAPFIT',
-          tagline: 'Gestión y Backoffice para Socios',
-          isAccountPortal: true,
-          active: true
-        };
-      }
-      if (parts.length >= 3 && !RESERVED_SUBDOMAINS.includes(sub)) {
-        const s = getStoreBySubdomain(sub);
-        if (s) return s;
-      }
-    }
-  }
-
-  // Fallback: tienda principal CAPFIT
+  // 5. Fallback predeterminado a tienda principal
   return getStoreById('principal') || getAllStores()[0];
 }
 

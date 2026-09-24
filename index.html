@@ -8,6 +8,18 @@
   <meta property="og:title" content="CAPFIT — Probador Virtual de Gorras con IA">
   <meta property="og:description" content="Multi-tenant e-commerce platform for caps, sunglasses and accessories with AI Try-On, monthly quota management, store subdomains, and backoffice management.">
   
+  <!-- Protección y bloqueo de peticiones/logs en consola del navegador -->
+  <script>
+    (function() {
+      if (typeof window !== 'undefined' && window.console) {
+        const _empty = function() {};
+        window.console.log = _empty;
+        window.console.debug = _empty;
+        window.console.info = _empty;
+      }
+    })();
+  </script>
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -54,7 +66,7 @@
 
       <ul class="nav-links">
         <li><a href="#inicio" onclick="navigateToView('inicio'); Catalogo.resetFilters();" class="active">Inicio</a></li>
-        <li><a href="#catalogo-section" onclick="navigateToView('inicio'); Catalogo.resetFilters();">Catálogo</a></li>
+        <li><a href="#catalogo-section" onclick="irASeleccionarGorras(event)">Catálogo</a></li>
         <li><a href="#probador" onclick="navigateToView('probador');">Probador IA</a></li>
       </ul>
 
@@ -101,7 +113,7 @@
             </div>
           </div>
 
-          <button class="btn-hero-primary" id="hero-display-cta" onclick="navigateToView('probador')">
+          <button class="btn-hero-primary" id="hero-display-cta" onclick="irASeleccionarGorras(event)">
             PROBAR AHORA →
           </button>
 
@@ -267,7 +279,7 @@
         </div>
 
         <div style="text-align:center;margin-top:28px">
-          <button class="btn-hero-primary" onclick="navigateToView('probador')">
+          <button class="btn-hero-primary" onclick="irASeleccionarGorras(event)">
             PROBAR AHORA →
           </button>
           <p class="step-cta-sub" style="margin-top:8px">Sin registro • Gratis • En 10 seg</p>
@@ -1011,10 +1023,10 @@
           </p>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <button class="btn-hero-primary" onclick="navigateToView('probador')" style="padding:10px 22px;font-size:0.85rem">
+          <button class="btn-hero-primary" onclick="irASeleccionarGorras(event)" style="padding:10px 22px;font-size:0.85rem">
             PROBAR AHORA →
           </button>
-          <button class="btn-hero-secondary" onclick="navigateToView('inicio'); Catalogo.resetFilters();" style="padding:10px 20px;font-size:0.85rem">
+          <button class="btn-hero-secondary" onclick="irASeleccionarGorras(event)" style="padding:10px 20px;font-size:0.85rem">
             Ver Catálogo
           </button>
         </div>
@@ -1581,7 +1593,7 @@
             <li><a href="#sobre-nosotros" onclick="navigateToView('sobre-nosotros')">Sobre nosotros</a></li>
             <li><a href="#terminos" onclick="navigateToView('terminos')">Términos y condiciones</a></li>
             <li><a href="#privacidad" onclick="navigateToView('privacidad')">Política de privacidad</a></li>
-            <li><a href="#admin" onclick="navigateToView('admin')">Panel de Administración</a></li>
+            <li><a href="https://admin.capfit.store" id="footer-admin-link" onclick="handleAdminLink(event)">Panel de Administración</a></li>
           </ul>
         </div>
 
@@ -1605,6 +1617,7 @@
 
 
   <!-- ══ APPLICATION SCRIPTS ══ -->
+  <script src="js/image-utils.js"></script>
   <script src="js/config.js"></script>
   <script src="js/firebase-auth.js"></script>
   <script src="js/store.js"></script>

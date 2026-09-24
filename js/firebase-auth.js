@@ -21,22 +21,32 @@
   let initPromise = null;
   const authStateListeners = [];
 
-  // Subdominio del portal de dueños
-  function isAccountPortalDomain() {
+  // Subdominio del portal administrativo / panel de control
+  function isAdminPortalDomain() {
     const host = (window.location.hostname || '').toLowerCase();
     const search = window.location.search || '';
     const hash = window.location.hash || '';
     const path = window.location.pathname || '';
 
     return (
+      host === 'admin.capfit.store' ||
+      host.startsWith('admin.') ||
       host === 'account.capfit.store' ||
       host.startsWith('account.') ||
+      search.includes('admin=true') ||
+      search.includes('subdomain=admin') ||
       search.includes('account=true') ||
       search.includes('subdomain=account') ||
+      hash === '#admin' ||
       hash === '#account' ||
       hash === '#portal-duenos' ||
+      path === '/admin' ||
       path === '/account'
     );
+  }
+
+  function isAccountPortalDomain() {
+    return isAdminPortalDomain();
   }
 
   // Inicializar SDK modular de Firebase desde CDN oficial
@@ -310,6 +320,7 @@
   // Exponer API global
   window.CapfitAuth = {
     init: initAuth,
+    isAdminPortalDomain,
     isAccountPortalDomain,
     signInWithGoogle,
     signInWithEmail,

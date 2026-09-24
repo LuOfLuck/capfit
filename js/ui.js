@@ -147,14 +147,48 @@
     });
   };
 
+  // Detección de dominio de administración (admin.capfit.store)
+  function isAdminPortalDomain() {
+    const host = (window.location.hostname || '').toLowerCase();
+    const search = window.location.search || '';
+    return (
+      host === 'admin.capfit.store' ||
+      host.startsWith('admin.') ||
+      host === 'account.capfit.store' ||
+      host.startsWith('account.') ||
+      search.includes('admin=true') ||
+      search.includes('subdomain=admin') ||
+      search.includes('account=true') ||
+      search.includes('subdomain=account')
+    );
+  }
+  window.isAdminPortalDomain = isAdminPortalDomain;
+
   // View Navigation Router
   window.navigateToView = function(viewName) {
-    const views = document.querySelectorAll('.app-view');
-    views.forEach(v => v.classList.remove('active-view'));
-
     let cleanName = (viewName || '').trim().replace(/^#\/?|^[/\\]+/, '');
     if (!cleanName) cleanName = 'inicio';
     if (cleanName === 'account' || cleanName === 'portal-duenos') cleanName = 'admin';
+
+    const host = (window.location.hostname || '').toLowerCase();
+    const isCapfitDomain = host.endsWith('capfit.store');
+    const isAdminDomain = host === 'admin.capfit.store' || host.startsWith('admin.');
+
+    // Redirección hacia admin.capfit.store desde cualquier tienda pública
+    if (cleanName === 'admin' && isCapfitDomain && !isAdminDomain) {
+      window.location.href = 'https://admin.capfit.store/';
+      return;
+    }
+
+    // Si estamos en el subdominio admin.capfit.store, permanecer en la interfaz administrativa
+    if (isAdminPortalDomain()) {
+      cleanName = 'admin';
+      document.body.classList.add('is-admin-domain');
+    }
+
+    const views = document.querySelectorAll('.app-view');
+    views.forEach(v => v.classList.remove('active-view'));
+
     if (cleanName === 'app') cleanName = 'probador';
     if (cleanName === 'shop' || cleanName === 'shpo') cleanName = 'inicio';
     if (cleanName === 'blog') cleanName = 'sobre-nosotros';
@@ -197,6 +231,57 @@
       if (window.AdminPanel) window.AdminPanel.init();
     } else if (cleanName === 'sobre-nosotros') {
       if (window.SobreNosotros) window.SobreNosotros.render();
+    }
+  };
+
+  // Enlace del footer o accesos administrativos
+  window.handleAdminLink = function(e) {
+    const host = (window.location.hostname || '').toLowerCase();
+    const isCapfitDomain = host.endsWith('capfit.store');
+    const isAdminDomain = host === 'admin.capfit.store' || host.startsWith('admin.');
+
+    if (isCapfitDomain && !isAdminDomain) {
+      window.location.href = 'https://admin.capfit.store/';
+      return false;
+    }
+
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    window.navigateToView('admin');
+  };
+
+  // Navegación directa para seleccionar gorras en el catálogo
+  window.irASeleccionarGorras = function(e) {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+
+    const viewInicio = document.getElementById('view-inicio');
+    const estaEnInicio = viewInicio && viewInicio.classList.contains('active-view');
+
+    // Si no estamos en la portada principal, activamos la vista de inicio
+    if (!estaEnInicio && typeof window.navigateToView === 'function') {
+      window.navigateToView('inicio');
+    }
+
+    // Restablecer filtros para mostrar todas las gorras disponibles
+    if (window.Catalogo && typeof window.Catalogo.resetFilters === 'function') {
+      window.Catalogo.resetFilters();
+    }
+
+    // Scroll suave hacia la sección de selección de gorras / catálogo
+    const scrollAlCatalogo = () => {
+      const catalogoEl = document.getElementById('catalogo-section');
+      if (catalogoEl) {
+        catalogoEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
+    if (estaEnInicio) {
+      scrollAlCatalogo();
+    } else {
+      setTimeout(scrollAlCatalogo, 100);
     }
   };
 
@@ -339,48 +424,49 @@
     const hash = window.location.hash.replace('#', '').trim();
     const host = (window.location.hostname || '').toLowerCase();
     const search = window.location.search || '';
+    const isCapfitDomain = host.endsWith('capfit.store');
+    const isAdminDomain = host === 'admin.capfit.store' || host.startsWith('admin.');
 
     let viewName = 'inicio';
 
-    // Detección del subdominio del portal de dueños (account.capfit.store)
-    const isAccountPortal = (
-      host === 'account.capfit.store' ||
-      host.startsWith('account.') ||
-      search.includes('account=true') ||
-      search.includes('subdomain=account') ||
-      rawPath === 'account' ||
-      hash === 'account' ||
-      hash === 'portal-duenos'
-    );
-
-    if (isAccountPortal) {
+    // Detección de admin.capfit.store
+    if (isAdminPortalDomain()) {
+      document.body.classList.add('is-admin-domain');
       viewName = 'admin';
-    } else if (hash) {
-      viewName = hash;
-    } else if (rawPath) {
-      if (rawPath === '404' || rawPath === '404.html') {
-        viewName = '404';
-      } else if ([
-        'inicio', 'probador', 'carrito', 'admin', 'account', 'app', 'shop', 'shpo', 'blog',
-        'faq', 'preguntas-frecuentes', 'envios', 'envios-y-entregas',
-        'cambios', 'cambios-y-devoluciones', 'contacto',
-        'sobre-nosotros', 'terminos', 'terminos-y-condiciones',
-        'privacidad', 'politica-de-privacidad'
-      ].includes(rawPath)) {
-        let mapped = rawPath;
-        if (mapped === 'account') mapped = 'admin';
-        else if (mapped === 'app') mapped = 'probador';
-        else if (mapped === 'shop' || mapped === 'shpo') mapped = 'inicio';
-        else if (mapped === 'blog') mapped = 'sobre-nosotros';
-        else if (mapped === 'preguntas-frecuentes') mapped = 'faq';
-        else if (mapped === 'envios-y-entregas') mapped = 'envios';
-        else if (mapped === 'cambios-y-devoluciones') mapped = 'cambios';
-        else if (mapped === 'terminos-y-condiciones') mapped = 'terminos';
-        else if (mapped === 'politica-de-privacidad') mapped = 'privacidad';
-        viewName = mapped;
-      } else if (!rawPath.includes('.')) {
-        viewName = '404';
+    } else {
+      document.body.classList.remove('is-admin-domain');
+      if (hash) {
+        viewName = hash;
+      } else if (rawPath) {
+        if (rawPath === '404' || rawPath === '404.html') {
+          viewName = '404';
+        } else if ([
+          'inicio', 'probador', 'carrito', 'admin', 'account', 'app', 'shop', 'shpo', 'blog',
+          'faq', 'preguntas-frecuentes', 'envios', 'envios-y-entregas',
+          'cambios', 'cambios-y-devoluciones', 'contacto',
+          'sobre-nosotros', 'terminos', 'terminos-y-condiciones',
+          'privacidad', 'politica-de-privacidad'
+        ].includes(rawPath)) {
+          let mapped = rawPath;
+          if (mapped === 'account') mapped = 'admin';
+          else if (mapped === 'app') mapped = 'probador';
+          else if (mapped === 'shop' || mapped === 'shpo') mapped = 'inicio';
+          else if (mapped === 'blog') mapped = 'sobre-nosotros';
+          else if (mapped === 'preguntas-frecuentes') mapped = 'faq';
+          else if (mapped === 'envios-y-entregas') mapped = 'envios';
+          else if (mapped === 'cambios-y-devoluciones') mapped = 'cambios';
+          else if (mapped === 'terminos-y-condiciones') mapped = 'terminos';
+          else if (mapped === 'politica-de-privacidad') mapped = 'privacidad';
+          viewName = mapped;
+        } else if (!rawPath.includes('.')) {
+          viewName = '404';
+        }
       }
+    }
+
+    if (viewName === 'admin' && isCapfitDomain && !isAdminDomain) {
+      window.location.href = 'https://admin.capfit.store/';
+      return;
     }
 
     window.navigateToView(viewName);

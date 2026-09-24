@@ -247,51 +247,62 @@ function extractImageUrl(data) {
   return null;
 }
 
+// Control de interacción de usuario para prevenir ejecuciones no autorizadas desde la consola
+let lastUiActionTimestamp = Date.now();
+function markUiAction() {
+  lastUiActionTimestamp = Date.now();
+}
+window.__markTryOnAction = markUiAction;
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  ENTRADA PRINCIPAL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function runVirtualTryOn(photoDataURL, garmentImgPath) {
-  window.lastUserPhoto = photoDataURL;
+  // Verificar que la petición sea producto de una interacción reciente del usuario en la UI
+  if (Date.now() - lastUiActionTimestamp > 60000 && !window.__testMode) {
+    showError('La sesión ha expirado o la acción debe ser iniciada desde los botones de la interfaz.');
+    return;
+  }
+
+  // Asegurar compresión de foto de usuario (max 1024px, 0.85 JPEG) antes de enviar
+  let cleanUserPhoto = photoDataURL;
+  if (typeof window.comprimirFoto === 'function' && photoDataURL && photoDataURL.startsWith('data:image/')) {
+    try {
+      cleanUserPhoto = await window.comprimirFoto(photoDataURL, 1024, 0.85);
+    } catch (_) {}
+  }
+
+  window.lastUserPhoto = cleanUserPhoto;
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
   const tipo = item?.tipo || 'gorra';
-
-  console.log('[TRYON] ========== INICIO ==========');
-  console.log('[TRYON] Motor activo:', CONFIG.aiModel);
-  console.log('[TRYON] Tipo de producto:', tipo);
-  console.log('[TRYON] proxyBase:', CONFIG.proxyBase);
-  console.log('[TRYON] garmentImgPath:', garmentImgPath);
 
   startTryOnProgress();
 
   try {
     setStep(1);
-    console.log('[TRYON] Step 1: Cargando imagen del producto...');
 
     let garmentDataURI;
     try {
       garmentDataURI = await cargarImagenComoDataURI(garmentImgPath);
-      console.log('[TRYON] Imagen cargada OK, length:', garmentDataURI.length);
+      if (typeof window.comprimirFoto === 'function' && garmentDataURI && garmentDataURI.startsWith('data:image/')) {
+        garmentDataURI = await window.comprimirFoto(garmentDataURI, 1024, 0.85);
+      }
     } catch (e) {
-      console.error('[TRYON] ERROR cargando imagen del producto:', e);
       finishTryOnProgress();
       showError('No se pudo cargar la imagen del producto.');
       setWhatsAppLink();
       return;
     }
 
-    console.log('[TRYON] Dispatching a motor:', CONFIG.aiModel);
     if (CONFIG.aiModel === 'gpt-image-2' || (CONFIG.aiModel && CONFIG.aiModel.startsWith('gpt-image'))) {
-      await runGPTImage2(photoDataURL, garmentDataURI, tipo);
+      await runGPTImage2(cleanUserPhoto, garmentDataURI, tipo);
     } else {
-      await runFASHN(photoDataURL, garmentDataURI);
+      await runFASHN(cleanUserPhoto, garmentDataURI);
     }
 
     setWhatsAppLink();
-    console.log('[TRYON] ========== FIN OK ==========');
 
   } catch (err) {
-    console.error('[TRYON] ========== ERROR GENERAL ==========');
-    console.error('[TRYON]', err);
     finishTryOnProgress();
     showError(err.message || 'Error al procesar la imagen con la IA');
     setWhatsAppLink();
@@ -304,12 +315,10 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
 async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   const proxy = CONFIG.proxyBase;
   const storeId = (window.Store && Store.getCurrentStoreId) ? Store.getCurrentStoreId() : '';
-  console.log('[GPT] Iniciando, modelo:', CONFIG.aiModel, '| proxy:', proxy, '| storeId:', storeId);
 
   setStep(2);
 
   const prompt = getPromptParaTipo(tipo);
-  console.log('[GPT] Tipo:', tipo, '| Prompt:', prompt);
 
   const payload = {
     prompt,
@@ -323,16 +332,21 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
   };
 
   const url = `${proxy}/api/gpt/edit${storeId ? `?store=${encodeURIComponent(storeId)}` : ''}`;
-  console.log('[GPT] Fetching:', url);
 
   try {
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Capfit-Client': 'capfit-web-v1',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
       body: JSON.stringify(payload),
     });
 
-    console.log('[GPT] Response status:', resp.status);
+    if (resp.status === 403) {
+      throw new Error('Petición rechazada: las solicitudes deben originarse desde la interfaz de la aplicación.');
+    }
 
     if (resp.status === 429) {
       let errData = {};
@@ -345,18 +359,14 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 
     if (!resp.ok) {
       const t = await resp.text();
-      console.error('[GPT] ERROR HTTP', resp.status, ':', t.slice(0, 500));
-      throw new Error('GPT-Image error (' + resp.status + '): ' + t);
+      throw new Error('GPT-Image error (' + resp.status + ')');
     }
 
     const data = await resp.json();
-    console.log('[GPT] Response data:', data);
 
     const imgURL = extractImageUrl(data);
-    console.log('[GPT] imgURL encontrada:', imgURL ? 'SÍ (' + imgURL.slice(0, 60) + '...)' : 'NO');
 
     if (!imgURL) {
-      console.error('[GPT] No imgURL en respuesta. Estructura:', data);
       throw new Error('El modelo de IA no devolvió URL de imagen válida');
     }
 
@@ -369,10 +379,8 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
 
     setStep(4);
     mostrarResultado(imgURL);
-    console.log('[GPT] Resultado mostrado correctamente');
 
   } catch (e) {
-    console.error('[GPT] ERROR en fetch:', e);
     throw e;
   }
 }
@@ -387,7 +395,6 @@ async function runFASHN(photoDataURL, garmentDataURI) {
     ? 'fal-ai/fashn/tryon/v1.6'
     : 'fal-ai/fashn/tryon/v1.5';
 
-  console.log('[FASHN] Iniciando try-on con modelo:', model, '| storeId:', storeId);
   setStep(2);
 
   const payload = {
@@ -399,9 +406,17 @@ async function runFASHN(photoDataURL, garmentDataURI) {
   const submitUrl = `${proxy}/api/fal/submit?model=${encodeURIComponent(model)}${storeId ? `&store=${encodeURIComponent(storeId)}` : ''}`;
   const submitResp = await fetch(submitUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Capfit-Client': 'capfit-web-v1',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
     body: JSON.stringify(payload),
   });
+
+  if (submitResp.status === 403) {
+    throw new Error('Petición rechazada: las solicitudes deben originarse desde la interfaz de la aplicación.');
+  }
 
   if (submitResp.status === 429) {
     let errData = {};
@@ -412,7 +427,7 @@ async function runFASHN(photoDataURL, garmentDataURI) {
 
   if (!submitResp.ok) {
     const errTxt = await submitResp.text();
-    throw new Error(`Error FASHN submit (${submitResp.status}): ${errTxt}`);
+    throw new Error(`Error FASHN submit (${submitResp.status})`);
   }
 
   const submitData = await submitResp.json();
@@ -437,11 +452,15 @@ async function runFASHN(photoDataURL, garmentDataURI) {
     await new Promise(r => setTimeout(r, 2000));
 
     const statusUrl = `${proxy}/api/fal/status?model=${encodeURIComponent(model)}&reqId=${encodeURIComponent(reqId)}`;
-    const statusResp = await fetch(statusUrl);
+    const statusResp = await fetch(statusUrl, {
+      headers: {
+        'X-Capfit-Client': 'capfit-web-v1',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
     if (statusResp.ok) {
       const statusData = await statusResp.json();
       status = statusData.status || status;
-      console.log(`[FASHN] Status attempt ${attempts}:`, status);
       if (status === 'FAILED') {
         throw new Error('Procesamiento FASHN falló en el servidor');
       }
@@ -453,7 +472,12 @@ async function runFASHN(photoDataURL, garmentDataURI) {
   }
 
   const resultUrl = `${proxy}/api/fal/result?model=${encodeURIComponent(model)}&reqId=${encodeURIComponent(reqId)}`;
-  const resultResp = await fetch(resultUrl);
+  const resultResp = await fetch(resultUrl, {
+    headers: {
+      'X-Capfit-Client': 'capfit-web-v1',
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  });
   if (!resultResp.ok) {
     throw new Error(`Error obteniendo resultado FASHN (${resultResp.status})`);
   }
@@ -477,7 +501,6 @@ async function runFASHN(photoDataURL, garmentDataURI) {
 
 // ── Mostrar imagen resultado ──
 function mostrarResultado(imgURL) {
-  console.log('[TRYON] Mostrando resultado final:', imgURL);
   finishTryOnProgress();
   const ri = document.getElementById('result-img');
   if (!ri) return;
@@ -500,7 +523,6 @@ function mostrarResultado(imgURL) {
   if (video) video.style.display = 'none';
 
   const onResultReady = () => {
-    console.log('[TRYON] Imagen cargada e insertada en DOM con éxito');
     setTryOnProcessingState(false);
     if (overlay) overlay.style.display = 'none';
     if (ph) ph.style.display = 'none';
@@ -512,7 +534,6 @@ function mostrarResultado(imgURL) {
   ri.onload = onResultReady;
 
   ri.onerror = (err) => {
-    console.warn('[TRYON] Error al cargar URL de imagen resultado:', err);
     if (overlay) overlay.style.display = 'none';
     showError('No se pudo renderizar la imagen devuelta por la IA.');
   };
@@ -811,6 +832,7 @@ async function handleGalleryUpload(input) {
     if (typeof registrarGeneracion === 'function') registrarGeneracion();
     if (typeof actualizarBadgeGeneraciones === 'function') actualizarBadgeGeneraciones();
 
+    markUiAction();
     runVirtualTryOn(compressedDataURL, item.imgFrontal || item.imgPreview);
   } catch (err) {
     console.warn('[handleGalleryUpload]', err);

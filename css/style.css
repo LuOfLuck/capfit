@@ -471,6 +471,7 @@ nav.main-nav {
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 24px 80px;
+  scroll-margin-top: 80px;
 }
 
 .catalogo-section-header {
@@ -3943,6 +3944,32 @@ footer {
   .notfound-actions button {
     width: 100%;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CAPFIT — SUBDOMINIO DEDICADO admin.capfit.store
+   ══════════════════════════════════════════════════════════════ */
+body.is-admin-domain {
+  background-color: #f8fafc !important;
+  min-height: 100vh;
+}
+
+body.is-admin-domain .announcement-bar,
+body.is-admin-domain > header,
+body.is-admin-domain .app-view:not(#view-admin),
+body.is-admin-domain footer,
+body.is-admin-domain .footer-main,
+body.is-admin-domain .footer-bottom,
+body.is-admin-domain #cart-drawer,
+body.is-admin-domain .cart-drawer-backdrop {
+  display: none !important;
+}
+
+body.is-admin-domain #view-admin {
+  display: block !important;
+  min-height: 100vh;
+  padding: 32px 16px 80px 16px;
+  background-color: #f8fafc;
 }
 
 /* ══════════════════════════════════════════════════════════════

@@ -365,8 +365,11 @@ async function executeTakePhoto() {
   const liveTools = document.getElementById('cam-live-tools');
   if (liveTools) liveTools.style.display = 'none';
 
-  const quality = (CONFIG.aiModel && CONFIG.aiModel.startsWith('gpt-image')) ? 0.75 : 0.80;
-  const dataURL = canvas.toDataURL('image/jpeg', quality);
+  const rawDataURL = canvas.toDataURL('image/jpeg', 0.90);
+  // Comprimir foto a max 1024px y 0.85 JPEG para evitar 413 Payload Too Large
+  const dataURL = (typeof window.comprimirFoto === 'function')
+    ? await window.comprimirFoto(rawDataURL, 1024, 0.85)
+    : rawDataURL;
 
   if (mediaStream) {
     mediaStream.getTracks().forEach(t => t.stop());
@@ -383,6 +386,7 @@ async function executeTakePhoto() {
   const btnAct = document.getElementById('btn-activate');
   if (btnAct) btnAct.style.display = 'inline-flex';
 
+  if (typeof window.__markTryOnAction === 'function') window.__markTryOnAction();
   resetResult();
   runVirtualTryOn(dataURL, item.imgFrontal || item.imgPreview);
 }

@@ -42,40 +42,73 @@ const MIME = {
   '.svg':  'image/svg+xml',
 };
 
-function readBody(req) {
+const MAX_BODY_BYTES = 6 * 1024 * 1024; // 6MB
+
+function readBody(req, maxBytes = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
+    const contentLength = parseInt(req.headers['content-length'], 10);
+    if (!isNaN(contentLength) && contentLength > maxBytes) {
+      const err = new Error('El tamaño de la solicitud excede el límite permitido (6MB).');
+      err.statusCode = 413;
+      return reject(err);
+    }
+
     const chunks = [];
-    req.on('data', c => chunks.push(c));
+    let receivedBytes = 0;
+    req.on('data', c => {
+      receivedBytes += c.length;
+      if (receivedBytes > maxBytes) {
+        const err = new Error('El tamaño de la solicitud excede el límite permitido (6MB).');
+        err.statusCode = 413;
+        req.destroy();
+        return reject(err);
+      }
+      chunks.push(c);
+    });
     req.on('end',  () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
 
-function corsHeaders() {
+function corsHeaders(req) {
+  const allowed = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()) : null;
+  const origin = (req && req.headers && req.headers.origin) ? req.headers.origin : null;
+  let allowOrigin = '*';
+  if (allowed && allowed.length > 0) {
+    if (origin && (allowed.includes(origin) || allowed.includes('*'))) {
+      allowOrigin = origin;
+    } else if (allowed.includes('*')) {
+      allowOrigin = '*';
+    } else {
+      allowOrigin = allowed[0];
+    }
+  }
   return {
-    'Access-Control-Allow-Origin':  '*',
+    'Access-Control-Allow-Origin':  allowOrigin,
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Store-Id,X-Store-Subdomain',
+    'Vary': 'Origin',
   };
 }
 
-function sendJson(res, statusCode, data) {
+function sendJson(res, statusCode, data, req) {
   res.writeHead(statusCode, {
-    ...corsHeaders(),
+    ...corsHeaders(req),
     'Content-Type': 'application/json; charset=utf-8'
   });
   res.end(JSON.stringify(data));
 }
 
-function proxyRequest(targetHost, targetPath, method, headers, body, res) {
+function proxyRequest(targetHost, targetPath, method, headers, body, res, onStatus) {
   const proxyReq = https.request({ hostname: targetHost, path: targetPath, method, headers }, proxyRes => {
+    if (typeof onStatus === 'function') onStatus(proxyRes.statusCode);
     const outHeaders = { ...corsHeaders() };
     if (proxyRes.headers['content-type']) outHeaders['Content-Type'] = proxyRes.headers['content-type'];
     res.writeHead(proxyRes.statusCode, outHeaders);
     proxyRes.pipe(res);
   });
   proxyReq.on('error', err => {
-    console.error('Proxy error:', err.message);
+    if (typeof onStatus === 'function') onStatus(502);
     if (!res.headersSent) {
       res.writeHead(502, corsHeaders());
       res.end(JSON.stringify({ error: 'Proxy error: ' + err.message }));
@@ -83,6 +116,51 @@ function proxyRequest(targetHost, targetPath, method, headers, body, res) {
   });
   if (body && body.length > 0) proxyReq.write(body);
   proxyReq.end();
+}
+
+/**
+ * Rate Limiter simple en memoria por IP (10 requests / minuto en endpoints de IA).
+ * Suficiente para entornos serverless de un solo tenant.
+ *
+ * LIMITACIÓN CONOCIDA: En funciones serverless efímeras se resetea ante cold starts.
+ * Para multi-instancia en escala, la interfaz está lista para migrar a Upstash/Redis:
+ *   const count = await redis.incr(`ratelimit:${ip}`);
+ *   if (count === 1) await redis.expire(`ratelimit:${ip}`, 60);
+ */
+const aiRateLimiter = {
+  windowMs: 60 * 1000,
+  maxRequests: 10,
+  hits: new Map(),
+
+  check(ip) {
+    const now = Date.now();
+    const entry = this.hits.get(ip);
+    if (this.hits.size > 2000) {
+      for (const [k, v] of this.hits.entries()) {
+        if (now > v.resetTime) this.hits.delete(k);
+      }
+    }
+    if (!entry || now > entry.resetTime) {
+      this.hits.set(ip, { count: 1, resetTime: now + this.windowMs });
+      return { allowed: true, remaining: this.maxRequests - 1, resetInMs: this.windowMs };
+    }
+    if (entry.count >= this.maxRequests) {
+      return { allowed: false, remaining: 0, resetInMs: Math.max(0, entry.resetTime - now) };
+    }
+    entry.count += 1;
+    return { allowed: true, remaining: this.maxRequests - entry.count, resetInMs: Math.max(0, entry.resetTime - now) };
+  }
+};
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.headers['x-real-ip'] || (req.socket && req.socket.remoteAddress) || '127.0.0.1';
+}
+
+function logRequest(endpoint, status, durationMs, storeId, extra = '') {
+  const suffix = extra ? ` note="${extra}"` : '';
+  console.log(`[REQ] endpoint=${endpoint} status=${status} duration=${durationMs}ms storeId=${storeId}${suffix}`);
 }
 
 
@@ -128,6 +206,12 @@ async function uploadDataURItoFal(dataURI, falKey) {
   return file_url;
 }
 
+function isAuthorizedClient(req) {
+  const capfitClient = req.headers['x-capfit-client'];
+  const requestedWith = req.headers['x-requested-with'];
+  return capfitClient === 'capfit-web-v1' || requestedWith === 'XMLHttpRequest';
+}
+
 async function appHandler(req, res) {
   const parsed  = url.parse(req.url, true);
   const reqPath = parsed.pathname;
@@ -143,15 +227,55 @@ async function appHandler(req, res) {
   // Resolver la tienda actual según host, subdominio o parámetro (?store=tienda1)
   const currentStore = StoreManager.resolveStoreFromRequest(req);
 
+  const hostHdr = (req.headers.host || '').toLowerCase().split(':')[0];
+  const isCapfitDomain = hostHdr.endsWith('capfit.store');
+  const isAdminDomain = hostHdr === 'admin.capfit.store' || hostHdr.startsWith('admin.');
+
+  // Redirección hacia admin.capfit.store cuando se intenta acceder al panel/login desde una tienda pública
+  if (isCapfitDomain && !isAdminDomain && (reqPath === '/admin' || reqPath === '/admin/' || reqPath === '/account' || reqPath === '/account/')) {
+    res.writeHead(302, {
+      'Location': 'https://admin.capfit.store/',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    });
+    res.end();
+    return;
+  }
+
   // ── /api/anthropic ──────────────────────────────────────
   if (reqPath === '/api/anthropic') {
+    const startTime = Date.now();
+    if (!isAuthorizedClient(req)) {
+      logRequest('/api/anthropic', 403, Date.now() - startTime, currentStore.id, 'unauthorized-client-call');
+      res.writeHead(403, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Acceso no autorizado. Las solicitudes deben originarse desde la aplicación.' }));
+      return;
+    }
     const apiKey = process.env.ANTHROPIC_KEY || '';
+
+    const clientIp = getClientIp(req);
+    const rl = aiRateLimiter.check(clientIp);
+    if (!rl.allowed) {
+      const retrySec = Math.ceil(rl.resetInMs / 1000);
+      logRequest('/api/anthropic', 429, Date.now() - startTime, currentStore.id, 'rate-limit');
+      res.writeHead(429, {
+        ...corsHeaders(req),
+        'Content-Type': 'application/json; charset=utf-8',
+        'Retry-After': String(retrySec)
+      });
+      res.end(JSON.stringify({
+        error: 'Demasiadas solicitudes. Por favor esperá un momento antes de volver a intentar.',
+        retryAfterSeconds: retrySec
+      }));
+      return;
+    }
+
     if (!apiKey) {
-      res.writeHead(500, corsHeaders());
+      logRequest('/api/anthropic', 500, Date.now() - startTime, currentStore.id, 'missing-anthropic-key');
+      res.writeHead(500, corsHeaders(req));
       res.end(JSON.stringify({ error: 'ANTHROPIC_KEY no configurada en .env' }));
       return;
     }
-    console.log('[anthropic] POST');
+
     try {
       const body = await readBody(req);
       proxyRequest('api.anthropic.com', '/v1/messages', 'POST', {
@@ -159,20 +283,105 @@ async function appHandler(req, res) {
         'anthropic-version': '2023-06-01',
         'x-api-key':         apiKey,
         'Content-Length':    Buffer.byteLength(body),
-      }, body, res);
-    } catch(e) { res.writeHead(500, corsHeaders()); res.end(JSON.stringify({ error: e.message })); }
+      }, body, res, (statusCode) => {
+        logRequest('/api/anthropic', statusCode, Date.now() - startTime, currentStore.id);
+      });
+    } catch(e) {
+      const status = e.statusCode === 413 ? 413 : 500;
+      logRequest('/api/anthropic', status, Date.now() - startTime, currentStore.id, e.message);
+      res.writeHead(status, corsHeaders(req));
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
-   // ── /api/gpt/edit → fal.ai con nuevo modelo openai/gpt-image-2.5 y fallback a gpt-image-2 ────
+  // ── /api/gpt/edit → fal.ai con modelo openai/gpt-image-2.5 y fallback a gpt-image-2 ────
   if (reqPath === '/api/gpt/edit') {
+    const startTime = Date.now();
+    if (!isAuthorizedClient(req)) {
+      logRequest('/api/gpt/edit', 403, Date.now() - startTime, currentStore.id, 'unauthorized-client-call');
+      res.writeHead(403, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Acceso no autorizado. Las solicitudes deben originarse desde la aplicación.' }));
+      return;
+    }
     const falKey = process.env.FAL_KEY || '';
 
-    // ===== CONTROL DE CUOTA MENSUAL DE IA POR TIENDA =====
+    // 1. Rate limiting por IP en endpoints de IA
+    const clientIp = getClientIp(req);
+    const rl = aiRateLimiter.check(clientIp);
+    if (!rl.allowed) {
+      const retrySec = Math.ceil(rl.resetInMs / 1000);
+      logRequest('/api/gpt/edit', 429, Date.now() - startTime, currentStore.id, 'rate-limit');
+      res.writeHead(429, {
+        ...corsHeaders(req),
+        'Content-Type': 'application/json; charset=utf-8',
+        'Retry-After': String(retrySec)
+      });
+      res.end(JSON.stringify({
+        error: 'Demasiadas solicitudes. Por favor esperá un momento antes de volver a intentar.',
+        retryAfterSeconds: retrySec
+      }));
+      return;
+    }
+
+    if (!falKey) {
+      logRequest('/api/gpt/edit', 500, Date.now() - startTime, currentStore.id, 'missing-fal-key');
+      res.writeHead(500, corsHeaders(req));
+      res.end(JSON.stringify({ error: 'FAL_KEY no configurada en variables de entorno' }));
+      return;
+    }
+
+    // 2. Lectura y validación de body (máximo 6MB)
+    let payload;
+    try {
+      const rawBody = await readBody(req);
+      try {
+        payload = JSON.parse(rawBody.toString());
+      } catch (parseErr) {
+        logRequest('/api/gpt/edit', 400, Date.now() - startTime, currentStore.id, 'invalid-json');
+        res.writeHead(400, corsHeaders(req));
+        res.end(JSON.stringify({ error: 'JSON inválido en el cuerpo de la solicitud: ' + parseErr.message }));
+        return;
+      }
+    } catch (bodyErr) {
+      const status = bodyErr.statusCode === 413 ? 413 : 400;
+      logRequest('/api/gpt/edit', status, Date.now() - startTime, currentStore.id, 'body-size-error');
+      res.writeHead(status, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: bodyErr.message || 'Error al procesar el cuerpo de la solicitud' }));
+      return;
+    }
+
+    // 3. Validación de campos requeridos (sin descontar cuota si es inválido)
+    if (!payload.image_urls || !Array.isArray(payload.image_urls) || payload.image_urls.length === 0) {
+      logRequest('/api/gpt/edit', 400, Date.now() - startTime, currentStore.id, 'missing-images');
+      res.writeHead(400, corsHeaders(req));
+      res.end(JSON.stringify({ error: 'image_urls es requerido y debe ser un arreglo de imágenes no vacío' }));
+      return;
+    }
+
+    // 4. Convertir imágenes base64 a URLs públicas de fal storage
+    let publicImageUrls;
+    try {
+      publicImageUrls = await Promise.all(
+        payload.image_urls.map(async (img) => {
+          if (typeof img === 'string' && img.startsWith('data:')) {
+            return await uploadDataURItoFal(img, falKey);
+          }
+          return img;
+        })
+      );
+    } catch (uploadErr) {
+      logRequest('/api/gpt/edit', 400, Date.now() - startTime, currentStore.id, 'storage-upload-failed');
+      res.writeHead(400, corsHeaders(req));
+      res.end(JSON.stringify({ error: 'Error al subir imágenes al almacenamiento de IA: ' + uploadErr.message }));
+      return;
+    }
+
+    // 5. Verificación y descuento previo de cuota
     const quotaCheck = StoreManager.checkAndDeductAiCredit(currentStore.id);
     if (!quotaCheck.ok) {
-      console.warn(`[AI CUOTA EXCEDIDA] Tienda "${currentStore.name}":`, quotaCheck.message);
-      res.writeHead(429, { ...corsHeaders(), 'Content-Type': 'application/json; charset=utf-8' });
+      logRequest('/api/gpt/edit', 429, Date.now() - startTime, currentStore.id, 'quota-exceeded');
+      res.writeHead(429, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
         error: quotaCheck.message,
         code: 'MONTHLY_AI_LIMIT_REACHED',
@@ -184,59 +393,16 @@ async function appHandler(req, res) {
       }));
       return;
     }
-    console.log(`[AI CUOTA] 1 crédito descontado para "${currentStore.name}". Usados este mes: ${quotaCheck.used}/${quotaCheck.limit} (Restantes: ${quotaCheck.remaining})`);
 
-    // ===== LOGS DE DEBUG =====
-    console.log('');
-    console.log('╔════════════════════════════════════════════╗');
-    console.log('║  [DEBUG] /api/gpt/edit llamado             ║');
-    console.log('╠════════════════════════════════════════════╣');
-    console.log('║  FAL_KEY presente:  ', falKey ? '✓ SÍ' : '✗ NO');
-    if (falKey) console.log('║  FAL_KEY preview:   ', falKey.slice(0, 12) + '...');
-    console.log('╚════════════════════════════════════════════╝');
-
-    if (!falKey) {
-      console.error('[DEBUG] ERROR: FAL_KEY no configurada en .env');
-      if (typeof StoreManager.refundAiCredit === 'function') {
-        StoreManager.refundAiCredit(currentStore.id);
-      }
-      res.writeHead(500, corsHeaders());
-      res.end(JSON.stringify({ error: 'FAL_KEY no configurada en .env' }));
-      return;
-    }
+    let creditDeducted = true;
 
     try {
-      const rawBody = await readBody(req);
-      let payload;
-      try {
-        payload = JSON.parse(rawBody.toString());
-      } catch (e) {
-        if (typeof StoreManager.refundAiCredit === 'function') {
-          StoreManager.refundAiCredit(currentStore.id);
-        }
-        res.writeHead(400, corsHeaders());
-        res.end(JSON.stringify({ error: 'JSON inválido en body: ' + e.message }));
-        return;
-      }
-
-      // Validar imágenes
-      if (!payload.image_urls || !Array.isArray(payload.image_urls) || payload.image_urls.length === 0) {
-        if (typeof StoreManager.refundAiCredit === 'function') {
-          StoreManager.refundAiCredit(currentStore.id);
-        }
-        res.writeHead(400, corsHeaders());
-        res.end(JSON.stringify({ error: 'image_urls es requerido y debe ser un array no vacío' }));
-        return;
-      }
-
       const primaryRoute = (payload.model_route || 'openai/gpt-image-2.5/sunburst/edit').replace(/^\//, '');
       const fallbackRoute = (payload.fallback_route || 'openai/gpt-image-2/edit').replace(/^\//, '');
 
-      // Payload del cliente para modelo nuevo (gpt-image-2.5)
-      // quality: medium, image_size: auto, output_compression: 80
       const primaryPayload = {
         prompt: payload.prompt,
-        image_urls: payload.image_urls,
+        image_urls: publicImageUrls,
         quality: payload.quality || 'medium',
         image_size: payload.image_size || 'auto',
         output_compression: payload.output_compression !== undefined ? payload.output_compression : 80,
@@ -244,16 +410,11 @@ async function appHandler(req, res) {
       };
       const primaryBuffer = Buffer.from(JSON.stringify(primaryPayload));
 
-      console.log(`[TRYON] Enviando request a fal.run/${primaryRoute}...`);
-      console.log(`[TRYON] Parámetros: quality=${primaryPayload.quality}, image_size=${primaryPayload.image_size}, compression=${primaryPayload.output_compression}`);
-
       let falRes = await httpsReq('fal.run', '/' + primaryRoute, 'POST', {
         'Content-Type':   'application/json',
         'Authorization':  'Key ' + falKey,
         'Content-Length': primaryBuffer.length,
       }, primaryBuffer);
-
-      console.log(`[TRYON] Respuesta de fal.run/${primaryRoute}: status ${falRes.status}`);
 
       const bodyStr = falRes.body ? falRes.body.toString() : '';
       const is404 = falRes.status === 404;
@@ -261,41 +422,36 @@ async function appHandler(req, res) {
       const isAvailabilityError = (falRes.status === 503 || falRes.status === 422 || falRes.status === 502) &&
         /model|unavailable|not found|does not exist/i.test(bodyStr);
 
-      // Reintentar una sola vez contra fallback si hay error de disponibilidad del modelo
       if (is404 || isModelNotFound || isAvailabilityError) {
-        console.log('[TRYON] Fallback a gpt-image-2 aplicado');
-        console.log(`[TRYON] Causa: Status ${falRes.status} - ${bodyStr.slice(0, 150)}`);
-
-        // Parámetros antiguos para gpt-image-2: quality 'low', image_size 'square'
         const fallbackPayload = {
           prompt: payload.prompt,
-          image_urls: payload.image_urls,
+          image_urls: publicImageUrls,
           quality: 'low',
           image_size: 'square',
           output_format: payload.output_format || 'jpeg',
         };
         const fallbackBuffer = Buffer.from(JSON.stringify(fallbackPayload));
 
-        console.log(`[TRYON] Reintentando contra fallback: fal.run/${fallbackRoute}...`);
         falRes = await httpsReq('fal.run', '/' + fallbackRoute, 'POST', {
           'Content-Type':   'application/json',
           'Authorization':  'Key ' + falKey,
           'Content-Length': fallbackBuffer.length,
         }, fallbackBuffer);
-
-        console.log(`[TRYON] Respuesta de fallback fal.run/${fallbackRoute}: status ${falRes.status}`);
       }
 
-      // Reintegrar crédito si fal responde con error de servidor (>= 500)
-      if (falRes.status >= 500) {
-        console.warn(`[TRYON] fal.ai devolvió error de servidor (${falRes.status}). Reintegrando crédito...`);
-        if (typeof StoreManager.refundAiCredit === 'function') {
-          const refund = StoreManager.refundAiCredit(currentStore.id);
-          console.log(`[AI CUOTA] 1 crédito reintegrado para "${currentStore.name}". Usados: ${refund.used}`);
+      // Regla de cuota: descontar SOLO si fal.ai respondió status 200 (éxito).
+      // Si fal respondió con error (5xx, timeout, 4xx payload error devuelto por fal), reintegrar.
+      if (falRes.status === 200) {
+        logRequest('/api/gpt/edit', 200, Date.now() - startTime, currentStore.id);
+      } else {
+        if (creditDeducted && typeof StoreManager.refundAiCredit === 'function') {
+          StoreManager.refundAiCredit(currentStore.id);
+          creditDeducted = false;
         }
+        logRequest('/api/gpt/edit', falRes.status, Date.now() - startTime, currentStore.id, 'quota-refunded');
       }
 
-      const outHeaders = { ...corsHeaders() };
+      const outHeaders = { ...corsHeaders(req) };
       if (falRes.headers && falRes.headers['content-type']) {
         outHeaders['Content-Type'] = falRes.headers['content-type'];
       } else {
@@ -306,14 +462,12 @@ async function appHandler(req, res) {
       res.end(falRes.body);
 
     } catch (e) {
-      console.error('[DEBUG] ERROR en /api/gpt/edit:', e.message);
-      console.error('[DEBUG] Stack:', e.stack);
-      // Reintegrar crédito en caso de error de servidor inesperado
-      if (typeof StoreManager.refundAiCredit === 'function') {
-        const refund = StoreManager.refundAiCredit(currentStore.id);
-        console.log(`[AI CUOTA] 1 crédito reintegrado por excepción para "${currentStore.name}". Usados: ${refund.used}`);
+      if (creditDeducted && typeof StoreManager.refundAiCredit === 'function') {
+        StoreManager.refundAiCredit(currentStore.id);
+        creditDeducted = false;
       }
-      res.writeHead(500, corsHeaders());
+      logRequest('/api/gpt/edit', 500, Date.now() - startTime, currentStore.id, 'network-or-execution-error');
+      res.writeHead(500, corsHeaders(req));
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
@@ -321,14 +475,93 @@ async function appHandler(req, res) {
 
   // ── /api/fal/submit ─────────────────────────────────────
   if (reqPath === '/api/fal/submit') {
+    const startTime = Date.now();
+    if (!isAuthorizedClient(req)) {
+      logRequest('/api/fal/submit', 403, Date.now() - startTime, currentStore.id, 'unauthorized-client-call');
+      res.writeHead(403, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Acceso no autorizado. Las solicitudes deben originarse desde la aplicación.' }));
+      return;
+    }
     const falKey = process.env.FAL_KEY || '';
     const model = qs.model || 'fal-ai/fashn/tryon/v1.5';
 
-    // ===== CONTROL DE CUOTA MENSUAL DE IA POR TIENDA =====
+    // 1. Rate limiting por IP
+    const clientIp = getClientIp(req);
+    const rl = aiRateLimiter.check(clientIp);
+    if (!rl.allowed) {
+      const retrySec = Math.ceil(rl.resetInMs / 1000);
+      logRequest('/api/fal/submit', 429, Date.now() - startTime, currentStore.id, 'rate-limit');
+      res.writeHead(429, {
+        ...corsHeaders(req),
+        'Content-Type': 'application/json; charset=utf-8',
+        'Retry-After': String(retrySec)
+      });
+      res.end(JSON.stringify({
+        error: 'Demasiadas solicitudes. Por favor esperá un momento antes de volver a intentar.',
+        retryAfterSeconds: retrySec
+      }));
+      return;
+    }
+
+    if (!falKey) {
+      logRequest('/api/fal/submit', 500, Date.now() - startTime, currentStore.id, 'missing-fal-key');
+      res.writeHead(500, corsHeaders(req));
+      res.end(JSON.stringify({ error: 'FAL_KEY no configurada en variables de entorno' }));
+      return;
+    }
+
+    // 2. Lectura y validación de body (máx 6MB)
+    let payload;
+    try {
+      const rawBody = await readBody(req);
+      try {
+        payload = JSON.parse(rawBody.toString());
+      } catch (parseErr) {
+        logRequest('/api/fal/submit', 400, Date.now() - startTime, currentStore.id, 'invalid-json');
+        res.writeHead(400, corsHeaders(req));
+        res.end(JSON.stringify({ error: 'JSON inválido en el cuerpo de la solicitud: ' + parseErr.message }));
+        return;
+      }
+    } catch (bodyErr) {
+      const status = bodyErr.statusCode === 413 ? 413 : 400;
+      logRequest('/api/fal/submit', status, Date.now() - startTime, currentStore.id, 'body-size-error');
+      res.writeHead(status, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: bodyErr.message || 'Error al procesar el cuerpo de la solicitud' }));
+      return;
+    }
+
+    // 3. Validación de campos requeridos (sin descontar cuota si falló)
+    if (!payload.model_image || !payload.garment_image) {
+      logRequest('/api/fal/submit', 400, Date.now() - startTime, currentStore.id, 'missing-images');
+      res.writeHead(400, corsHeaders(req));
+      res.end(JSON.stringify({ error: 'model_image y garment_image son requeridos' }));
+      return;
+    }
+
+    // 4. Subir imágenes base64 a fal.ai storage
+    try {
+      const [personURL, garmentURL] = await Promise.all([
+        (typeof payload.model_image === 'string' && payload.model_image.startsWith('data:'))
+          ? uploadDataURItoFal(payload.model_image, falKey)
+          : payload.model_image,
+        (typeof payload.garment_image === 'string' && payload.garment_image.startsWith('data:'))
+          ? uploadDataURItoFal(payload.garment_image, falKey)
+          : payload.garment_image,
+      ]);
+      payload.model_image = personURL;
+      payload.garment_image = garmentURL;
+    } catch (uploadErr) {
+      logRequest('/api/fal/submit', 400, Date.now() - startTime, currentStore.id, 'storage-upload-failed');
+      res.writeHead(400, corsHeaders(req));
+      res.end(JSON.stringify({ error: 'Error al subir imágenes al almacenamiento de IA: ' + uploadErr.message }));
+      return;
+    }
+
+    // 5. Control y descuento de cuota
     const quotaCheck = StoreManager.checkAndDeductAiCredit(currentStore.id);
     if (!quotaCheck.ok) {
-      console.warn(`[AI CUOTA EXCEDIDA] Tienda "${currentStore.name}":`, quotaCheck.message);
-      res.writeHead(429, { ...corsHeaders(), 'Content-Type': 'application/json; charset=utf-8' });
+      logRequest('/api/fal/submit', 429, Date.now() - startTime, currentStore.id, 'quota-exceeded');
+      res.writeHead(429, { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
         error: quotaCheck.message,
         code: 'MONTHLY_AI_LIMIT_REACHED',
@@ -340,93 +573,86 @@ async function appHandler(req, res) {
       }));
       return;
     }
-    console.log(`[AI CUOTA] 1 crédito descontado para "${currentStore.name}". Usados este mes: ${quotaCheck.used}/${quotaCheck.limit} (Restantes: ${quotaCheck.remaining})`);
 
-    // ===== LOGS DE DEBUG =====
-    console.log('');
-    console.log('╔════════════════════════════════════════════╗');
-    console.log('║  [DEBUG] /api/fal/submit llamado           ║');
-    console.log('╠════════════════════════════════════════════╣');
-    console.log('║  FAL_KEY presente:  ', falKey ? '✓ SÍ' : '✗ NO');
-    console.log('║  Model:             ', model);
-    console.log('╚════════════════════════════════════════════╝');
-    // =========================
+    let creditDeducted = true;
 
-    if (!falKey) {
-      console.error('[DEBUG] ERROR: FAL_KEY no configurada');
-      res.writeHead(500, corsHeaders());
-      res.end(JSON.stringify({ error: 'FAL_KEY no configurada en .env' }));
-      return;
-    }
-    
-    console.log('[DEBUG] Leyendo body...');
-    
     try {
-      const rawBody = await readBody(req);
-      console.log('[DEBUG] Body raw recibido: ' + rawBody.length + ' bytes');
-      
-      const payload = JSON.parse(rawBody.toString());
-      console.log('[DEBUG] Payload parseado. Keys:', Object.keys(payload));
-      console.log('[DEBUG] model_image presente:', payload.model_image ? '✓' : '✗');
-      console.log('[DEBUG] garment_image presente:', payload.garment_image ? '✓' : '✗');
-
-      // Subir imágenes para obtener URLs públicas
-      console.log('[DEBUG] Subiendo imágenes a fal.ai storage...');
-      const [personURL, garmentURL] = await Promise.all([
-        uploadDataURItoFal(payload.model_image, falKey),
-        uploadDataURItoFal(payload.garment_image, falKey),
-      ]);
-      console.log('[DEBUG] Upload OK. personURL:', personURL.slice(0, 50) + '...');
-      console.log('[DEBUG] Upload OK. garmentURL:', garmentURL.slice(0, 50) + '...');
-
-      payload.model_image   = personURL;
-      payload.garment_image = garmentURL;
-
       const newBody = Buffer.from(JSON.stringify(payload));
-      console.log('[DEBUG] Enviando a queue.fal.run/' + model);
-
-      proxyRequest('queue.fal.run', '/' + model, 'POST', {
+      const falRes = await httpsReq('queue.fal.run', '/' + model, 'POST', {
         'Content-Type':   'application/json',
         'Content-Length': newBody.length,
         'Authorization':  'Key ' + falKey,
-      }, newBody, res);
+      }, newBody);
 
-      console.log('[DEBUG] Request proxy enviado a queue.fal.run');
+      if (falRes.status === 200 || falRes.status === 201) {
+        logRequest('/api/fal/submit', falRes.status, Date.now() - startTime, currentStore.id);
+      } else {
+        if (creditDeducted && typeof StoreManager.refundAiCredit === 'function') {
+          StoreManager.refundAiCredit(currentStore.id);
+          creditDeducted = false;
+        }
+        logRequest('/api/fal/submit', falRes.status, Date.now() - startTime, currentStore.id, 'quota-refunded');
+      }
 
-    } catch(e) { 
-      console.error('[DEBUG] ERROR en /api/fal/submit:', e.message);
-      console.error('[DEBUG] Stack:', e.stack);
-      res.writeHead(500, corsHeaders()); 
-      res.end(JSON.stringify({ error: e.message })); 
+      const outHeaders = { ...corsHeaders(req) };
+      if (falRes.headers && falRes.headers['content-type']) {
+        outHeaders['Content-Type'] = falRes.headers['content-type'];
+      } else {
+        outHeaders['Content-Type'] = 'application/json';
+      }
+
+      res.writeHead(falRes.status, outHeaders);
+      res.end(falRes.body);
+
+    } catch(e) {
+      if (creditDeducted && typeof StoreManager.refundAiCredit === 'function') {
+        StoreManager.refundAiCredit(currentStore.id);
+        creditDeducted = false;
+      }
+      logRequest('/api/fal/submit', 500, Date.now() - startTime, currentStore.id, 'network-or-execution-error');
+      res.writeHead(500, corsHeaders(req));
+      res.end(JSON.stringify({ error: e.message }));
     }
     return;
   }
 
   // ── /api/fal/status ─────────────────────────────────────
   if (reqPath === '/api/fal/status') {
+    const startTime = Date.now();
     const falKey = process.env.FAL_KEY || '';
     const model  = qs.model  || 'fal-ai/fashn/tryon/v1.5';
     const reqId  = qs.reqId  || '';
-    console.log('[fal] status →', reqId);
     try {
       proxyRequest('queue.fal.run', '/' + model + '/requests/' + reqId + '/status', 'GET', {
         'Authorization': 'Key ' + falKey,
-      }, null, res);
-    } catch(e) { res.writeHead(500, corsHeaders()); res.end(JSON.stringify({ error: e.message })); }
+      }, null, res, (status) => {
+        logRequest('/api/fal/status', status, Date.now() - startTime, currentStore.id);
+      });
+    } catch(e) {
+      logRequest('/api/fal/status', 500, Date.now() - startTime, currentStore.id);
+      res.writeHead(500, corsHeaders(req));
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
   // ── /api/fal/result ─────────────────────────────────────
   if (reqPath === '/api/fal/result') {
+    const startTime = Date.now();
     const falKey = process.env.FAL_KEY || '';
     const model  = qs.model || 'fal-ai/fashn/tryon/v1.5';
     const reqId  = qs.reqId || '';
-    console.log('[fal] result →', reqId);
     try {
       proxyRequest('queue.fal.run', '/' + model + '/requests/' + reqId, 'GET', {
         'Authorization': 'Key ' + falKey,
-      }, null, res);
-    } catch(e) { res.writeHead(500, corsHeaders()); res.end(JSON.stringify({ error: e.message })); }
+      }, null, res, (status) => {
+        logRequest('/api/fal/result', status, Date.now() - startTime, currentStore.id);
+      });
+    } catch(e) {
+      logRequest('/api/fal/result', 500, Date.now() - startTime, currentStore.id);
+      res.writeHead(500, corsHeaders(req));
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
