@@ -171,14 +171,26 @@ function showPhotoFallback(photoDataURL) {
 
 // Carga imagen como data URI desde una ruta local
 async function cargarImagenComoDataURI(path) {
-  const r    = await fetch(path);
-  const blob = await r.blob();
-  return new Promise((res, rej) => {
-    const rd = new FileReader();
-    rd.onloadend = () => res(rd.result);
-    rd.onerror   = rej;
-    rd.readAsDataURL(blob);
-  });
+  if (!path) throw new Error('Ruta de imagen no especificada');
+  if (typeof path === 'string' && path.startsWith('data:')) {
+    return path;
+  }
+  try {
+    const r    = await fetch(path);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    return new Promise((res, rej) => {
+      const rd = new FileReader();
+      rd.onloadend = () => res(rd.result);
+      rd.onerror   = rej;
+      rd.readAsDataURL(blob);
+    });
+  } catch (err) {
+    if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))) {
+      return path;
+    }
+    throw err;
+  }
 }
 
 // Setea el link de WhatsApp con la gorra activa
@@ -358,8 +370,17 @@ async function runGPTImage2(photoDataURL, garmentDataURI, tipo) {
     setStep(3);
 
     if (!resp.ok) {
-      const t = await resp.text();
-      throw new Error('GPT-Image error (' + resp.status + ')');
+      let errMsg = 'GPT-Image error (' + resp.status + ')';
+      try {
+        const d = await resp.json();
+        if (d && d.error) errMsg = d.error;
+      } catch (_) {
+        try {
+          const t = await resp.text();
+          if (t && t.length < 200) errMsg = t;
+        } catch (_) {}
+      }
+      throw new Error(errMsg);
     }
 
     const data = await resp.json();

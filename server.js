@@ -86,7 +86,7 @@ function corsHeaders(req) {
   return {
     'Access-Control-Allow-Origin':  allowOrigin,
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Store-Id,X-Store-Subdomain',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Store-Id,X-Store-Subdomain,X-Capfit-Client,X-Requested-With',
     'Vary': 'Origin',
   };
 }
@@ -183,26 +183,31 @@ async function uploadDataURItoFal(dataURI, falKey) {
   if (!match) throw new Error('Formato imagen inválido');
   const mimeType = match[1];
   const buffer   = Buffer.from(match[2], 'base64');
-  const initBody = Buffer.from(JSON.stringify({ content_type: mimeType, file_size: buffer.length }));
+  const ext = mimeType.includes('png') ? '.png' : mimeType.includes('webp') ? '.webp' : '.jpg';
+  const fileName = 'upload_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + ext;
+  const initBody = Buffer.from(JSON.stringify({
+    file_name: fileName,
+    content_type: mimeType,
+    file_size: buffer.length
+  }));
   const init = await httpsReq('rest.alpha.fal.ai', '/storage/upload/initiate', 'POST', {
     'Authorization': 'Key ' + falKey,
     'Content-Type':  'application/json',
     'Content-Length': initBody.length,
   }, initBody);
   if (init.status !== 200) {
-    // fallback directo
-    const up = await httpsReq('storage.fal.ai', '/upload', 'POST', {
-      'Authorization': 'Key ' + falKey, 'Content-Type': mimeType, 'Content-Length': buffer.length,
-    }, buffer);
-    const d = up.json();
-    if (!d.url) throw new Error('Upload falló: ' + up.body.toString());
-    return d.url;
+    const errText = init.body ? init.body.toString() : String(init.status);
+    throw new Error('Fal storage upload initiate falló: ' + errText);
   }
   const { upload_url, file_url } = init.json();
   const u = new URL(upload_url);
-  await httpsReq(u.hostname, u.pathname + u.search, 'PUT', {
-    'Content-Type': mimeType, 'Content-Length': buffer.length,
+  const putRes = await httpsReq(u.hostname, u.pathname + u.search, 'PUT', {
+    'Content-Type': mimeType,
+    'Content-Length': buffer.length,
   }, buffer);
+  if (putRes.status < 200 || putRes.status >= 300) {
+    throw new Error('Fal storage upload PUT falló: ' + putRes.status);
+  }
   return file_url;
 }
 
@@ -352,10 +357,10 @@ async function appHandler(req, res) {
     }
 
     // 3. Validación de campos requeridos (sin descontar cuota si es inválido)
-    if (!payload.image_urls || !Array.isArray(payload.image_urls) || payload.image_urls.length === 0) {
+    if (!payload.image_urls || !Array.isArray(payload.image_urls) || payload.image_urls.length === 0 || payload.image_urls.some(img => !img || typeof img !== 'string')) {
       logRequest('/api/gpt/edit', 400, Date.now() - startTime, currentStore.id, 'missing-images');
       res.writeHead(400, corsHeaders(req));
-      res.end(JSON.stringify({ error: 'image_urls es requerido y debe ser un arreglo de imágenes no vacío' }));
+      res.end(JSON.stringify({ error: 'image_urls es requerido y debe ser un arreglo de imágenes válido' }));
       return;
     }
 
