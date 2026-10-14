@@ -199,6 +199,16 @@
     if (cleanName === 'politica-de-privacidad') cleanName = 'privacidad';
     if (cleanName === 'suscripciones' || cleanName === 'planes' || cleanName === 'pricing') cleanName = 'suscripcion';
 
+    // El panel de suscripciones es exclusivo para administradores y dueños de tienda autenticados
+    if (cleanName === 'suscripcion') {
+      const isAuthAdmin = (window.AdminPanel && typeof window.AdminPanel.isLoggedIn === 'function')
+        ? window.AdminPanel.isLoggedIn()
+        : !!(sessionStorage.getItem('capfit_admin_auth_token') || sessionStorage.getItem('capfit_session'));
+      if (!isAuthAdmin) {
+        cleanName = 'inicio';
+      }
+    }
+
     let target = document.getElementById(`view-${cleanName}`);
     if (!target) {
       if (cleanName === '404' || cleanName.includes('404')) {

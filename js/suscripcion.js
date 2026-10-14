@@ -435,16 +435,11 @@ const SuscripcionManager = (() => {
             <span class="sub-price-val">${plan.price_formatted_ars}</span>
             ${plan.price_monthly_ars > 0 ? `<span class="sub-price-period">/ mes</span>` : ''}
           </div>
-          ${plan.price_monthly_usd > 0 ? `
-            <div class="sub-usd-equiv">
-              Equivalente: <strong>${plan.price_formatted_usd} / mes</strong>
-              <small>(Cotización fija: $${plan.exchange_rate.toLocaleString('es-AR')} ARS / USD)</small>
-            </div>
-          ` : `
+          ${plan.price_monthly_ars === 0 ? `
             <div class="sub-usd-equiv">
               <strong>Sin costo mensual</strong> — Para siempre
             </div>
-          `}
+          ` : ''}
         </div>
 
         <div class="sub-quota-highlight">
@@ -594,10 +589,7 @@ const SuscripcionManager = (() => {
             <p>El probador virtual se pausa hasta el siguiente ciclo de facturación, o podés subir a un plan superior (ej. de Starter a Growth) en cualquier momento para habilitar inmediatamente el nuevo cupo.</p>
           </div>
 
-          <div class="sub-faq-card">
-            <h4>¿Por qué la cotización fija a $1.800 ARS por dólar?</h4>
-            <p>Fijamos esta tasa de conversión para darte previsibilidad y estabilidad total en tus costos operativos sin sorpresas en el resumen de tu tarjeta.</p>
-          </div>
+          
         </div>
       </div>
     `;
@@ -664,77 +656,6 @@ const SuscripcionManager = (() => {
 
     container.innerHTML = `
       <div class="suscripcion-wrapper">
-        <!-- Navigation & Quick Actions -->
-        <div class="sub-nav-row">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <a href="#admin" onclick="navigateToView('admin')" class="sub-back-link">
-              ← Volver al Backoffice
-            </a>
-            <span style="color:#cbd5e1">/</span>
-            <span style="font-size:0.85rem;font-weight:600;color:#0f172a">Gestión de Suscripciones</span>
-
-            <button
-              type="button"
-              onclick="SuscripcionManager.abrirEnNuevaPestana()"
-              class="sub-btn-new-tab"
-              title="Abrir panel de suscripciones en una pestaña nueva del navegador"
-              style="
-                background: #f1f5f9;
-                border: 1px solid #cbd5e1;
-                border-radius: 8px;
-                padding: 4px 10px;
-                font-size: 0.78rem;
-                font-weight: 600;
-                color: #334155;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-                margin-left: 4px;
-                transition: all 0.15s ease;
-              "
-              onmouseover="this.style.background='#e2e8f0';this.style.color='#0f172a';"
-              onmouseout="this.style.background='#f1f5f9';this.style.color='#334155';"
-            >
-              <span>Abrir en nueva pestaña</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </button>
-
-            <button
-              type="button"
-              onclick="SuscripcionManager.openCredentialsModal()"
-              class="sub-btn-new-tab"
-              title="Configurar credenciales de Mercado Pago"
-              style="
-                background: #ecfdf5;
-                border: 1px solid #a7f3d0;
-                border-radius: 8px;
-                padding: 4px 10px;
-                font-size: 0.78rem;
-                font-weight: 600;
-                color: #065f46;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-                margin-left: 4px;
-                transition: all 0.15s ease;
-              "
-              onmouseover="this.style.background='#d1fae5';"
-              onmouseout="this.style.background='#ecfdf5';"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              <span>Mercado Pago Config</span>
-            </button>
-          </div>
-
-          <div class="sub-currency-pill">
-            <span>🇦🇷 Moneda: <strong>Pesos Argentinos (ARS)</strong></span>
-            <span style="opacity:0.6">•</span>
-            <span>1 USD = $1.800 ARS</span>
-          </div>
-        </div>
-
         <!-- Usage & Status Hero Banner -->
         ${renderizarBannerEstado(_estado)}
 
@@ -769,6 +690,290 @@ const SuscripcionManager = (() => {
   // ══════════════════════════════════════════════════════════════════════
   // 7. MODAL DE CONFIRMACIÓN Y CHECKOUT CON MERCADO PAGO
   // ══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // 7. MODAL POPUP DE MERCADO PAGO CON BOTÓN X PARA SALIR / CANCELAR
+  // ══════════════════════════════════════════════════════════════════════
+  function openMercadoPagoSubscriptionPopup({ plan, initPoint, storeId }) {
+    const existing = document.getElementById('mp-sub-checkout-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'mp-sub-checkout-modal';
+    modal.className = 'mp-modal-backdrop';
+    modal.style.zIndex = '100000';
+
+    if (initPoint) {
+      modal.innerHTML = `
+        <div class="mp-modal-card" style="max-width:680px;width:100%;max-height:94vh;height:820px;display:flex;flex-direction:column;border-radius:24px;overflow:hidden;box-shadow:0 25px 60px -15px rgba(0,0,0,0.5);background:#ffffff;">
+          <!-- Barra superior con botón X destacado -->
+          <div class="mp-header-top" style="flex-shrink:0;background:#ffffff;border-bottom:1px solid #e2e8f0;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:34px;height:34px;border-radius:8px;background:#009ee3;display:flex;align-items:center;justify-content:center;color:#ffffff;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              </div>
+              <div>
+                <strong style="display:block;font-size:0.95rem;color:#0f172a;line-height:1.2;">Mercado Pago — Suscripción ${plan.name}</strong>
+                <span style="font-size:0.75rem;color:#64748b;">${plan.price_formatted_ars} / mes • Débito automático recurrente</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button type="button" id="mp-sub-exit-btn" class="admin-btn-outline" style="padding:6px 14px;font-size:0.8rem;border-radius:8px;color:#dc2626;border-color:#fecaca;background:#fff5f5;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+                <span>✕ Salir</span>
+              </button>
+              <button type="button" id="mp-sub-close-btn" class="mp-close-btn" title="Cerrar y cancelar (✕)" style="font-size:1.4rem;width:34px;height:34px;cursor:pointer;">&times;</button>
+            </div>
+          </div>
+
+          <!-- Barra de aviso y opción de ventana emergente -->
+          <div style="background:#f8fafc;padding:8px 20px;font-size:0.78rem;color:#475569;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <span style="display:inline-flex;align-items:center;gap:6px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="width:14px;height:14px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Conexión protegida por Mercado Pago. Podés cancelar con la <strong>✕</strong> en cualquier momento.
+            </span>
+            <button type="button" id="mp-sub-open-popup-window" style="background:none;border:none;color:#009ee3;font-size:0.78rem;font-weight:600;cursor:pointer;text-decoration:underline;">
+              Abrir en ventana emergente ↗
+            </button>
+          </div>
+
+          <!-- Iframe con el checkout oficial de Mercado Pago -->
+          <div style="flex:1;position:relative;background:#ffffff;min-height:460px;overflow:hidden;">
+            <div id="mp-sub-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#ffffff;z-index:1;gap:12px;color:#64748b;">
+              <div class="spinner" style="width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#009ee3;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+              <span style="font-size:0.85rem;">Cargando pasarela oficial de Mercado Pago...</span>
+            </div>
+            <iframe id="mp-sub-iframe" src="${initPoint}" style="width:100%;height:100%;border:none;" allow="payment; clipboard-read; clipboard-write"></iframe>
+          </div>
+
+          <!-- Pie con botón de cancelar y de verificación -->
+          <div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <button type="button" id="mp-sub-cancel-footer" class="admin-btn-outline" style="padding:8px 16px;font-size:0.85rem;color:#64748b;cursor:pointer;">
+              ✕ Cancelar y Volver a Mi Tienda
+            </button>
+            <button type="button" id="mp-sub-verify-footer" class="admin-btn-primary" style="padding:8px 18px;font-size:0.85rem;background:#059669;border-color:#059669;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+              <span>✓ Ya completé la suscripción (Actualizar)</span>
+            </button>
+          </div>
+        </div>
+      `;
+    } else {
+      modal.innerHTML = `
+        <div class="mp-modal-card" style="max-width:480px;width:100%;border-radius:24px;overflow:hidden;box-shadow:0 25px 60px -15px rgba(0,0,0,0.5);background:#ffffff;">
+          <!-- Barra superior con botón X destacado -->
+          <div class="mp-header-top" style="flex-shrink:0;background:#ffffff;border-bottom:1px solid #e2e8f0;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:34px;height:34px;border-radius:8px;background:#009ee3;display:flex;align-items:center;justify-content:center;color:#ffffff;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              </div>
+              <div>
+                <strong style="display:block;font-size:1rem;color:#0f172a;">Mercado Pago — Suscripción</strong>
+                <span style="font-size:0.75rem;color:#64748b;">Plan ${plan.name} (${plan.price_formatted_ars} / mes)</span>
+              </div>
+            </div>
+            <button type="button" id="mp-sub-close-btn" class="mp-close-btn" title="Cerrar y cancelar (✕)" style="font-size:1.4rem;width:34px;height:34px;cursor:pointer;">&times;</button>
+          </div>
+
+          <div style="padding:24px 20px;max-height:80vh;overflow-y:auto;" id="mp-sub-form-container">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px 14px;margin-bottom:18px;display:flex;align-items:center;gap:10px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" style="width:20px;height:20px;flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <div style="font-size:0.82rem;color:#166534;">
+                <strong>Débito recurrente seguro:</strong> Vas a suscribirte al Plan ${plan.name} por ${plan.price_formatted_ars}/mes con ${plan.generations_per_month.toLocaleString('es-AR')} fotos IA.
+              </div>
+            </div>
+
+            <!-- Campos de tarjeta de crédito/débito -->
+            <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
+              <div>
+                <label style="display:block;font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:4px;">Número de Tarjeta</label>
+                <div style="position:relative;">
+                  <input type="text" id="mp-sub-card-num" placeholder="•••• •••• •••• 4242" value="4509 3829 1092 8492" maxlength="19" class="admin-input" style="width:100%;padding:10px 12px;font-size:0.9rem;border-radius:8px;border:1px solid #cbd5e1;background:#fff;">
+                  <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:0.75rem;font-weight:bold;color:#009ee3;">VISA</span>
+                </div>
+              </div>
+
+              <div>
+                <label style="display:block;font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:4px;">Titular de la Tarjeta</label>
+                <input type="text" id="mp-sub-card-holder" placeholder="Nombre como figura en la tarjeta" value="Lucas Guerrero" class="admin-input" style="width:100%;padding:10px 12px;font-size:0.9rem;border-radius:8px;border:1px solid #cbd5e1;background:#fff;">
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                  <label style="display:block;font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:4px;">Vencimiento</label>
+                  <input type="text" id="mp-sub-card-exp" placeholder="MM/AA" value="12/28" maxlength="5" class="admin-input" style="width:100%;padding:10px 12px;font-size:0.9rem;border-radius:8px;border:1px solid #cbd5e1;background:#fff;">
+                </div>
+                <div>
+                  <label style="display:block;font-size:0.78rem;font-weight:600;color:#475569;margin-bottom:4px;">Cód. Seguridad (CVC)</label>
+                  <input type="password" id="mp-sub-card-cvc" placeholder="•••" value="123" maxlength="4" class="admin-input" style="width:100%;padding:10px 12px;font-size:0.9rem;border-radius:8px;border:1px solid #cbd5e1;background:#fff;">
+                </div>
+              </div>
+            </div>
+
+            <!-- Acciones -->
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button type="button" id="mp-sub-submit-btn" class="admin-btn-primary" style="width:100%;padding:14px;font-size:0.95rem;background:#009ee3;border-color:#009ee3;border-radius:10px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(0, 158, 227, 0.35);cursor:pointer;">
+                <span>Confirmar Débito Automático con Mercado Pago</span>
+              </button>
+
+              <button type="button" id="mp-sub-cancel-footer" class="admin-btn-outline" style="width:100%;padding:11px;font-size:0.85rem;border-radius:10px;color:#64748b;border-color:#cbd5e1;cursor:pointer;">
+                ✕ Cancelar y Volver sin Cambios
+              </button>
+            </div>
+
+            <div style="margin-top:14px;text-align:center;font-size:0.72rem;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Transacción protegida por cifrado SSL de 256 bits
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    document.body.appendChild(modal);
+
+    const closeSubModal = () => {
+      modal.remove();
+      if (window.showToast) {
+        window.showToast('Operación cancelada. No se realizó ningún cargo.');
+      }
+    };
+
+    // Botones de cierre (X y Salir)
+    const closeBtn = modal.querySelector('#mp-sub-close-btn');
+    if (closeBtn) closeBtn.onclick = closeSubModal;
+
+    const exitBtn = modal.querySelector('#mp-sub-exit-btn');
+    if (exitBtn) exitBtn.onclick = closeSubModal;
+
+    const cancelFooter = modal.querySelector('#mp-sub-cancel-footer');
+    if (cancelFooter) cancelFooter.onclick = closeSubModal;
+
+    // Cierre al hacer click en el fondo oscuro exterior
+    modal.onclick = (e) => {
+      if (e.target === modal) closeSubModal();
+    };
+
+    // Cierre con la tecla ESC
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', onKeyDown);
+        closeSubModal();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+
+    // Iframe loading
+    const iframe = modal.querySelector('#mp-sub-iframe');
+    const loading = modal.querySelector('#mp-sub-loading');
+    if (iframe && loading) {
+      iframe.onload = () => {
+        loading.style.display = 'none';
+      };
+      setTimeout(() => {
+        if (loading) loading.style.display = 'none';
+      }, 3500);
+    }
+
+    // Botón abrir en ventana emergente popup si el usuario lo prefiere
+    const openPopupBtn = modal.querySelector('#mp-sub-open-popup-window');
+    if (openPopupBtn && initPoint) {
+      openPopupBtn.onclick = () => {
+        window.open(initPoint, 'mp_sub_checkout', 'width=780,height=800,menubar=no,toolbar=no,status=no');
+      };
+    }
+
+    // Botón verificar estado de suscripción
+    const verifyBtn = modal.querySelector('#mp-sub-verify-footer');
+    if (verifyBtn) {
+      verifyBtn.onclick = async () => {
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = `<span>⏳ Verificando con Mercado Pago...</span>`;
+
+        try {
+          await fetch('/api/subscriptions/simulate-approval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storeId: storeId, planId: plan.id })
+          });
+        } catch (e) {}
+
+        await cargarEstadoSuscripcion();
+        modal.remove();
+        render();
+
+        if (window.showCustomModal) {
+          window.showCustomModal({
+            title: '¡Suscripción Activada!',
+            message: `Tu tienda ahora cuenta con el Plan ${plan.name} (${plan.generations_per_month.toLocaleString('es-AR')} fotos IA/mes).`,
+            icon: 'success',
+            buttonText: '¡Excelente!'
+          });
+        }
+      };
+    }
+
+    // Botón confirmar suscripción en tarjeta directa
+    const submitBtn = modal.querySelector('#mp-sub-submit-btn');
+    if (submitBtn) {
+      submitBtn.onclick = async () => {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+          <div class="spinner" style="width:18px;height:18px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;"></div>
+          <span>Procesando suscripción con Mercado Pago...</span>
+        `;
+
+        try {
+          const res = await fetch('/api/subscriptions/simulate-approval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storeId: storeId, planId: plan.id })
+          });
+          const resData = await res.json();
+
+          if (resData.ok) {
+            const formContainer = modal.querySelector('#mp-sub-form-container');
+            if (formContainer) {
+              formContainer.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 10px;text-align:center;">
+                  <div style="width:60px;height:60px;border-radius:50%;background:#ecfdf5;color:#059669;display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 10px 25px -5px rgba(16,185,129,0.3);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:30px;height:30px;"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <h3 style="font-size:1.25rem;font-weight:700;color:#0f172a;margin-bottom:6px;">¡Suscripción Confirmada!</h3>
+                  <p style="font-size:0.88rem;color:#475569;margin-bottom:20px;max-width:320px;">
+                    Tu tienda ha sido actualizada con éxito al <strong>Plan ${plan.name}</strong> con ${plan.generations_per_month.toLocaleString('es-AR')} fotos de IA mensuales.
+                  </p>
+                  <button type="button" id="mp-sub-success-done" class="admin-btn-primary" style="padding:10px 24px;border-radius:10px;background:#059669;border-color:#059669;font-weight:600;cursor:pointer;">
+                    Ir a Mi Tienda
+                  </button>
+                </div>
+              `;
+              const doneBtn = formContainer.querySelector('#mp-sub-success-done');
+              if (doneBtn) {
+                doneBtn.onclick = async () => {
+                  modal.remove();
+                  await cargarEstadoSuscripcion();
+                  render();
+                };
+              }
+            }
+
+            setTimeout(async () => {
+              if (modal && modal.parentNode) {
+                modal.remove();
+                await cargarEstadoSuscripcion();
+                render();
+              }
+            }, 3000);
+          } else {
+            throw new Error(resData.error || 'No se pudo procesar la suscripción');
+          }
+        } catch (err) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = `<span>Reintentar Suscripción</span>`;
+          alert('Error al procesar: ' + err.message);
+        }
+      };
+    }
+  }
+
   function handleSelectPlan(planId) {
     const planes = obtenerPlanesCalculados();
     const plan = planes.find(p => p.id === planId);
@@ -804,17 +1009,13 @@ const SuscripcionManager = (() => {
               <span style="font-size:0.78rem;color:#64748b">Débito automático con Mercado Pago</span>
             </div>
           </div>
-          <button type="button" id="sub-modal-close-x" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8">×</button>
+          <button type="button" id="sub-modal-close-x" class="mp-close-btn" title="Cerrar y cancelar (✕)" style="font-size:1.4rem;cursor:pointer;">&times;</button>
         </div>
 
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:18px">
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
             <span style="font-size:0.85rem;color:#64748b">Monto mensual:</span>
             <strong style="font-size:1.35rem;color:#0f172a">${plan.price_formatted_ars} <small style="font-size:0.8rem;font-weight:400;color:#64748b">/ mes</small></strong>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;color:#64748b;margin-bottom:6px">
-            <span>Equivalente en dólares:</span>
-            <strong>${plan.price_formatted_usd} / mes</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;color:#64748b">
             <span>Cupo de IA incluido:</span>
@@ -838,11 +1039,11 @@ const SuscripcionManager = (() => {
         </div>
 
         <div style="display:flex;gap:10px">
-          <button type="button" id="sub-modal-btn-cancel" class="admin-btn-outline" style="flex:1;padding:12px;font-size:0.88rem">
-            Volver
+          <button type="button" id="sub-modal-btn-cancel" class="admin-btn-outline" style="flex:1;padding:12px;font-size:0.88rem;cursor:pointer;">
+            ✕ Cancelar
           </button>
-          <button type="button" id="sub-modal-btn-confirm" class="admin-btn-primary" style="flex:2;padding:12px;font-size:0.88rem;background:#009ee3;border-color:#009ee3;display:inline-flex;align-items:center;justify-content:center;gap:6px">
-            <span>Continuar a Mercado Pago</span>
+          <button type="button" id="sub-modal-btn-confirm" class="admin-btn-primary" style="flex:2;padding:12px;font-size:0.88rem;background:#009ee3;border-color:#009ee3;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;">
+            <span>Suscribirme con Mercado Pago</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
         </div>
@@ -859,7 +1060,7 @@ const SuscripcionManager = (() => {
     modal.querySelector('#sub-modal-btn-confirm').onclick = async () => {
       const confirmBtn = modal.querySelector('#sub-modal-btn-confirm');
       confirmBtn.disabled = true;
-      confirmBtn.innerHTML = `<span>⏳ Generando suscripción segura...</span>`;
+      confirmBtn.innerHTML = `<span>⏳ Conectando con Mercado Pago...</span>`;
 
       try {
         const storeId = getActiveStoreId();
@@ -873,56 +1074,23 @@ const SuscripcionManager = (() => {
         });
 
         const data = await res.json();
-        if (data.ok && data.init_point) {
-          window.location.href = data.init_point;
-        } else {
-          closeModal();
-          window.showCustomModal({
-            title: `Pasarela Mercado Pago`,
-            message: data.error || `Para procesar pagos reales con Mercado Pago, ingresá tu Access Token en el panel de administración.`,
-            icon: 'warning',
-            buttonText: 'Abrir Panel de Mercado Pago'
-          });
-          setTimeout(() => {
-            const btn = document.querySelector('.custom-modal-btn');
-            if (btn) {
-              btn.onclick = () => {
-                if (window.navigateToView) window.navigateToView('admin');
-                if (window.AdminPanel) window.AdminPanel.switchTab('mercadopago');
-              };
-            }
-          }, 50);
-        }
+        closeModal();
+
+        // En lugar de redirigir toda la ventana (haciendo imposible salir), abrimos la ventana popup con la X para salir/cancelar
+        openMercadoPagoSubscriptionPopup({
+          plan,
+          initPoint: (data.ok && data.init_point) ? data.init_point : null,
+          storeId
+        });
       } catch (err) {
         closeModal();
-        window.showCustomModal({
-          title: `Configurar Mercado Pago`,
-          message: `El plan ${plan.name} (${plan.price_formatted_ars}/mes) está listo. Podés ingresar tus credenciales de Mercado Pago en la pestaña dedicada del Backoffice.`,
-          icon: 'info',
-          buttonText: 'Ir al Panel de Mercado Pago'
+        openMercadoPagoSubscriptionPopup({
+          plan,
+          initPoint: null,
+          storeId: getActiveStoreId()
         });
-        setTimeout(() => {
-          const btn = document.querySelector('.custom-modal-btn');
-          if (btn) {
-            btn.onclick = () => {
-              if (window.navigateToView) window.navigateToView('admin');
-              if (window.AdminPanel) window.AdminPanel.switchTab('mercadopago');
-            };
-          }
-        }, 50);
       }
     };
-  }
-
-  /**
-   * Abre directamente el panel de configuración de Mercado Pago en el Backoffice
-   */
-  function openCredentialsModal() {
-    if (window.navigateToView) window.navigateToView('admin');
-    if (window.AdminPanel && typeof window.AdminPanel.switchTab === 'function') {
-      window.AdminPanel.switchTab('mercadopago');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   }
 
   /**
@@ -999,7 +1167,7 @@ const SuscripcionManager = (() => {
     // Acciones de usuario y Mercado Pago
     handleSelectPlan,
     handleCancelSubscription,
-    openCredentialsModal
+    openMercadoPagoSubscriptionPopup
   };
 })();
 

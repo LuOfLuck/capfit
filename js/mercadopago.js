@@ -320,6 +320,17 @@ const MercadoPagoGateway = (() => {
     `;
 
     document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) MercadoPagoGateway.close();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.style.display !== 'none') {
+        MercadoPagoGateway.close();
+      }
+    });
+
     return modal;
   }
 
