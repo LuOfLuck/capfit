@@ -1,7 +1,7 @@
 # CAPFIT - Plataforma SaaS Multi-Tienda con Probador Virtual IA
 
 CAPFIT es una plataforma SaaS de comercio electrónico para marcas y tiendas de moda urbana y gorras, equipada con un motor de Probador Virtual (Virtual Try-On) impulsado por modelos de visión e inteligencia artificial de última generación.
-
+Hola
 ---
 
 ## 1. Arquitectura del Sistema
