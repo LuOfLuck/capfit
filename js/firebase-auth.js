@@ -276,7 +276,7 @@
         displayName: user.displayName || storeName,
         storeName,
         subdomain,
-        plan: plan || 'Starter',
+        plan: plan || 'free',
         tagline: tagline || `Tienda oficial ${storeName}`
       })
     });

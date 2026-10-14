@@ -18,6 +18,7 @@ const url   = require('url');
 
 const StoreManager = require('./src/store-manager');
 const FirebaseDb = require('./src/firebase-db');
+const MercadoPagoSubscriptions = require('./src/mercadopago-subscriptions');
 StoreManager.init().catch(err => console.error('StoreManager init error:', err));
 
 const PORT = 3000;
@@ -1051,6 +1052,168 @@ async function appHandler(req, res) {
   if (reqPath === '/api/database/status' && req.method === 'GET') {
     const dbInfo = StoreManager.getDatabaseInfo ? StoreManager.getDatabaseInfo() : { provider: 'Firebase Firestore', connected: true };
     sendJson(res, 200, { ok: true, database: dbInfo });
+    return;
+  }
+
+  // 1.05 GET /api/plans (Listado de planes y suscripciones CapFit)
+  if (reqPath === '/api/plans' && req.method === 'GET') {
+    const plans = StoreManager.getPlansCatalog ? StoreManager.getPlansCatalog() : [];
+    const store = StoreManager.getStoreById(currentStore.id) || currentStore;
+    const quota = StoreManager.getAiQuotaStatus(currentStore.id);
+    const planId = (store.planId || store.plan || 'free').toLowerCase();
+    const planDetails = StoreManager.getPlanDetails ? StoreManager.getPlanDetails(planId) : null;
+
+    sendJson(res, 200, {
+      ok: true,
+      currentPlanId: planId,
+      currentPlanName: (planDetails && planDetails.name) || store.plan || 'FREE',
+      storeId: store.id,
+      storeName: store.name,
+      quota,
+      plans
+    });
+    return;
+  }
+
+  // 1.06 POST /api/subscriptions/create-preapproval (Crear débito automático recurrente con Mercado Pago)
+  if (reqPath === '/api/subscriptions/create-preapproval' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const body = JSON.parse(raw.toString() || '{}');
+      const storeId = body.storeId || qs.store || currentStore.id;
+      const host = req.headers.host || '';
+
+      const result = await MercadoPagoSubscriptions.createSubscriptionPreapproval({
+        planId: body.planId,
+        storeId: storeId,
+        payerEmail: body.payerEmail,
+        backUrl: body.backUrl,
+        host: host
+      });
+
+      sendJson(res, 200, result);
+    } catch (e) {
+      console.error('[API Subscriptions Error]', e);
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 1.07 POST /api/webhooks/mercadopago & /api/subscriptions/webhook (Webhook oficial de Mercado Pago)
+  if ((reqPath === '/api/webhooks/mercadopago' || reqPath === '/api/subscriptions/webhook') && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const body = JSON.parse(raw.toString() || '{}');
+      const result = await MercadoPagoSubscriptions.processWebhook(body, req.headers, qs);
+      sendJson(res, 200, result);
+    } catch (e) {
+      console.error('[Webhook Error]', e);
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 1.08 GET /api/subscriptions/status (Consultar estado de suscripción)
+  if (reqPath === '/api/subscriptions/status' && req.method === 'GET') {
+    const targetStoreId = qs.store || qs.storeId || currentStore.id;
+    const store = StoreManager.getStoreById(targetStoreId) || currentStore;
+    const quota = StoreManager.getAiQuotaStatus(targetStoreId);
+    const planDetails = StoreManager.getPlanDetails(store.planId || store.plan);
+    const mpStatus = MercadoPagoSubscriptions.getCredentialsStatus();
+
+    sendJson(res, 200, {
+      ok: true,
+      storeId: store.id,
+      storeName: store.name,
+      plan: planDetails,
+      subscriptionStatus: store.subscriptionStatus || 'active',
+      preapprovalId: store.preapprovalId || store.subscriptionId || null,
+      subscribedAt: store.subscribedAt || null,
+      quota,
+      mercadoPago: mpStatus
+    });
+    return;
+  }
+
+  // 1.09 POST /api/subscriptions/cancel (Cancelar débito automático y volver a plan FREE)
+  if (reqPath === '/api/subscriptions/cancel' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const body = JSON.parse(raw.toString() || '{}');
+      const targetStoreId = body.storeId || qs.store || currentStore.id;
+      const result = await MercadoPagoSubscriptions.cancelSubscription(targetStoreId);
+      sendJson(res, 200, result);
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 1.095 GET /api/subscriptions/config & POST /api/admin/subscriptions/config
+  if (reqPath === '/api/subscriptions/config' && req.method === 'GET') {
+    sendJson(res, 200, {
+      ok: true,
+      config: MercadoPagoSubscriptions.getCredentialsStatus()
+    });
+    return;
+  }
+
+  if (reqPath === '/api/admin/subscriptions/config' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const creds = JSON.parse(raw.toString() || '{}');
+      const updated = MercadoPagoSubscriptions.setCredentials(creds);
+      sendJson(res, 200, { ok: true, message: 'Credenciales de Mercado Pago actualizadas.', status: updated });
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 1.0955 POST o GET /api/subscriptions/config/test (Probar conexión con Mercado Pago)
+  if ((reqPath === '/api/subscriptions/config/test' || reqPath === '/api/admin/subscriptions/test') && (req.method === 'POST' || req.method === 'GET')) {
+    try {
+      let customToken = null;
+      if (req.method === 'POST') {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw.toString() || '{}');
+        if (parsed.token) customToken = parsed.token;
+      }
+      const testResult = await MercadoPagoSubscriptions.testConnection(customToken);
+      sendJson(res, 200, testResult);
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 1.096 POST /api/subscriptions/simulate-approval (Simulación de activación para pruebas locales)
+  if (reqPath === '/api/subscriptions/simulate-approval' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const { storeId, planId } = JSON.parse(raw.toString() || '{}');
+      const targetStore = storeId || currentStore.id;
+      const plan = StoreManager.getPlanDetails(planId);
+      if (!plan) throw new Error('Plan no válido');
+
+      const updated = StoreManager.updateStore(targetStore, {
+        plan: plan.name,
+        planId: plan.id,
+        aiMonthlyLimit: plan.generations_per_month,
+        subscriptionStatus: 'active',
+        subscriptionId: `sim_appr_${Date.now()}`,
+        subscribedAt: new Date().toISOString()
+      });
+
+      sendJson(res, 200, {
+        ok: true,
+        message: `Plan "${plan.name}" activado exitosamente en ${updated.name}`,
+        store: updated,
+        aiQuota: StoreManager.getAiQuotaStatus(updated.id)
+      });
+    } catch (e) {
+      sendJson(res, 400, { ok: false, error: e.message });
+    }
     return;
   }
 

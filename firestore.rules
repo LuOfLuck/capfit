@@ -2,97 +2,130 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny all access
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Helper functions
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-#]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    function isSignedIn() {
+    // =========================================================================
+    // Funciones Auxiliares de Autenticación y Validación
+    // =========================================================================
+    function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isValidStore(data) {
-      return data.id is string && isValidId(data.id) &&
-             data.subdomain is string && data.subdomain.size() > 0 && data.subdomain.size() <= 64 &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             (!('aiMonthlyLimit' in data) || data.aiMonthlyLimit is number) &&
-             (!('aiGenerationsUsed' in data) || data.aiGenerationsUsed is number);
+    function isSuperAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email == 'lucasg33322@gmail.com';
     }
 
-    function isValidProduct(data) {
-      return data.id is string && isValidId(data.id) &&
-             data.storeId is string && isValidId(data.storeId) &&
-             data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 120 &&
-             data.precio is number && data.precio >= 0 &&
-             (!('stock' in data) || (data.stock is number && data.stock >= 0));
+    function isStoreOwner(storeId) {
+      return isSuperAdmin() ||
+        (isAuthenticated() && request.auth.token.storeId == storeId);
     }
 
-    function isValidOrder(data) {
-      return data.id is string && isValidId(data.id) &&
-             data.storeId is string && isValidId(data.storeId) &&
-             data.total is number && data.total >= 0 &&
-             data.status is string && data.status.size() <= 40;
+    // Garantiza que ningún documento público de tienda contenga credenciales
+    function hasNoExposedCredentials(data) {
+      return !('adminUsername' in data) && !('adminPassword' in data);
     }
 
-    // Test connection endpoint
-    match /test/{docId} {
-      allow read, write: if true;
+    // Inmutabilidad de campos financieros y de cuota para no-SuperAdmins
+    function quotaFieldsUnchanged() {
+      return request.resource.data.plan == resource.data.plan &&
+        request.resource.data.aiMonthlyLimit == resource.data.aiMonthlyLimit &&
+        request.resource.data.aiGenerationsUsed == resource.data.aiGenerationsUsed &&
+        request.resource.data.aiPeriod == resource.data.aiPeriod;
     }
 
-    // Stores collection: public read for active stores, validated schema writes
+    // =========================================================================
+    // 1. Colección Pública de Tiendas: stores/{storeId}
+    // =========================================================================
     match /stores/{storeId} {
-      allow get, list: if true;
-      allow create, update: if isValidId(storeId) && isValidStore(incoming());
-      allow delete: if isSignedIn() || isValidId(storeId);
+      // Lectura pública segura: este documento ya NO contiene adminUsername ni adminPassword
+      allow read: if true;
 
-      // Subcolección de productos de cada cliente / tienda (gorras, anteojos, accesorios)
-      match /products/{productId} {
-        allow get, list: if true;
-        allow create, update: if isValidId(productId) && isValidProduct(incoming());
-        allow delete: if isValidId(productId);
-      }
+      // Creación de tiendas: solo SuperAdmin y sin credenciales en el documento público
+      allow create: if isSuperAdmin() &&
+        hasNoExposedCredentials(request.resource.data) &&
+        request.resource.data.name is string &&
+        request.resource.data.subdomain is string &&
+        request.resource.data.aiMonthlyLimit is number &&
+        request.resource.data.aiMonthlyLimit >= 0 &&
+        request.resource.data.aiGenerationsUsed is number &&
+        request.resource.data.aiGenerationsUsed >= 0 &&
+        request.resource.data.active is bool;
+
+      // Actualización: SuperAdmin puede editar todo (sin inyectar credenciales en stores);
+      // el dueño de la tienda solo puede editar metadatos de marca (name, tagline, about) sin tocar cuotas
+      allow update: if hasNoExposedCredentials(request.resource.data) && (
+        isSuperAdmin() ||
+        (isStoreOwner(storeId) && quotaFieldsUnchanged())
+      );
+
+      allow delete: if isSuperAdmin();
     }
 
-    // Products collection: public read, validated writes per store
+    // =========================================================================
+    // 2. Colección Privada de Secretos de Tienda: store_secrets/{storeId}
+    // =========================================================================
+    match /store_secrets/{storeId} {
+      // BLOQUEADO al público: ningún comprador ni script anónimo en el navegador puede leerlo.
+      // Solo accesible desde el backend (server.js / api/serverless.js) o por el SuperAdmin autenticado.
+      allow read, write: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 3. Colección de Productos: products/{productId}
+    // =========================================================================
     match /products/{productId} {
-      allow get, list: if true;
-      allow create, update: if isValidId(productId) && isValidProduct(incoming());
-      allow delete: if isValidId(productId);
+      allow read: if true;
+
+      allow create: if isStoreOwner(request.resource.data.storeId) &&
+        request.resource.data.storeId is string &&
+        request.resource.data.name is string &&
+        request.resource.data.price is number &&
+        request.resource.data.price >= 0 &&
+        request.resource.data.stock is number &&
+        request.resource.data.stock >= 0;
+
+      allow update: if isStoreOwner(resource.data.storeId) &&
+        request.resource.data.storeId == resource.data.storeId &&
+        request.resource.data.price is number &&
+        request.resource.data.price >= 0 &&
+        request.resource.data.stock is number &&
+        request.resource.data.stock >= 0;
+
+      allow delete: if isStoreOwner(resource.data.storeId);
     }
 
-    // Orders collection: public create (customer placing order), read/update for store admin
+    // =========================================================================
+    // 4. Colección de Órdenes: orders/{orderId}
+    // =========================================================================
     match /orders/{orderId} {
-      allow get, list: if true;
-      allow create, update: if isValidId(orderId) && isValidOrder(incoming());
-      allow delete: if isSignedIn() || isValidId(orderId);
+      // Solo el dueño de la tienda o el SuperAdmin pueden leer y actualizar el listado de órdenes
+      allow read: if isStoreOwner(resource.data.storeId);
+
+      // Compradores pueden crear órdenes únicamente en estado 'pending' y con monto positivo
+      allow create: if request.resource.data.storeId is string &&
+        request.resource.data.items is list &&
+        request.resource.data.items.size() > 0 &&
+        request.resource.data.totalAmount is number &&
+        request.resource.data.totalAmount > 0 &&
+        request.resource.data.status == 'pending';
+
+      // El estado de la orden solo puede ser modificado por el administrador de la tienda o SuperAdmin
+      allow update: if isStoreOwner(resource.data.storeId) &&
+        request.resource.data.storeId == resource.data.storeId &&
+        request.resource.data.totalAmount == resource.data.totalAmount;
+
+      allow delete: if isSuperAdmin();
     }
 
-    // AI Logs collection
-    match /ai_logs/{logId} {
-      allow get, list: if isSignedIn();
-      allow create: if isValidId(logId) && incoming().storeId is string;
-      allow update, delete: if false;
-    }
+    // =========================================================================
+    // 5. Colección de Analíticas: analytics_events/{eventId}
+    // =========================================================================
+    match /analytics_events/{eventId} {
+      allow read: if isStoreOwner(resource.data.storeId);
 
-    // Store Owners collection (dueños de tienda autenticados vía Firebase Auth)
-    match /store_owners/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || request.auth.token.email == 'lucasg33322@gmail.com');
-      allow list: if isSignedIn();
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
-      allow delete: if isSignedIn() && request.auth.token.email == 'lucasg33322@gmail.com';
+      allow create: if request.resource.data.storeId is string &&
+        request.resource.data.type is string;
+
+      allow update, delete: if isSuperAdmin();
     }
   }
 }

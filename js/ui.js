@@ -197,6 +197,7 @@
     if (cleanName === 'cambios-y-devoluciones') cleanName = 'cambios';
     if (cleanName === 'terminos-y-condiciones') cleanName = 'terminos';
     if (cleanName === 'politica-de-privacidad') cleanName = 'privacidad';
+    if (cleanName === 'suscripciones' || cleanName === 'planes' || cleanName === 'pricing') cleanName = 'suscripcion';
 
     let target = document.getElementById(`view-${cleanName}`);
     if (!target) {
@@ -231,6 +232,8 @@
       if (window.AdminPanel) window.AdminPanel.init();
     } else if (cleanName === 'sobre-nosotros') {
       if (window.SobreNosotros) window.SobreNosotros.render();
+    } else if (cleanName === 'suscripcion') {
+      if (window.SuscripcionManager) window.SuscripcionManager.render();
     }
   };
 
@@ -445,7 +448,8 @@
           'faq', 'preguntas-frecuentes', 'envios', 'envios-y-entregas',
           'cambios', 'cambios-y-devoluciones', 'contacto',
           'sobre-nosotros', 'terminos', 'terminos-y-condiciones',
-          'privacidad', 'politica-de-privacidad'
+          'privacidad', 'politica-de-privacidad',
+          'suscripcion', 'suscripciones', 'planes'
         ].includes(rawPath)) {
           let mapped = rawPath;
           if (mapped === 'account') mapped = 'admin';
@@ -457,6 +461,7 @@
           else if (mapped === 'cambios-y-devoluciones') mapped = 'cambios';
           else if (mapped === 'terminos-y-condiciones') mapped = 'terminos';
           else if (mapped === 'politica-de-privacidad') mapped = 'privacidad';
+          else if (mapped === 'suscripciones' || mapped === 'planes') mapped = 'suscripcion';
           viewName = mapped;
         } else if (!rawPath.includes('.')) {
           viewName = '404';

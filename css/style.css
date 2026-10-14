@@ -6698,6 +6698,451 @@ body.is-admin-domain #view-admin {
   gap: 12px;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   SUBSCRIPTIONS & PLANS MODULE (/suscripcion)
+   ══════════════════════════════════════════════════════════════ */
+.suscripcion-wrapper {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 32px 20px 80px 20px;
+}
+
+.sub-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.sub-back-link {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.sub-back-link:hover {
+  color: var(--black);
+}
+
+.sub-currency-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Usage & Status Hero Banner */
+.sub-usage-hero-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  border-radius: 22px;
+  padding: 30px 32px;
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 28px;
+  box-shadow: 0 15px 35px -5px rgba(15, 23, 42, 0.2);
+}
+
+.sub-usage-left {
+  flex: 1;
+  min-width: 300px;
+}
+
+.sub-usage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.sub-dot-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4);
+  animation: pulse 1.8s infinite;
+}
+
+.sub-usage-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.4px;
+}
+
+.sub-usage-desc {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin: 0 0 20px 0;
+  max-width: 500px;
+  line-height: 1.5;
+}
+
+.sub-progress-wrap {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.sub-progress-bar-track {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.sub-progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.sub-progress-bar-fill.ok { background: #10b981; }
+.sub-progress-bar-fill.warning { background: #f59e0b; }
+.sub-progress-bar-fill.danger { background: #ef4444; }
+
+.sub-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.sub-usage-stats-box {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sub-stat-unit {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px 20px;
+  text-align: center;
+  min-width: 130px;
+}
+
+.sub-stat-num {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.sub-stat-lbl {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Section Title */
+.sub-section-title-wrap {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.sub-section-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+}
+
+.sub-section-sub {
+  font-size: 0.95rem;
+  color: #64748b;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+/* Plans Grid */
+.sub-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
+  gap: 20px;
+  margin-bottom: 50px;
+}
+
+.sub-plan-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 26px 22px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+}
+
+.sub-plan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+  border-color: #cbd5e1;
+}
+
+.sub-plan-card.current-plan-card {
+  border: 2px solid #0f172a;
+  background: #fafafa;
+}
+
+.sub-plan-card.popular-plan-card {
+  border: 2px solid #10b981;
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.12);
+}
+
+.sub-popular-ribbon {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #10b981;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 14px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
+}
+
+.sub-tier-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+}
+
+.sub-active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+.sub-plan-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.sub-plan-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0;
+  min-height: 38px;
+  line-height: 1.4;
+}
+
+.sub-price-block {
+  padding: 16px 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+  margin: 16px 0;
+}
+
+.sub-price-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.sub-price-val {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+}
+
+.sub-price-period {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.sub-usd-equiv {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.sub-usd-equiv small {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  margin-top: 1px;
+}
+
+.sub-quota-highlight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.sub-quota-highlight strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #166534;
+}
+
+.sub-quota-highlight span {
+  font-size: 0.72rem;
+  color: #15803d;
+}
+
+.sub-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+}
+
+.sub-features-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.35;
+}
+
+.sub-card-action {
+  margin-top: auto;
+}
+
+.sub-btn-subscribe {
+  width: 100%;
+  padding: 12px 14px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+.sub-btn-subscribe:hover {
+  background: #000000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+.sub-btn-subscribe.btn-popular {
+  background: #009ee3; /* Mercado Pago Blue */
+  box-shadow: 0 3px 12px rgba(0, 158, 227, 0.3);
+}
+
+.sub-btn-subscribe.btn-popular:hover {
+  background: #0087c2;
+}
+
+.sub-btn-current {
+  width: 100%;
+  padding: 12px 14px;
+  background: #e2e8f0;
+  color: #475569;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: default;
+}
+
+/* FAQ Section */
+.sub-faq-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 36px 32px;
+  margin-top: 40px;
+}
+
+.sub-faq-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.sub-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
+}
+
+@media (max-width: 768px) {
+  .sub-faq-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sub-faq-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.sub-faq-card h4 {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.sub-faq-card p {
+  font-size: 0.85rem;
+  color: #475569;
+  margin: 0;
+  line-height: 1.55;
+}
+
+
 
 
 
