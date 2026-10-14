@@ -281,10 +281,9 @@ const Catalogo = (() => {
       }
 
       // Navigate to try-on view
+      window.location.hash = '#probador';
       if (window.navigateToView) {
         window.navigateToView('probador');
-      } else {
-        window.location.hash = '#probador';
       }
     },
 

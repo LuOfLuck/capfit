@@ -212,6 +212,14 @@
     if (target) {
       target.classList.add('active-view');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Sincronizar hash para que recargas o eventos del navegador mantengan la vista correcta
+      const expectedHash = cleanName === 'inicio' ? '' : `#${cleanName}`;
+      if (window.location.hash !== expectedHash && (cleanName !== 'inicio' || window.location.hash)) {
+        try {
+          history.replaceState(null, '', expectedHash || (window.location.pathname + window.location.search));
+        } catch (_) {}
+      }
     }
 
     // Update active nav links

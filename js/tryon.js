@@ -4,6 +4,7 @@ let tryOnProgressInterval = null;
 function setTryOnProcessingState(isProcessing) {
   const btnRestart = document.getElementById('btn-restart-tryon') || document.querySelector('.btn-restart-tryon');
   const btnAct = document.getElementById('btn-activate');
+  const btnNative = document.getElementById('btn-native-camera');
   const btnShoot = document.getElementById('btn-shoot');
   const uploadLabel = document.querySelector('.btn-upload-gallery-sec');
   const uploadInput = document.getElementById('tryon-gallery-input');
@@ -13,6 +14,7 @@ function setTryOnProcessingState(isProcessing) {
   if (isProcessing) {
     if (btnRestart) btnRestart.style.display = 'none';
     if (btnAct) btnAct.style.display = 'none';
+    if (btnNative) btnNative.style.display = 'none';
     if (btnShoot) btnShoot.style.display = 'none';
     if (uploadLabel) {
       uploadLabel.style.pointerEvents = 'none';
@@ -31,8 +33,12 @@ function setTryOnProcessingState(isProcessing) {
     const video = document.getElementById('video-feed');
     if (video && video.style.display === 'block') {
       if (btnShoot) btnShoot.style.display = 'inline-flex';
+      if (btnAct) btnAct.style.display = 'none';
+      if (btnNative) btnNative.style.display = 'none';
     } else {
       if (btnAct) btnAct.style.display = 'inline-flex';
+      if (btnNative) btnNative.style.display = 'inline-flex';
+      if (btnShoot) btnShoot.style.display = 'none';
     }
   }
 }

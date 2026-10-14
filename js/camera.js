@@ -78,7 +78,23 @@ let currentFacingMode = 'user'; // 'user' (frontal) | 'environment' (trasera)
 let cameraGuideEnabled = true;
 let countdownInterval = null;
 
-async function activateCamera() {
+async function activateCamera(e) {
+  if (e && typeof e.preventDefault === 'function') {
+    e.preventDefault();
+  }
+  if (e && typeof e.stopPropagation === 'function') {
+    e.stopPropagation();
+  }
+
+  // Asegurar que la vista permanezca en #probador
+  if (window.location.hash !== '#probador') {
+    try {
+      history.replaceState(null, '', '#probador');
+    } catch (_) {
+      window.location.hash = '#probador';
+    }
+  }
+
   try {
     cancelCountdown();
 
@@ -113,6 +129,10 @@ async function activateCamera() {
     const errBox = document.getElementById('error-box');
     if (errBox) errBox.style.display = 'none';
 
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Tu navegador no soporta captura de video en vivo (WebRTC). Podés tomar tu selfie directamente con la cámara del celular.');
+    }
+
     // High resolution video constraints with fallback chain for rear/front cameras
     const isFront = (currentFacingMode === 'user');
     const constraintList = [
@@ -133,12 +153,16 @@ async function activateCamera() {
     }
 
     if (!newStream) {
-      throw new Error('No se pudo acceder al flujo de video de la cámara.');
+      throw new Error('No se pudo acceder al flujo de video de la cámara web.');
     }
 
     mediaStream = newStream;
 
     if (!v) return;
+    v.muted = true;
+    v.defaultMuted = true;
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
     v.srcObject = mediaStream;
     v.style.display = 'block';
 
@@ -156,6 +180,9 @@ async function activateCamera() {
 
     const btnAct = document.getElementById('btn-activate');
     if (btnAct) btnAct.style.display = 'none';
+
+    const btnNative = document.getElementById('btn-native-camera');
+    if (btnNative) btnNative.style.display = 'none';
 
     const btnShoot = document.getElementById('btn-shoot');
     if (btnShoot) btnShoot.style.display = 'inline-flex';
@@ -178,7 +205,60 @@ async function activateCamera() {
     }
   } catch (e) {
     console.warn('[Camera] No camera permission or stream failed:', e);
-    alert('No se pudo acceder a la cámara. Verificá los permisos de tu navegador.');
+    
+    // Si la cámara en vivo no está disponible o falla, guiamos al usuario amistosamente sin salir del probador
+    if (typeof showCustomModal === 'function') {
+      showCustomModal({
+        title: 'Cámara en vivo no disponible',
+        message: 'No pudimos acceder a la cámara web en vivo (puede requerir permisos del navegador).\n\n¡Podés tomarte una selfie directamente abriendo la cámara de tu celular o elegir una foto de tu galería!',
+        icon: 'camera',
+        buttonText: 'Sacar foto con el celular',
+        onConfirm: () => {
+          openNativeCamera();
+        }
+      });
+    } else {
+      const errBox = document.getElementById('error-box');
+      const errMsg = document.getElementById('error-msg');
+      if (errBox && errMsg) {
+        errMsg.textContent = 'Cámara no accesible. Tocá "Sacar selfie con la cámara del celular" o subí una foto.';
+        errBox.style.display = 'flex';
+      }
+    }
+  }
+}
+
+/**
+ * Disparador nativo para abrir la cámara de fotos del celular en Android/iOS
+ */
+function openNativeCamera(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+
+  // Mantener fija la vista de probador
+  if (window.location.hash !== '#probador') {
+    try {
+      history.replaceState(null, '', '#probador');
+    } catch (_) {
+      window.location.hash = '#probador';
+    }
+  }
+
+  const nativeInput = document.getElementById('tryon-camera-native-input');
+  if (nativeInput) {
+    nativeInput.value = '';
+    nativeInput.click();
+  }
+}
+
+/**
+ * Procesa la foto recién tomada con la cámara nativa del teléfono
+ */
+async function handleNativeCameraCapture(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  console.log('[Native Camera] Procesando selfie tomada con el celular...');
+  if (typeof handleGalleryUpload === 'function') {
+    await handleGalleryUpload(input);
   }
 }
 
@@ -202,7 +282,8 @@ function toggleCameraGuide() {
   }
 }
 
-function takePhoto() {
+function takePhoto(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
   startCountdownAndSnap();
 }
 

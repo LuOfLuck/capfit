@@ -495,7 +495,7 @@
 
           <!-- Camera & Result Display Box -->
           <div class="tryon-viewport" id="camera-box">
-            <video id="video-feed" autoplay playsinline></video>
+            <video id="video-feed" autoplay playsinline muted></video>
             <canvas id="photo-canvas" style="display:none"></canvas>
             <img id="result-img" alt="Resultado de probador IA" style="display:none">
 
@@ -706,21 +706,32 @@
 
           <!-- Camera trigger actions matching screenshot 2 style -->
           <div class="tryon-camera-actions-wrap">
-            <button id="btn-activate" onclick="activateCamera()" class="btn-activate-camera-main">
+            <button type="button" id="btn-activate" onclick="activateCamera(event)" class="btn-activate-camera-main">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               <div class="btn-camera-text-col">
-                <strong>Activar cámara</strong>
-                <small>Sacá tu foto al instante</small>
+                <strong>Activar cámara web en vivo</strong>
+                <small>Ver tu rostro en pantalla y capturar</small>
               </div>
             </button>
 
-            <button id="btn-shoot" style="display:none" onclick="takePhoto()" class="btn-activate-camera-main" style="background:var(--accent-red)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+            <button type="button" id="btn-native-camera" onclick="openNativeCamera(event)" class="btn-activate-camera-main" style="background:#1e293b;border:1px solid #334155;margin-top:8px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
               <div class="btn-camera-text-col">
-                <strong>Tomar foto</strong>
-                <small>Capturar imagen ahora</small>
+                <strong>Sacar selfie con la cámara del celular</strong>
+                <small>Abre la cámara nativa de tu teléfono</small>
               </div>
             </button>
+
+            <button type="button" id="btn-shoot" style="display:none;background:var(--accent-red)" onclick="takePhoto(event)" class="btn-activate-camera-main">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+              <div class="btn-camera-text-col">
+                <strong>Tomar foto ahora</strong>
+                <small>Capturar imagen y colocar gorra con IA</small>
+              </div>
+            </button>
+
+            <!-- Input nativo de cámara para celulares -->
+            <input type="file" id="tryon-camera-native-input" accept="image/*" capture="user" style="display:none" onchange="handleNativeCameraCapture(this)">
 
             <div class="actions-divider-o">
               <span class="divider-line"></span>
