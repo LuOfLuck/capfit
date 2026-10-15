@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CapFit — Probador Virtual con IA</title>
-  <meta name="description" content="Plataforma de e-commerce con probador virtual impulsado por IA para tiendas de moda, gorras y accesorios.">
-  <link rel="stylesheet" href="/css/landing.css">
+  <title>CapFit — Probador Virtual con IA para Tiendas de Accesorios</title>
+  <meta name="description" content="Transformá tu catálogo de gorras y anteojos en una experiencia de compra interactiva con probador virtual impulsado por inteligencia artificial.">
+  <meta property="og:title" content="CapFit — Probador Virtual con IA para Tiendas de Accesorios">
+  <meta property="og:description" content="Plataforma de e-commerce multi-tienda con probador virtual de accesorios impulsado por IA, gestión de catálogo, pedidos y Mercado Pago.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/landing/css/landing.css">
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
 </head>
 <body>
@@ -14,51 +19,1215 @@
   <!-- Archivos separados de la aplicación principal (app.capfit.store)   -->
   <!-- ================================================================= -->
 
-  <header class="landing-header">
+  <!-- Barra de progreso de recorrido superior -->
+  <div class="scroll-progress-track" aria-hidden="true">
+    <div class="scroll-progress-bar" id="scroll-progress-bar"></div>
+  </div>
+
+  <!-- HEADER PRINCIPAL (Idéntico al diseño aprobado) -->
+  <header class="landing-header" id="top">
     <div class="landing-container header-inner">
-      <a href="/" class="landing-brand">
-        <span class="brand-text">CAPFIT</span>
-      </a>
-      <nav class="landing-nav">
-        <a href="https://app.capfit.store/" class="nav-btn nav-btn-primary">Probar Demo</a>
-        <a href="https://admin.capfit.store/" class="nav-btn nav-btn-outline">Acceso Clientes</a>
+      <a href="#top" class="landing-brand">CAPFIT</a>
+
+      <nav class="landing-nav-links" aria-label="Navegación principal">
+        <a href="#recorrido-probador" class="nav-link is-active">Producto</a>
+        <a href="#recorrido-tienda" class="nav-link">Cómo funciona</a>
+        <a href="#recorrido-migracion" class="nav-link">Para tiendas</a>
+        <a href="#recorrido-planes" class="nav-link">Planes</a>
       </nav>
+
+      <div class="header-cta-zone">
+        <a href="https://app.capfit.store/" class="btn-header-pill">
+          <span>Explorar Tienda Demo</span>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M4 10h12M11 5l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
     </div>
   </header>
 
   <main class="landing-main">
-    <section class="landing-hero">
-      <div class="landing-container hero-content">
-        <span class="badge">E-Commerce Multi-Tienda con IA</span>
-        <h1 class="hero-title">Probador virtual de accesorios impulsado por inteligencia artificial</h1>
-        <p class="hero-subtitle">
-          Permite a tus clientes probarse gorras y anteojos en tiempo real con su propia foto antes de comprar. Aumenta tus ventas y reduce devoluciones.
-        </p>
-        <div class="hero-actions">
-          <a href="https://app.capfit.store/" class="btn btn-primary btn-lg">Explorar Tienda Demo</a>
-          <a href="https://admin.capfit.store/" class="btn btn-secondary btn-lg">Panel de Administración</a>
+
+    <!-- =============================================================== -->
+    <!-- 01. HERO — Desplazamiento vertical sutil + Máscara y escala     -->
+    <!-- =============================================================== -->
+    <section class="narrative-section section-hero" id="recorrido-hero" data-stage="01">
+      <div class="landing-container hero-split-grid">
+        <div class="hero-copy-col">
+          <div class="editorial-meta hero-reveal-item" style="--delay: 0ms;">
+            <span class="meta-accent">01. Experiencia de Compra con IA</span>
+            <span class="meta-dot" aria-hidden="true">·</span>
+            <span class="meta-sub">E-Commerce Multi-Tienda</span>
+          </div>
+
+          <h1 class="hero-display-title hero-reveal-item" style="--delay: 80ms;">
+            Transformá tu catálogo de accesorios en un probador virtual.
+          </h1>
+
+          <p class="section-lead hero-reveal-item" style="--delay: 160ms;">
+            Tus clientes eligen cualquier gorra o anteojo de tu tienda, se lo prueban con su propia foto en segundos y compran con total seguridad.
+          </p>
+
+          <div class="hero-cta-group hero-reveal-item" style="--delay: 240ms;">
+            <a href="https://app.capfit.store/" class="btn-dark-pill">
+              <span>Explorar Tienda Demo</span>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a href="https://admin.capfit.store/" class="btn-light-pill">
+              <span>Panel de Administración</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-visual-col">
+          <div class="hero-mask-frame" id="hero-mask-frame">
+            <img
+              src="/src/assets/images/hero_cap_sunglasses_stone_1792104274760.jpg"
+              alt="Gorra negra clásica y anteojos de sol sobre piedra travertino en estudio CapFit"
+              class="hero-masked-img"
+              id="hero-masked-img"
+              referrerPolicy="no-referrer"
+            >
+            <div class="hero-floating-card">
+              <img src="/assets/gorras/Gorra_azul_frente.webp" alt="Gorra Clásica Negra" referrerPolicy="no-referrer">
+              <div class="hero-floating-info">
+                <small>Listo para probar en vivo</small>
+                <strong>Gorra Clásica Negra · $24.990</strong>
+              </div>
+              <a href="#recorrido-probador" class="hero-floating-link" aria-label="Ver recorrido del probador">↓</a>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Espacio reservado para las secciones comerciales de la landing -->
-    <section class="landing-features" id="caracteristicas">
+    <!-- =============================================================== -->
+    <!-- 02. PROBADOR VIRTUAL INTEGRADO · FLUJO REAL EN 3 ETAPAS         -->
+    <!-- =============================================================== -->
+    <section class="narrative-section section-tryon reveal-section" id="recorrido-probador" data-stage="02">
       <div class="landing-container">
-        <!-- Contenedor base separado para el contenido comercial -->
+
+        <!-- Header respetando exactamente el diseño de la primera imagen -->
+        <div class="section-header-split tryon-header-reveal">
+          <div class="header-left-col">
+            <div class="editorial-meta">
+              <span class="meta-accent">02. Probador Virtual Integrado</span>
+              <span class="meta-dot" aria-hidden="true">·</span>
+              <span class="meta-sub">Flujo Real de 3 Etapas</span>
+            </div>
+            <h2 class="section-display-title">
+              De la ficha de producto al resultado sobre el rostro del cliente.
+            </h2>
+          </div>
+
+          <p class="section-lead">
+            Sin aplicaciones externas ni configuraciones técnicas. El comprador selecciona cualquier gorra o anteojo del catálogo, captura su foto con guía de postura y visualiza el calce antes de agregar al carrito.
+          </p>
+        </div>
+
+        <!-- Tabs de etapas (Imagen 1) sincronizadas con el scroll de la escena -->
+        <div class="tryon-steps-bar" role="tablist" aria-label="Etapas del probador virtual">
+          <button type="button" class="tryon-step-tab active" role="tab" aria-selected="true" data-tryon-step="1">
+            <span class="step-num">01</span>
+            <span class="step-label">Selección en Catálogo</span>
+          </button>
+          <button type="button" class="tryon-step-tab" role="tab" aria-selected="false" data-tryon-step="2">
+            <span class="step-num">02</span>
+            <span class="step-label">Guía Facial y Procesamiento IA</span>
+          </button>
+          <button type="button" class="tryon-step-tab" role="tab" aria-selected="false" data-tryon-step="3">
+            <span class="step-num">03</span>
+            <span class="step-label">Resultado y Compra Directa</span>
+          </button>
+        </div>
+
+        <!-- Escena coordinada de 3 etapas durante el scroll (Imagen 2) -->
+        <div class="tryon-cards-flow" id="tryon-choreography" data-active-step="1">
+
+          <!-- TARJETA 01: Selección en catálogo -->
+          <article class="tryon-flow-card is-focused" data-panel-step="1" style="--stage-idx: 0;">
+            <div class="catalog-select-top">
+              <div class="catalog-main-thumb">
+                <img
+                  id="tryon-demo-product-img"
+                  src="/assets/gorras/Gorra_azul_frente.webp"
+                  alt="Gorra Clásica Negra seleccionada"
+                  referrerPolicy="no-referrer"
+                >
+              </div>
+
+              <div class="catalog-side-thumbs" aria-label="Miniaturas de producto">
+                <button
+                  type="button"
+                  class="side-thumb-btn active"
+                  data-img="/assets/gorras/Gorra_azul_frente.webp"
+                  data-name="Gorra Clásica Negra"
+                  data-sub="New Era · Ajuste regulable"
+                  data-price="$24.990"
+                  title="Gorra Clásica Negra"
+                >
+                  <img src="/assets/gorras/Gorra_azul_frente.webp" alt="Vista 1" referrerPolicy="no-referrer">
+                </button>
+                <button
+                  type="button"
+                  class="side-thumb-btn"
+                  data-img="/assets/gorras/blanca_frente.png"
+                  data-name="Gorra Urbana Beige"
+                  data-sub="New Era · Gabardina 100%"
+                  data-price="$25.900"
+                  title="Gorra Urbana Beige"
+                >
+                  <img src="/assets/gorras/blanca_frente.png" alt="Vista 2" referrerPolicy="no-referrer">
+                </button>
+                <button
+                  type="button"
+                  class="side-thumb-btn"
+                  data-img="/assets/gorras/Gorra_negra_frente.webp"
+                  data-name="Gorra Clásica Bordada"
+                  data-sub="47 Brand · Visera curva"
+                  data-price="$24.990"
+                  title="Gorra Clásica Bordada"
+                >
+                  <img src="/assets/gorras/Gorra_negra_frente.webp" alt="Vista 3" referrerPolicy="no-referrer">
+                </button>
+                <button
+                  type="button"
+                  class="side-thumb-btn"
+                  data-img="/assets/gorras/messi_dorada_frente.webp"
+                  data-name="Edición Dorada Selección"
+                  data-sub="Edición Especial · Bordado"
+                  data-price="$32.500"
+                  title="Edición Dorada Selección"
+                >
+                  <img src="/assets/gorras/messi_dorada_frente.webp" alt="Vista 4" referrerPolicy="no-referrer">
+                </button>
+              </div>
+            </div>
+
+            <div class="catalog-select-bottom">
+              <div class="select-meta-info">
+                <h3 id="tryon-demo-product-name">Gorra Clásica Negra</h3>
+                <p id="tryon-demo-product-type">New Era · Ajuste regulable</p>
+                <strong id="tryon-demo-product-price" class="select-price">$24.990</strong>
+              </div>
+
+              <div class="select-color-dots" aria-label="Colores disponibles">
+                <button type="button" class="swatch-dot active" style="background:#141416" data-img="/assets/gorras/Gorra_azul_frente.webp" title="Negro"></button>
+                <button type="button" class="swatch-dot" style="background:#e5e0d5" data-img="/assets/gorras/blanca_frente.png" title="Crema"></button>
+                <button type="button" class="swatch-dot" style="background:#8c9198" data-img="/assets/gorras/Gorra_negra_frente.webp" title="Gris"></button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Flecha conectora 1 -> 2 -->
+          <div class="flow-arrow-connector" data-arrow-step="1" aria-hidden="true">
+            <svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="1.3">
+              <path d="M2 8h26M23 3l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- TARJETA 02: Guía facial y procesamiento IA (Dark Card) -->
+          <article class="tryon-flow-card tryon-dark-card" data-panel-step="2" style="--stage-idx: 1;">
+            <div class="dark-card-header">
+              <strong>Probador virtual</strong>
+              <span>Paso 2 de 3</span>
+            </div>
+
+            <div class="dark-card-canvas">
+              <svg class="guide-silhouette-svg" viewBox="0 0 300 250" fill="none" aria-label="Guía de encuadre facial CapFit">
+                <!-- Silueta de hombros -->
+                <path class="svg-shoulders" d="M 102 180 L 58 232 M 198 180 L 242 232" stroke="rgba(255, 255, 255, 0.55)" stroke-width="1.3" stroke-dasharray="5 5" stroke-linecap="round"/>
+                <!-- Óvalo facial naranja -->
+                <ellipse class="svg-face-oval" cx="150" cy="122" rx="46" ry="58" stroke="#e85d24" stroke-width="1.6" stroke-dasharray="5 4"/>
+                <!-- Línea ocular -->
+                <line x1="112" y1="112" x2="188" y2="112" stroke="rgba(255, 255, 255, 0.35)" stroke-width="1" stroke-dasharray="3 3"/>
+                <!-- Copa de la gorra -->
+                <path class="svg-cap-dome" d="M 114 78 C 114 48, 186 48, 186 78 Z" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" fill="rgba(232, 93, 36, 0.16)"/>
+                <!-- Visera -->
+                <path class="svg-cap-visor" d="M 102 78 Q 150 66 198 78 Q 150 88 102 78 Z" stroke="#ffffff" stroke-width="1.4" fill="rgba(255,255,255,0.08)"/>
+              </svg>
+            </div>
+
+            <div class="dark-card-status-row">
+              <div class="status-col">
+                <span class="status-icon status-done" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M3.5 8.5l3 3 6-6.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <strong>Cámara web</strong>
+                <small>En vivo</small>
+              </div>
+
+              <div class="status-col">
+                <span class="status-icon status-processing" aria-hidden="true"></span>
+                <strong>Procesando IA</strong>
+                <small>Detectando rostro</small>
+              </div>
+
+              <div class="status-col">
+                <span class="status-icon status-pending" aria-hidden="true"></span>
+                <strong>Ajustando</strong>
+                <small>Ángulo y encuadre</small>
+              </div>
+            </div>
+          </article>
+
+          <!-- Flecha conectora 2 -> 3 -->
+          <div class="flow-arrow-connector" data-arrow-step="2" aria-hidden="true">
+            <svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="1.3">
+              <path d="M2 8h26M23 3l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- TARJETA 03: Resultado y compra directa -->
+          <article class="tryon-flow-card" data-panel-step="3" style="--stage-idx: 2;">
+            <div class="result-select-top">
+              <div class="result-main-portrait">
+                <img
+                  id="tryon-result-portrait-img"
+                  src="/src/assets/images/tryon_model_result_1792104273495.jpg"
+                  alt="Resultado verificado en probador virtual CapFit"
+                  referrerPolicy="no-referrer"
+                >
+                <div class="verified-floating-chip">
+                  <span class="verified-check-dot" aria-hidden="true">✓</span>
+                  <span>Resultado verificado</span>
+                </div>
+              </div>
+
+              <div class="result-side-thumbs" aria-label="Vistas del resultado">
+                <button type="button" class="result-thumb-btn active" data-result-img="/src/assets/images/tryon_model_result_1792104273495.jpg" title="Resultado frontal">
+                  <img src="/src/assets/images/tryon_model_result_1792104273495.jpg" alt="Resultado frontal" referrerPolicy="no-referrer">
+                </button>
+                <button type="button" class="result-thumb-btn" data-result-img="/src/assets/images/tryon_model_side_1792104275059.jpg" title="Resultado perfil">
+                  <img src="/src/assets/images/tryon_model_side_1792104275059.jpg" alt="Resultado perfil" referrerPolicy="no-referrer">
+                </button>
+                <button type="button" class="result-thumb-btn" data-result-img="/assets/gorras/Gorra_azul_frente.webp" title="Prenda seleccionada">
+                  <img id="tryon-result-mini-img" src="/assets/gorras/Gorra_azul_frente.webp" alt="Prenda aplicada" referrerPolicy="no-referrer">
+                </button>
+              </div>
+            </div>
+
+            <div class="result-select-bottom">
+              <a href="https://app.capfit.store/#probador" class="btn-add-cart-dark">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <circle cx="8" cy="17" r="1.3"/>
+                  <circle cx="15" cy="17" r="1.3"/>
+                  <path d="M2 3h2.4l2.2 9.5a1.5 1.5 0 001.5 1.2h7.4a1.5 1.5 0 001.5-1.1L18.5 6H5.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Agregar al carrito</span>
+              </a>
+            </div>
+          </article>
+
+        </div>
       </div>
     </section>
+
+    <!-- =============================================================== -->
+    <!-- 03. TIENDA — Aparición secuencial de tarjetas y zoom leve       -->
+    <!-- =============================================================== -->
+    <section class="narrative-section section-catalog reveal-section" id="recorrido-tienda" data-stage="03">
+      <!-- Banner fotográfico de fondo como en Imagen 3 -->
+      <div class="catalog-hero-backdrop">
+        <div class="landing-container catalog-banner-inner">
+          <div class="catalog-banner-copy">
+            <div class="kicker-line">
+              <span class="kicker-dash" aria-hidden="true"></span>
+              <span>TU ESTILO, EN UN SOLO LUGAR</span>
+            </div>
+            <h2 class="section-display-title">
+              Cada producto de tu tienda incluye su propio acceso al probador.
+            </h2>
+            <p class="section-lead">
+              Filtros, categorías y una experiencia de compra pensada para que tus clientes encuentren lo que buscan y lo prueben de forma virtual.
+            </p>
+          </div>
+
+          <!-- Selector segmentado superior derecho -->
+          <div class="catalog-top-pills" role="group" aria-label="Filtrar por categoría">
+            <button type="button" class="filter-tab-btn active" data-filter="todos">Todos (6)</button>
+            <button type="button" class="filter-tab-btn" data-filter="gorras">Gorras (4)</button>
+            <button type="button" class="filter-tab-btn" data-filter="anteojos">Anteojos (2)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="landing-container">
+        <div class="storefront-showcase-shell">
+
+          <!-- Columna Izquierda: Grilla de productos con barra de búsqueda -->
+          <div class="storefront-main-col">
+            <div class="storefront-toolbar">
+              <div class="toolbar-sort-wrap">
+                <select id="landing-catalog-sort" class="toolbar-sort-select" aria-label="Ordenar productos">
+                  <option value="recientes">Más recientes</option>
+                  <option value="menor-precio">Menor precio</option>
+                  <option value="mayor-precio">Mayor precio</option>
+                </select>
+              </div>
+
+              <div class="toolbar-search-wrap">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <circle cx="9" cy="9" r="6"/>
+                  <path d="M13.5 13.5L17 17" stroke-linecap="round"/>
+                </svg>
+                <input
+                  type="search"
+                  id="landing-catalog-search"
+                  placeholder="Buscar productos..."
+                  aria-label="Buscar productos en el catálogo"
+                >
+              </div>
+            </div>
+
+            <div class="catalog-showcase-grid" id="landing-catalog-grid">
+
+              <!-- Producto 1 -->
+              <article class="catalog-item-card" style="--card-idx: 0;" data-category="gorras" data-brand="New Era" data-price="24990" data-order="1">
+                <div class="catalog-item-media">
+                  <span class="card-status-tag tag-green">
+                    <span class="tag-icon" aria-hidden="true">●</span> Nuevo
+                  </span>
+                  <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
+                  <img src="/assets/gorras/Gorra_negra_frente.webp" alt="Gorra Clásica Negra" loading="lazy" referrerPolicy="no-referrer">
+                </div>
+                <div class="catalog-item-body">
+                  <div class="item-meta-line">
+                    <span>Gorras</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Algodón 100%</span>
+                  </div>
+                  <h3 class="item-title">Gorra Clásica Negra</h3>
+                  <div class="item-footer-row">
+                    <span class="item-price">$24.990</span>
+                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Producto 2 -->
+              <article class="catalog-item-card" style="--card-idx: 1;" data-category="gorras" data-brand="New Era" data-price="32500" data-order="2">
+                <div class="catalog-item-media">
+                  <span class="card-status-tag tag-neutral">
+                    <span class="tag-icon" aria-hidden="true">★</span> Edición Especial
+                  </span>
+                  <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
+                  <img src="/assets/gorras/messi_dorada_frente.webp" alt="Edición Dorada Selección" loading="lazy" referrerPolicy="no-referrer">
+                </div>
+                <div class="catalog-item-body">
+                  <div class="item-meta-line">
+                    <span>Gorras</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Bordado Dorado</span>
+                  </div>
+                  <h3 class="item-title">Edición Dorada Selección</h3>
+                  <div class="item-footer-row">
+                    <span class="item-price">$32.500</span>
+                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Producto 3 -->
+              <article class="catalog-item-card" style="--card-idx: 2;" data-category="anteojos" data-brand="Ray-Ban" data-price="28900" data-order="3">
+                <div class="catalog-item-media">
+                  <span class="card-status-tag tag-neutral">
+                    <span class="tag-icon" aria-hidden="true">★</span> Más vendido
+                  </span>
+                  <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
+                  <img src="/assets/anteojos/anteojo.webp" alt="Urban Black UV400" loading="lazy" referrerPolicy="no-referrer">
+                </div>
+                <div class="catalog-item-body">
+                  <div class="item-meta-line">
+                    <span>Anteojos</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Lente Polarizado</span>
+                  </div>
+                  <h3 class="item-title">Urban Black UV400</h3>
+                  <div class="item-footer-row">
+                    <span class="item-price">$28.900</span>
+                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Producto 4 -->
+              <article class="catalog-item-card" style="--card-idx: 3;" data-category="gorras" data-brand="47 Brand" data-price="27400" data-order="4">
+                <div class="catalog-item-media">
+                  <span class="card-status-tag tag-green">
+                    <span class="tag-icon" aria-hidden="true">●</span> Nuevo
+                  </span>
+                  <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
+                  <img src="/assets/gorras/Agila_frente.webp" alt="Gorra Águila Bordada" loading="lazy" referrerPolicy="no-referrer">
+                </div>
+                <div class="catalog-item-body">
+                  <div class="item-meta-line">
+                    <span>Gorras</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Parche Frontal</span>
+                  </div>
+                  <h3 class="item-title">Gorra Águila Bordada</h3>
+                  <div class="item-footer-row">
+                    <span class="item-price">$27.400</span>
+                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Producto 5 -->
+              <article class="catalog-item-card" style="--card-idx: 4;" data-category="gorras" data-brand="New Era" data-price="24900" data-order="5">
+                <div class="catalog-item-media">
+                  <span class="card-status-tag tag-neutral">
+                    <span class="tag-icon" aria-hidden="true">★</span> Más vendido
+                  </span>
+                  <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
+                  <img src="/assets/gorras/Gorra_azul_frente.webp" alt="Gorra Azul Marino" loading="lazy" referrerPolicy="no-referrer">
+                </div>
+                <div class="catalog-item-body">
+                  <div class="item-meta-line">
+                    <span>Gorras</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Ajuste Metálico</span>
+                  </div>
+                  <h3 class="item-title">Gorra Azul Marino</h3>
+                  <div class="item-footer-row">
+                    <span class="item-price">$24.900</span>
+                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Producto 6 -->
+              <article class="catalog-item-card" style="--card-idx: 5;" data-category="anteojos" data-brand="Oakley" data-price="26500" data-order="6">
+                <div class="catalog-item-media">
+                  <span class="card-status-tag tag-green">
+                    <span class="tag-icon" aria-hidden="true">●</span> Nuevo
+                  </span>
+                  <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
+                  <img src="/assets/anteojos/ant_arg.png" alt="Edición Celeste" loading="lazy" referrerPolicy="no-referrer">
+                </div>
+                <div class="catalog-item-body">
+                  <div class="item-meta-line">
+                    <span>Anteojos</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Marco Liviano</span>
+                  </div>
+                  <h3 class="item-title">Edición Celeste</h3>
+                  <div class="item-footer-row">
+                    <span class="item-price">$26.500</span>
+                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                  </div>
+                </div>
+              </article>
+
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Sidebar de Filtros (Imagen 3) -->
+          <aside class="storefront-filter-sidebar" aria-label="Filtros de tienda">
+            <div class="sidebar-top-row">
+              <strong>Filtrar por</strong>
+              <button type="button" class="btn-clear-inline" id="btn-clear-filters-top">Limpiar</button>
+            </div>
+
+            <div class="sidebar-block">
+              <h4>Categoría</h4>
+              <button type="button" class="sidebar-cat-btn" data-filter="gorras">
+                <span class="cat-left">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <path d="M4 12c0-4 2.7-6.5 6-6.5s6 2.5 6 6.5H4z"/>
+                    <path d="M3 12h14"/>
+                  </svg>
+                  <span>Gorras</span>
+                </span>
+                <span class="cat-count">4 ›</span>
+              </button>
+              <button type="button" class="sidebar-cat-btn" data-filter="anteojos">
+                <span class="cat-left">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <circle cx="6" cy="11" r="3"/>
+                    <circle cx="14" cy="11" r="3"/>
+                    <path d="M9 11h2M3 10l1-3M17 10l-1-3"/>
+                  </svg>
+                  <span>Anteojos</span>
+                </span>
+                <span class="cat-count">2 ›</span>
+              </button>
+            </div>
+
+            <div class="sidebar-block">
+              <h4>Precio</h4>
+              <div class="price-range-labels">
+                <span>$20.000</span>
+                <span id="price-filter-display">$60.000</span>
+              </div>
+              <div class="price-slider-wrap">
+                <input
+                  type="range"
+                  id="landing-price-range"
+                  min="24000"
+                  max="60000"
+                  step="500"
+                  value="60000"
+                  aria-label="Precio máximo"
+                >
+              </div>
+            </div>
+
+            <div class="sidebar-block">
+              <h4>Color</h4>
+              <div class="sidebar-color-row">
+                <button type="button" class="sidebar-color-swatch active" style="background:#141416" aria-label="Negro"></button>
+                <button type="button" class="sidebar-color-swatch" style="background:#ffffff;border:1px solid #d4d4d8" aria-label="Blanco"></button>
+                <button type="button" class="sidebar-color-swatch" style="background:#172554" aria-label="Azul marino"></button>
+                <button type="button" class="sidebar-color-swatch" style="background:#d6c7b2" aria-label="Beige"></button>
+                <button type="button" class="sidebar-color-swatch" style="background:#4b5340" aria-label="Verde oliva"></button>
+              </div>
+            </div>
+
+            <div class="sidebar-block">
+              <h4>Marca</h4>
+              <label class="sidebar-brand-check">
+                <input type="checkbox" name="brand" value="New Era">
+                <span class="brand-name">New Era</span>
+                <span class="brand-cnt">3</span>
+              </label>
+              <label class="sidebar-brand-check">
+                <input type="checkbox" name="brand" value="47 Brand">
+                <span class="brand-name">47 Brand</span>
+                <span class="brand-cnt">1</span>
+              </label>
+              <label class="sidebar-brand-check">
+                <input type="checkbox" name="brand" value="Ray-Ban">
+                <span class="brand-name">Ray-Ban</span>
+                <span class="brand-cnt">1</span>
+              </label>
+              <label class="sidebar-brand-check">
+                <input type="checkbox" name="brand" value="Oakley">
+                <span class="brand-name">Oakley</span>
+                <span class="brand-cnt">1</span>
+              </label>
+            </div>
+
+            <button type="button" class="btn-reset-sidebar" id="btn-clear-filters-bottom">
+              <span>Limpiar filtros</span>
+            </button>
+          </aside>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- 04. BACKOFFICE — 1º Indicadores → 2º Tabla → 3º Funcionalidades -->
+    <!-- =============================================================== -->
+    <section class="narrative-section section-migration reveal-section" id="recorrido-migracion" data-stage="04">
+      <div class="landing-container">
+        <div class="migration-layout">
+
+          <!-- Columna Izquierda: Funcionalidades (Fase 3 de revelado) -->
+          <div class="migration-copy">
+            <div class="bo-phase-indicators">
+              <div class="kicker-line">
+                <span class="kicker-dash" aria-hidden="true"></span>
+                <span>04. ADMINISTRÁ TU TIENDA</span>
+              </div>
+
+              <h2 class="section-display-title">
+                Tu negocio, en un solo lugar.
+              </h2>
+
+              <p class="section-lead">
+                Administrá tu catálogo, pedidos, páginas y cuotas de IA desde un panel simple y completo. Todo lo que necesitás para hacer crecer tu tienda, en un solo lugar.
+              </p>
+            </div>
+
+            <div class="admin-capability-list bo-phase-capabilities" role="tablist" aria-label="Módulos del panel de administración">
+              <button type="button" class="capability-item active" style="--cap-idx: 0;" role="tab" aria-selected="true" data-admin-view="catalogo">
+                <span class="cap-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                  </svg>
+                </span>
+                <span class="cap-number">01</span>
+                <div class="cap-text">
+                  <strong>Catálogo, Variantes y Control de Stock</strong>
+                  <p>Cargá de gorras y anteojos con imágenes de frente y perfil, colores, precios promocionales y alertas de stock bajo.</p>
+                </div>
+                <span class="cap-arrow" aria-hidden="true">→</span>
+              </button>
+
+              <button type="button" class="capability-item" style="--cap-idx: 1;" role="tab" aria-selected="false" data-admin-view="pedidos">
+                <span class="cap-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <rect x="2" y="5" width="20" height="14" rx="2"/>
+                    <line x1="2" y1="10" x2="22" y2="10"/>
+                  </svg>
+                </span>
+                <span class="cap-number">02</span>
+                <div class="cap-text">
+                  <strong>Gestión de Pedidos y Cobros con Mercado Pago</strong>
+                  <p>Registro de órdenes por tienda, estado de pago verificado, seguimiento de envíos y datos de entrega del comprador.</p>
+                </div>
+                <span class="cap-arrow" aria-hidden="true">→</span>
+              </button>
+
+              <button type="button" class="capability-item" style="--cap-idx: 2;" role="tab" aria-selected="false" data-admin-view="secciones">
+                <span class="cap-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </span>
+                <span class="cap-number">03</span>
+                <div class="cap-text">
+                  <strong>Personalización de Identidad y Secciones</strong>
+                  <p>Edición en vivo de portada, anuncio superior, historia de marca, preguntas frecuentes, políticas de envío y contacto.</p>
+                </div>
+                <span class="cap-arrow" aria-hidden="true">→</span>
+              </button>
+
+              <button type="button" class="capability-item" style="--cap-idx: 3;" role="tab" aria-selected="false" data-admin-view="cuota">
+                <span class="cap-icon-box" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M18 20V10M12 20V4M6 20v-6" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="cap-number">04</span>
+                <div class="cap-text">
+                  <strong>Monitoreo de Cuota Mensual de Probador IA</strong>
+                  <p>Visualización en tiempo real de pruebas disponibles según el plan activo y configuración de subdominio propio.</p>
+                </div>
+                <span class="cap-arrow" aria-hidden="true">→</span>
+              </button>
+            </div>
+
+            <div class="migration-cta-block bo-phase-capabilities" style="--cap-idx: 4;">
+              <a href="https://admin.capfit.store/" class="btn-dark-pill">
+                <span>Migrá tu tienda a CapFit</span>
+                <span aria-hidden="true">→</span>
+              </a>
+              <span class="migration-cta-note">Alta inmediata con autenticación Google en admin.capfit.store</span>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Ventana de Backoffice (1º Indicadores -> 2º Tabla) -->
+          <div class="migration-visual-stage">
+            <div class="backoffice-window">
+
+              <!-- Barra lateral del Backoffice (Fase 1: Indicadores) -->
+              <div class="bo-sidebar bo-phase-indicators">
+                <div class="bo-brand">CAPFIT</div>
+                <ul class="bo-nav-list">
+                  <li class="bo-nav-item" data-bo-tab="catalogo">
+                    <span class="bo-icon" aria-hidden="true">⌂</span> Inicio
+                  </li>
+                  <li class="bo-nav-item active" data-bo-tab="catalogo">
+                    <span class="bo-icon" aria-hidden="true">◫</span> Productos
+                  </li>
+                  <li class="bo-nav-item" data-bo-tab="pedidos">
+                    <span class="bo-icon" aria-hidden="true">▤</span> Pedidos
+                  </li>
+                  <li class="bo-nav-item" data-bo-tab="secciones">
+                    <span class="bo-icon" aria-hidden="true">☺</span> Clientes
+                  </li>
+                  <li class="bo-nav-item" data-bo-tab="cuota">
+                    <span class="bo-icon" aria-hidden="true">✦</span> Cuotas IA
+                  </li>
+                  <li class="bo-nav-item" data-bo-tab="secciones">
+                    <span class="bo-icon" aria-hidden="true">⚙</span> Configuración
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Área principal del Backoffice -->
+              <div class="bo-main">
+
+                <!-- Vista 01: Productos -->
+                <div class="admin-shell-body active" data-admin-panel="catalogo">
+                  <!-- Fase 1: Indicadores de cabecera y contadores -->
+                  <div class="bo-main-header bo-phase-indicators">
+                    <div>
+                      <h3>Productos</h3>
+                      <p>Gestioná tu catálogo de gorras y anteojos</p>
+                    </div>
+                    <div class="bo-header-actions">
+                      <div class="bo-search-pill">
+                        <span>🔍</span>
+                        <span>Buscar productos...</span>
+                      </div>
+                      <a href="https://admin.capfit.store/" class="bo-btn-new">+ Nuevo producto</a>
+                    </div>
+                  </div>
+
+                  <div class="bo-subtabs bo-phase-indicators">
+                    <span class="bo-subtab active">Todos (24)</span>
+                    <span class="bo-subtab">Gorras (16)</span>
+                    <span class="bo-subtab">Anteojos (8)</span>
+                  </div>
+
+                  <!-- Fase 2: Tabla de datos reales -->
+                  <div class="bo-table bo-phase-table">
+                    <div class="bo-table-head">
+                      <span>Producto</span>
+                      <span>Tipo</span>
+                      <span>Precio</span>
+                      <span>Stock</span>
+                      <span>Estado</span>
+                      <span></span>
+                    </div>
+
+                    <div class="bo-table-row" style="--row-idx: 0;">
+                      <div class="bo-prod-cell">
+                        <img src="/assets/gorras/Gorra_azul_frente.webp" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <div>
+                          <strong>Gorra Clásica Negra</strong>
+                          <small>GOR-001</small>
+                        </div>
+                      </div>
+                      <span>Gorra</span>
+                      <span class="mono-num">$24.990</span>
+                      <span>18 u.</span>
+                      <span><em class="bo-status-pill">Activo</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+
+                    <div class="bo-table-row" style="--row-idx: 1;">
+                      <div class="bo-prod-cell">
+                        <img src="/assets/anteojos/anteojo.webp" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <div>
+                          <strong>Urban Black UV400</strong>
+                          <small>ANT-002</small>
+                        </div>
+                      </div>
+                      <span>Anteojo</span>
+                      <span class="mono-num">$28.990</span>
+                      <span>9 u.</span>
+                      <span><em class="bo-status-pill">Activo</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+
+                    <div class="bo-table-row" style="--row-idx: 2;">
+                      <div class="bo-prod-cell">
+                        <img src="/assets/gorras/blanca_frente.png" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <div>
+                          <strong>Gorra Beige Premium</strong>
+                          <small>GOR-003</small>
+                        </div>
+                      </div>
+                      <span>Gorra</span>
+                      <span class="mono-num">$26.500</span>
+                      <span>15 u.</span>
+                      <span><em class="bo-status-pill">Activo</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+
+                    <div class="bo-table-row" style="--row-idx: 3;">
+                      <div class="bo-prod-cell">
+                        <img src="/assets/anteojos/band.webp" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <div>
+                          <strong>Lentes Polarizados Care</strong>
+                          <small>ANT-004</small>
+                        </div>
+                      </div>
+                      <span>Anteojo</span>
+                      <span class="mono-num">$32.900</span>
+                      <span>6 u.</span>
+                      <span><em class="bo-status-pill">Activo</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+                  </div>
+
+                  <div class="bo-table-footer bo-phase-table">
+                    <span>Mostrando 4 de 24 productos</span>
+                    <div class="bo-pagination">
+                      <span>←</span>
+                      <span class="page-num active">1</span>
+                      <span class="page-num">2</span>
+                      <span class="page-num">3</span>
+                      <span>→</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Vista 02: Pedidos -->
+                <div class="admin-shell-body" data-admin-panel="pedidos">
+                  <div class="bo-main-header">
+                    <div>
+                      <h3>Pedidos y Cobros</h3>
+                      <p>Órdenes sincronizadas con Mercado Pago</p>
+                    </div>
+                    <a href="https://admin.capfit.store/" class="bo-btn-new">Ver en Backoffice</a>
+                  </div>
+                  <div class="bo-table">
+                    <div class="bo-table-head">
+                      <span>Orden / Cliente</span>
+                      <span>Medio</span>
+                      <span>Total</span>
+                      <span>Envío</span>
+                      <span>Pago</span>
+                      <span></span>
+                    </div>
+                    <div class="bo-table-row">
+                      <div class="bo-prod-cell">
+                        <div>
+                          <strong>#ORD-4092 · Martín R.</strong>
+                          <small>Buenos Aires, CABA</small>
+                        </div>
+                      </div>
+                      <span>Mercado Pago</span>
+                      <span class="mono-num">$57.400</span>
+                      <span>Express</span>
+                      <span><em class="bo-status-pill">Aprobado</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+                    <div class="bo-table-row">
+                      <div class="bo-prod-cell">
+                        <div>
+                          <strong>#ORD-4091 · Julieta S.</strong>
+                          <small>Córdoba Capital</small>
+                        </div>
+                      </div>
+                      <span>Mercado Pago</span>
+                      <span class="mono-num">$32.500</span>
+                      <span>Andreani</span>
+                      <span><em class="bo-status-pill">Despachado</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Vista 03: Personalización de Secciones -->
+                <div class="admin-shell-body" data-admin-panel="secciones">
+                  <div class="bo-main-header">
+                    <div>
+                      <h3>Identidad y Secciones</h3>
+                      <p>Personalizá los textos y políticas de tu tienda</p>
+                    </div>
+                    <a href="https://admin.capfit.store/" class="bo-btn-new">Editar secciones</a>
+                  </div>
+                  <div class="bo-table">
+                    <div class="bo-table-row">
+                      <div class="bo-prod-cell">
+                        <div>
+                          <strong>Portada Principal y Anuncio Superior</strong>
+                          <small>Titular, subtítulo, banner de envío gratis y botón de acción</small>
+                        </div>
+                      </div>
+                      <span>Inicio</span>
+                      <span>Público</span>
+                      <span>100%</span>
+                      <span><em class="bo-status-pill">Activo</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+                    <div class="bo-table-row">
+                      <div class="bo-prod-cell">
+                        <div>
+                          <strong>Sobre Nosotros, FAQ, Envíos y Cambios</strong>
+                          <small>Historia de la marca, preguntas frecuentes y políticas de devolución</small>
+                        </div>
+                      </div>
+                      <span>Páginas</span>
+                      <span>Público</span>
+                      <span>100%</span>
+                      <span><em class="bo-status-pill">Activo</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Vista 04: Cuota IA -->
+                <div class="admin-shell-body" data-admin-panel="cuota">
+                  <div class="bo-main-header">
+                    <div>
+                      <h3>Cuota Mensual de Probador IA</h3>
+                      <p>Seguimiento de generaciones por ciclo mensual</p>
+                    </div>
+                    <a href="https://admin.capfit.store/" class="bo-btn-new">Gestionar Plan</a>
+                  </div>
+                  <div class="bo-table">
+                    <div class="bo-table-row">
+                      <div class="bo-prod-cell">
+                        <div>
+                          <strong>Plan Growth Activo · Subdominio Propio</strong>
+                          <small>Control automático de consumo y renovación mensual</small>
+                        </div>
+                      </div>
+                      <span>HD</span>
+                      <span class="mono-num">$20 USD</span>
+                      <span>350 / mes</span>
+                      <span><em class="bo-status-pill">Activo</em></span>
+                      <span class="bo-dots">⋮</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Fase 1: Indicador Flotante Probador IA 48 / 100 -->
+            <div class="floating-quota-widget bo-phase-indicators">
+              <div class="quota-widget-icon" aria-hidden="true">✦</div>
+              <div class="quota-widget-content">
+                <div class="quota-widget-top">
+                  <div>
+                    <strong>Probador IA</strong>
+                    <p>Pruebas disponibles este mes</p>
+                  </div>
+                  <span class="quota-widget-arrow" aria-hidden="true">→</span>
+                </div>
+                <div class="quota-widget-bar-row">
+                  <div class="quota-widget-track">
+                    <div class="quota-widget-fill" style="width: 48%;"></div>
+                  </div>
+                  <span class="quota-widget-count mono-num">48 / 100</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- 05. PLANES Y CUOTAS DE IA — Entrada escalonada + Énfasis Growth -->
+    <!-- =============================================================== -->
+    <section class="narrative-section section-plans reveal-section" id="recorrido-planes" data-stage="05">
+      <div class="landing-container">
+        <div class="section-header-split plans-header-split">
+          <div>
+            <div class="kicker-line">
+              <span class="kicker-dash" aria-hidden="true"></span>
+              <span>05. PLANES Y CUOTAS DE IA</span>
+            </div>
+            <h2 class="section-display-title">
+              Planes diseñados para acompañar cada etapa de crecimiento.
+            </h2>
+          </div>
+
+          <div class="plans-lead-col">
+            <p class="section-lead">
+              Comenzá con una prueba inicial gratuita y escalá la capacidad mensual de generaciones del probador virtual desde tu panel de administración.
+            </p>
+
+            <div class="plans-trust-row">
+              <div class="plans-trust-item">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <path d="M11 2L4 11h6l-1 7 7-9h-6l1-7z" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Generaciones más rápidas</span>
+              </div>
+              <div class="plans-trust-item">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <path d="M10 2l6 2.5v4.8c0 4.2-2.5 7.4-6 8.7-3.5-1.3-6-4.5-6-8.7V4.5L10 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M7.5 10l1.8 1.8 3.4-3.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Panel de administración incluido</span>
+              </div>
+              <div class="plans-trust-item">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <path d="M5.5 15h9a3.5 3.5 0 00.4-7A5 5 0 005.2 7a3.5 3.5 0 00.3 8z" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Sin instalaciones ni complicaciones</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grilla de 5 planes reales (Imagen 5) -->
+        <div class="plans-grid" id="landing-plans-grid">
+
+          <!-- FREE -->
+          <article class="plan-card" style="--plan-idx: 0;" data-plan-id="free">
+            <div class="plan-top">
+              <div class="plan-header">
+                <h3 class="plan-name">FREE</h3>
+                <div class="plan-price-wrap">
+                  <span class="plan-price">$0</span>
+                  <div class="plan-currency-row">
+                    <span>USD / mes</span>
+                  </div>
+                </div>
+                <p class="plan-quota"><strong>20</strong> generaciones / mes</p>
+              </div>
+              <ul class="plan-features check-orange">
+                <li>Sin branding CapFit</li>
+                <li>Catálogo básico</li>
+                <li>Prueba inicial</li>
+                <li>Conversión a plan pagado</li>
+              </ul>
+            </div>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline">Comenzar Gratis</a>
+          </article>
+
+          <!-- STARTER -->
+          <article class="plan-card" style="--plan-idx: 1;" data-plan-id="starter">
+            <div class="plan-top">
+              <div class="plan-header">
+                <h3 class="plan-name">STARTER</h3>
+                <div class="plan-price-wrap">
+                  <span class="plan-price">$10</span>
+                  <div class="plan-currency-row">
+                    <span>USD / mes</span>
+                    <span class="ars-price">$18.000 ARS</span>
+                  </div>
+                </div>
+                <p class="plan-quota"><strong>150</strong> generaciones / mes</p>
+              </div>
+              <ul class="plan-features check-orange">
+                <li>Sin branding CapFit</li>
+                <li>Catálogo básico</li>
+                <li>Email support</li>
+                <li>Acceso API básico</li>
+              </ul>
+            </div>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline">Elegir Starter</a>
+          </article>
+
+          <!-- GROWTH (Dark Featured Card - Más elegido) -->
+          <article class="plan-card plan-card-featured" style="--plan-idx: 2;" data-plan-id="growth">
+            <div class="plan-top">
+              <div class="plan-header">
+                <div class="plan-title-row">
+                  <h3 class="plan-name">GROWTH</h3>
+                  <span class="plan-popular-pill">Más elegido</span>
+                </div>
+                <div class="plan-price-wrap">
+                  <span class="plan-price">$20</span>
+                  <div class="plan-currency-row">
+                    <span>USD / mes</span>
+                    <span class="ars-price">$36.000 ARS</span>
+                  </div>
+                </div>
+                <p class="plan-quota"><strong>350</strong> generaciones / mes</p>
+              </div>
+              <ul class="plan-features check-orange">
+                <li>Con branding personalizado</li>
+                <li>Analytics básico</li>
+                <li>Integración TiendaNube</li>
+                <li>Dashboard</li>
+                <li>Soporte prioritario</li>
+              </ul>
+            </div>
+            <a href="https://admin.capfit.store/" class="btn-plan-solid-light">Elegir Growth</a>
+          </article>
+
+          <!-- PRO -->
+          <article class="plan-card" style="--plan-idx: 3;" data-plan-id="pro">
+            <div class="plan-top">
+              <div class="plan-header">
+                <h3 class="plan-name">PRO</h3>
+                <div class="plan-price-wrap">
+                  <span class="plan-price">$50</span>
+                  <div class="plan-currency-row">
+                    <span>USD / mes</span>
+                    <span class="ars-price">$90.000 ARS</span>
+                  </div>
+                </div>
+                <p class="plan-quota"><strong>1.000</strong> generaciones / mes</p>
+              </div>
+              <ul class="plan-features check-dark">
+                <li>Branding + watermark custom</li>
+                <li>Analytics avanzado</li>
+                <li>API access + webhooks</li>
+                <li>Soporte prioritario</li>
+                <li>Integración avanzada</li>
+                <li>Custom dashboard</li>
+              </ul>
+            </div>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline">Elegir Pro</a>
+          </article>
+
+          <!-- ENTERPRISE -->
+          <article class="plan-card" style="--plan-idx: 4;" data-plan-id="enterprise">
+            <div class="plan-top">
+              <div class="plan-header">
+                <h3 class="plan-name">ENTERPRISE</h3>
+                <div class="plan-price-wrap">
+                  <span class="plan-price">$200</span>
+                  <div class="plan-currency-row">
+                    <span>USD / mes</span>
+                    <span class="ars-price">$360.000 ARS</span>
+                  </div>
+                </div>
+                <p class="plan-quota"><strong>4.000</strong> generaciones / mes</p>
+              </div>
+              <ul class="plan-features check-dark">
+                <li>Generaciones ilimitadas</li>
+                <li>Account manager dedicado</li>
+                <li>Integraciones custom</li>
+                <li>SLA garantizado 99.9%</li>
+                <li>Soporte 24/7</li>
+                <li>Priority queue</li>
+              </ul>
+            </div>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline">Contactar / Activar</a>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- 06. CIERRE — Transición marfil → negro, titular, CTAs y footer  -->
+    <!-- =============================================================== -->
+    <div class="closing-atmosphere-shell" id="closing-atmosphere">
+      <section class="narrative-section section-closing reveal-section" id="recorrido-cierre" data-stage="06">
+        <div class="landing-container closing-inner">
+          <div class="editorial-meta closing-meta closing-seq-item" style="--close-delay: 120ms;">
+            <span class="meta-accent">06. Empezá hoy</span>
+            <span class="meta-dot" aria-hidden="true">·</span>
+            <span class="meta-sub-light">CapFit Plataforma Oficial</span>
+          </div>
+
+          <h2 class="closing-title closing-seq-item" style="--close-delay: 220ms;">
+            Transformá cada visita<br>en una prueba real.
+          </h2>
+
+          <p class="closing-subtitle closing-seq-item" style="--close-delay: 320ms;">
+            Recorré la tienda demostrativa en vivo para experimentar el probador virtual como comprador, o ingresá al panel administrativo para dar de alta y gestionar tu propia tienda.
+          </p>
+
+          <div class="closing-actions closing-seq-item" style="--close-delay: 420ms;">
+            <a href="https://app.capfit.store/" class="btn-closing-orange">
+              <span>Probar Tienda Demo</span>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a href="https://admin.capfit.store/" class="btn-closing-outline-pill">
+              <span>Acceder al Backoffice</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="landing-footer closing-seq-item" id="landing-footer" style="--close-delay: 540ms;">
+        <div class="landing-container footer-inner">
+          <div class="footer-brand-col">
+            <span class="footer-wordmark">CAPFIT</span>
+            <span class="footer-sep" aria-hidden="true">·</span>
+            <span class="footer-copy">&copy; 2026 CapFit. Plataforma de e-commerce con probador virtual IA.</span>
+          </div>
+          <div class="footer-links">
+            <a href="#recorrido-probador">Probador IA</a>
+            <a href="#recorrido-tienda">Catálogo</a>
+            <a href="#recorrido-planes">Planes</a>
+            <a href="https://app.capfit.store/">Tienda Demo</a>
+            <a href="https://admin.capfit.store/">Acceso Clientes</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
   </main>
 
-  <footer class="landing-footer">
-    <div class="landing-container footer-inner">
-      <p>&copy; 2026 CapFit. Plataforma oficial de e-commerce con IA.</p>
-      <div class="footer-links">
-        <a href="https://app.capfit.store/">App / Demo</a>
-        <a href="https://admin.capfit.store/">Admin</a>
-      </div>
-    </div>
-  </footer>
-
-  <script src="/js/landing.js"></script>
+  <script src="/landing/js/landing.js" defer></script>
 </body>
 </html>
