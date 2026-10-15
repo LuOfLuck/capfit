@@ -9,40 +9,84 @@
   <meta property="og:description" content="Plataforma de e-commerce multi-tienda con probador virtual de accesorios impulsado por IA, gestión de catálogo, pedidos y Mercado Pago.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/landing/css/landing.css">
-  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- GSAP + ScrollTrigger + Lenis Smooth Scroll -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+  <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js" defer></script>
+
 </head>
 <body>
+
   <!-- ================================================================= -->
-  <!-- CAPFIT · LANDING COMERCIAL (capfit.store)                          -->
-  <!-- Archivos separados de la aplicación principal (app.capfit.store)   -->
+  <!-- INTRO CINEMÁTICA MOTION GRAPHICS (0 → 100%)                       -->
   <!-- ================================================================= -->
+  <div class="kinetic-loader" id="kinetic-loader" aria-hidden="true">
+    <div class="loader-top-row">
+      <span>CAPFIT VISION ENGINE v2.4</span>
+      <span>BUENOS AIRES · MULTI-STORE IA</span>
+    </div>
+    <div class="loader-center-stage">
+      <div class="loader-brand-display">CAPFIT <em>Studio</em></div>
+      <div class="loader-bar-wrap">
+        <div class="loader-bar-fill" id="loader-bar-fill"></div>
+      </div>
+      <div class="loader-counter" id="loader-counter">00%</div>
+    </div>
+    <div class="loader-bottom-row">
+      <span>CARGANDO MALLA FACIAL 468 PUNTOS</span>
+      <span>CALCE VIRTUAL EN TIEMPO REAL</span>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- CURSOR MAGNÉTICO PERSONALIZADO                                    -->
+  <!-- ================================================================= -->
+  <div class="custom-cursor-ring" id="cursor-ring" aria-hidden="true">
+    <span class="cursor-label" id="cursor-label">VER</span>
+  </div>
+  <div class="custom-cursor-dot" id="cursor-dot" aria-hidden="true"></div>
 
   <!-- Barra de progreso de recorrido superior -->
   <div class="scroll-progress-track" aria-hidden="true">
     <div class="scroll-progress-bar" id="scroll-progress-bar"></div>
   </div>
 
-  <!-- HEADER PRINCIPAL (Idéntico al diseño aprobado) -->
+  <!-- Anuncio superior editorial -->
+  <div class="top-announcement-bar">
+    <span class="top-announcement-badge">NUEVO MOTOR IA v2.4</span>
+    <span>Calce facial en 1.8 segundos para gorras y anteojos · Integración nativa con TiendaNube y Mercado Pago.</span>
+    <a href="#recorrido-planes" data-cursor="PLANES">Probar 20 generaciones gratis →</a>
+  </div>
+
+  <!-- HEADER PRINCIPAL -->
   <header class="landing-header" id="top">
     <div class="landing-container header-inner">
-      <a href="#top" class="landing-brand">CAPFIT</a>
+      <a href="#top" class="landing-brand" data-magnetic>
+        <span>CAPFIT</span>
+        <span class="brand-dot" aria-hidden="true"></span>
+      </a>
 
-      <nav class="landing-nav-links" aria-label="Navegación principal">
+      <nav class="landing-nav-links" id="main-nav-links" aria-label="Navegación principal">
         <a href="#recorrido-probador" class="nav-link is-active">Producto</a>
         <a href="#recorrido-tienda" class="nav-link">Cómo funciona</a>
         <a href="#recorrido-migracion" class="nav-link">Para tiendas</a>
         <a href="#recorrido-planes" class="nav-link">Planes</a>
+        <a href="#recorrido-faq" class="nav-link">Preguntas</a>
       </nav>
 
       <div class="header-cta-zone">
-        <a href="https://app.capfit.store/" class="btn-header-pill">
+        <a href="https://app.capfit.store/" class="btn-header-pill" data-magnetic data-cursor="DEMO">
           <span>Explorar Tienda Demo</span>
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <path d="M4 10h12M11 5l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </a>
+        <button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menú">
+          ☰
+        </button>
       </div>
     </div>
   </header>
@@ -50,54 +94,123 @@
   <main class="landing-main">
 
     <!-- =============================================================== -->
-    <!-- 01. HERO — Desplazamiento vertical sutil + Máscara y escala     -->
+    <!-- 01. HERO — Con Tilt 3D, Palabras Cinéticas y Telemetría HUD     -->
     <!-- =============================================================== -->
     <section class="narrative-section section-hero" id="recorrido-hero" data-stage="01">
       <div class="landing-container hero-split-grid">
         <div class="hero-copy-col">
-          <div class="editorial-meta hero-reveal-item" style="--delay: 0ms;">
+          <div class="editorial-meta hero-anim-el">
             <span class="meta-accent">01. Experiencia de Compra con IA</span>
             <span class="meta-dot" aria-hidden="true">·</span>
             <span class="meta-sub">E-Commerce Multi-Tienda</span>
           </div>
 
-          <h1 class="hero-display-title hero-reveal-item" style="--delay: 80ms;">
-            Transformá tu catálogo de accesorios en un probador virtual.
+          <h1 class="hero-display-title" id="hero-kinetic-title">
+            <span class="word-mask"><span class="word-inner">Transformá</span></span>
+            <span class="word-mask"><span class="word-inner">tu</span></span>
+            <span class="word-mask"><span class="word-inner">catálogo</span></span>
+            <span class="word-mask"><span class="word-inner">de</span></span>
+            <span class="word-mask"><span class="word-inner">accesorios</span></span>
+            <span class="word-mask"><span class="word-inner">en</span></span>
+            <span class="word-mask"><span class="word-inner">un</span></span>
+            <span class="word-mask"><span class="word-inner"><em>probador</em></span></span>
+            <span class="word-mask"><span class="word-inner"><em>virtual.</em></span></span>
           </h1>
 
-          <p class="section-lead hero-reveal-item" style="--delay: 160ms;">
+          <p class="section-lead hero-anim-el">
             Tus clientes eligen cualquier gorra o anteojo de tu tienda, se lo prueban con su propia foto en segundos y compran con total seguridad.
           </p>
 
-          <div class="hero-cta-group hero-reveal-item" style="--delay: 240ms;">
-            <a href="https://app.capfit.store/" class="btn-dark-pill">
+          <div class="hero-cta-group hero-anim-el">
+            <a href="https://app.capfit.store/" class="btn-dark-pill" data-magnetic data-cursor="ABRIR">
               <span>Explorar Tienda Demo</span>
               <span aria-hidden="true">→</span>
             </a>
-            <a href="https://admin.capfit.store/" class="btn-light-pill">
+            <a href="https://admin.capfit.store/" class="btn-light-pill" data-magnetic data-cursor="ADMIN">
               <span>Panel de Administración</span>
             </a>
           </div>
-        </div>
 
-        <div class="hero-visual-col">
-          <div class="hero-mask-frame" id="hero-mask-frame">
-            <img
-              src="/src/assets/images/hero_cap_sunglasses_stone_1792104274760.jpg"
-              alt="Gorra negra clásica y anteojos de sol sobre piedra travertino en estudio CapFit"
-              class="hero-masked-img"
-              id="hero-masked-img"
-              referrerPolicy="no-referrer"
-            >
-            <div class="hero-floating-card">
-              <img src="/assets/gorras/Gorra_azul_frente.webp" alt="Gorra Clásica Negra" referrerPolicy="no-referrer">
-              <div class="hero-floating-info">
-                <small>Listo para probar en vivo</small>
-                <strong>Gorra Clásica Negra · $24.990</strong>
-              </div>
-              <a href="#recorrido-probador" class="hero-floating-link" aria-label="Ver recorrido del probador">↓</a>
+          <!-- Métricas con contadores numéricos animados -->
+          <div class="hero-metrics-strip hero-anim-el">
+            <div class="hero-metric-item">
+              <strong data-counter-target="38" data-counter-prefix="+" data-counter-suffix="%">+38%</strong>
+              <span>Conversión en checkout</span>
+            </div>
+            <div class="hero-metric-item">
+              <strong>1.8 seg</strong>
+              <span>Renderizado facial IA</span>
+            </div>
+            <div class="hero-metric-item">
+              <strong data-counter-target="42" data-counter-prefix="-" data-counter-suffix="%">-42%</strong>
+              <span>Cambios por talle o calce</span>
             </div>
           </div>
+        </div>
+
+        <div class="hero-visual-col" id="hero-tilt-area" data-cursor="3D TILT">
+          <div class="hero-3d-stage" id="hero-3d-stage">
+
+            <!-- Chips de telemetría flotantes en espacio 3D -->
+            <div class="hero-telemetry-chip chip-top-left" id="hero-chip-1">
+              <span class="chip-accent">◈</span>
+              <span>MESH: 468 PUNTOS FACIALES</span>
+            </div>
+
+            <div class="hero-telemetry-chip chip-mid-right" id="hero-chip-2">
+              <span class="chip-accent">✦</span>
+              <span>CALCE IA: 99.2% PRECISIÓN</span>
+            </div>
+
+            <div class="hero-mask-frame" id="hero-mask-frame">
+              <img
+                src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=1200&q=85"
+                alt="Gorra negra clásica y anteojos de sol sobre piedra travertino en estudio CapFit"
+                class="hero-masked-img"
+                id="hero-masked-img"
+              >
+              <div class="hero-hud-grid-overlay" aria-hidden="true"></div>
+
+              <div class="hero-top-live-pill">
+                <span class="live-pulse-dot" aria-hidden="true"></span>
+                <span>Motor CapFit Vision Activo</span>
+              </div>
+
+              <div class="hero-mode-switch" role="group" aria-label="Cambiar vista de estudio">
+                <button type="button" class="hero-mode-btn active" data-hero-img="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=1200&q=85" data-hero-label="Gorra Clásica Negra · $24.990">Estudio Gorra</button>
+                <button type="button" class="hero-mode-btn" data-hero-img="https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=1200&q=85" data-hero-label="Urban Black UV400 · $28.900">Estudio Lentes</button>
+              </div>
+
+              <div class="hero-floating-card">
+                <img id="hero-mini-thumb" src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=300&q=80" alt="Gorra Clásica Negra">
+                <div class="hero-floating-info">
+                  <small>Listo para probar en vivo</small>
+                  <strong id="hero-floating-title">Gorra Clásica Negra · $24.990</strong>
+                </div>
+                <a href="#recorrido-probador" class="hero-floating-link" aria-label="Ver recorrido del probador">
+                  <span>Probar</span>
+                  <span>↓</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CINTA MARQUEE CINÉTICA INFINITA -->
+      <div class="kinetic-marquee-strip" aria-label="Características destacadas de CapFit">
+        <div class="kinetic-marquee-track">
+          <span class="marquee-item"><span class="marquee-star">✦</span> PROBADOR VIRTUAL CON IA EN 1.8 SEG</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> MAPEO FACIAL BIOMÉTRICO DE 468 PUNTOS</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> CHECKOUT NATIVO CON MERCADO PAGO</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> SINCRONIZACIÓN CON TIENDANUBE</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> E-COMMERCE MULTI-TIENDA PARA GORRAS Y ANTEOJOS</span>
+          <!-- Duplicado exacto para loop infinito -->
+          <span class="marquee-item"><span class="marquee-star">✦</span> PROBADOR VIRTUAL CON IA EN 1.8 SEG</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> MAPEO FACIAL BIOMÉTRICO DE 468 PUNTOS</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> CHECKOUT NATIVO CON MERCADO PAGO</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> SINCRONIZACIÓN CON TIENDANUBE</span>
+          <span class="marquee-item"><span class="marquee-star">✦</span> E-COMMERCE MULTI-TIENDA PARA GORRAS Y ANTEOJOS</span>
         </div>
       </div>
     </section>
@@ -105,11 +218,10 @@
     <!-- =============================================================== -->
     <!-- 02. PROBADOR VIRTUAL INTEGRADO · FLUJO REAL EN 3 ETAPAS         -->
     <!-- =============================================================== -->
-    <section class="narrative-section section-tryon reveal-section" id="recorrido-probador" data-stage="02">
+    <section class="narrative-section section-tryon" id="recorrido-probador" data-stage="02">
       <div class="landing-container">
 
-        <!-- Header respetando exactamente el diseño de la primera imagen -->
-        <div class="section-header-split tryon-header-reveal">
+        <div class="section-header-split gsap-reveal-up">
           <div class="header-left-col">
             <div class="editorial-meta">
               <span class="meta-accent">02. Probador Virtual Integrado</span>
@@ -122,38 +234,46 @@
           </div>
 
           <p class="section-lead">
-            Sin aplicaciones externas ni configuraciones técnicas. El comprador selecciona cualquier gorra o anteojo del catálogo, captura su foto con guía de postura y visualiza el calce antes de agregar al carrito.
+            Sin aplicaciones externas ni configuraciones técnicas. Elegí un producto en la Tarjeta 01, dispará el escáner biométrico en la Tarjeta 02 y deslizá el cursor sobre la Tarjeta 03 para comparar el antes y después.
           </p>
         </div>
 
-        <!-- Tabs de etapas (Imagen 1) sincronizadas con el scroll de la escena -->
-        <div class="tryon-steps-bar" role="tablist" aria-label="Etapas del probador virtual">
+        <!-- Tabs de etapas sincronizadas -->
+        <div class="tryon-steps-bar gsap-reveal-up" role="tablist" aria-label="Etapas del probador virtual">
           <button type="button" class="tryon-step-tab active" role="tab" aria-selected="true" data-tryon-step="1">
-            <span class="step-num">01</span>
-            <span class="step-label">Selección en Catálogo</span>
+            <span class="tryon-step-tab-left">
+              <span class="step-num">01</span>
+              <span class="step-label">Selección en Catálogo</span>
+            </span>
+            <span class="step-time-pill">1 clic</span>
           </button>
           <button type="button" class="tryon-step-tab" role="tab" aria-selected="false" data-tryon-step="2">
-            <span class="step-num">02</span>
-            <span class="step-label">Guía Facial y Procesamiento IA</span>
+            <span class="tryon-step-tab-left">
+              <span class="step-num">02</span>
+              <span class="step-label">Guía Facial y Procesamiento IA</span>
+            </span>
+            <span class="step-time-pill">1.8 seg</span>
           </button>
           <button type="button" class="tryon-step-tab" role="tab" aria-selected="false" data-tryon-step="3">
-            <span class="step-num">03</span>
-            <span class="step-label">Resultado y Compra Directa</span>
+            <span class="tryon-step-tab-left">
+              <span class="step-num">03</span>
+              <span class="step-label">Resultado y Compra Directa</span>
+            </span>
+            <span class="step-time-pill">Verificado</span>
           </button>
         </div>
 
-        <!-- Escena coordinada de 3 etapas durante el scroll (Imagen 2) -->
+        <!-- Escena coordinada de 3 etapas -->
         <div class="tryon-cards-flow" id="tryon-choreography" data-active-step="1">
 
           <!-- TARJETA 01: Selección en catálogo -->
-          <article class="tryon-flow-card is-focused" data-panel-step="1" style="--stage-idx: 0;">
+          <article class="tryon-flow-card is-focused gsap-tryon-card" data-panel-step="1" data-cursor="ELEGIR">
             <div class="catalog-select-top">
               <div class="catalog-main-thumb">
                 <img
                   id="tryon-demo-product-img"
-                  src="/assets/gorras/Gorra_azul_frente.webp"
+                  src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80"
                   alt="Gorra Clásica Negra seleccionada"
-                  referrerPolicy="no-referrer"
                 >
               </div>
 
@@ -161,46 +281,50 @@
                 <button
                   type="button"
                   class="side-thumb-btn active"
-                  data-img="/assets/gorras/Gorra_azul_frente.webp"
+                  data-img="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80"
+                  data-result="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80"
                   data-name="Gorra Clásica Negra"
                   data-sub="New Era · Ajuste regulable"
                   data-price="$24.990"
                   title="Gorra Clásica Negra"
                 >
-                  <img src="/assets/gorras/Gorra_azul_frente.webp" alt="Vista 1" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=200&q=80" alt="Vista 1">
                 </button>
                 <button
                   type="button"
                   class="side-thumb-btn"
-                  data-img="/assets/gorras/blanca_frente.png"
+                  data-img="https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=600&q=80"
+                  data-result="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=700&q=80"
                   data-name="Gorra Urbana Beige"
                   data-sub="New Era · Gabardina 100%"
                   data-price="$25.900"
                   title="Gorra Urbana Beige"
                 >
-                  <img src="/assets/gorras/blanca_frente.png" alt="Vista 2" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=200&q=80" alt="Vista 2">
                 </button>
                 <button
                   type="button"
                   class="side-thumb-btn"
-                  data-img="/assets/gorras/Gorra_negra_frente.webp"
-                  data-name="Gorra Clásica Bordada"
-                  data-sub="47 Brand · Visera curva"
-                  data-price="$24.990"
-                  title="Gorra Clásica Bordada"
+                  data-img="https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=600&q=80"
+                  data-result="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80"
+                  data-name="Urban Black UV400"
+                  data-sub="Ray-Ban · Lente Polarizado"
+                  data-price="$28.900"
+                  title="Urban Black UV400"
                 >
-                  <img src="/assets/gorras/Gorra_negra_frente.webp" alt="Vista 3" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=200&q=80" alt="Vista 3">
                 </button>
                 <button
                   type="button"
                   class="side-thumb-btn"
-                  data-img="/assets/gorras/messi_dorada_frente.webp"
+                  data-img="https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=600&q=80"
+                  data-result="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=700&q=80"
                   data-name="Edición Dorada Selección"
                   data-sub="Edición Especial · Bordado"
                   data-price="$32.500"
                   title="Edición Dorada Selección"
                 >
-                  <img src="/assets/gorras/messi_dorada_frente.webp" alt="Vista 4" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=200&q=80" alt="Vista 4">
                 </button>
               </div>
             </div>
@@ -213,39 +337,61 @@
               </div>
 
               <div class="select-color-dots" aria-label="Colores disponibles">
-                <button type="button" class="swatch-dot active" style="background:#141416" data-img="/assets/gorras/Gorra_azul_frente.webp" title="Negro"></button>
-                <button type="button" class="swatch-dot" style="background:#e5e0d5" data-img="/assets/gorras/blanca_frente.png" title="Crema"></button>
-                <button type="button" class="swatch-dot" style="background:#8c9198" data-img="/assets/gorras/Gorra_negra_frente.webp" title="Gris"></button>
+                <button type="button" class="swatch-dot active" style="background:#141416" data-img="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80" title="Negro"></button>
+                <button type="button" class="swatch-dot" style="background:#e5e0d5" data-img="https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=600&q=80" title="Crema"></button>
+                <button type="button" class="swatch-dot" style="background:#8c9198" data-img="https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=600&q=80" title="Gris"></button>
               </div>
             </div>
           </article>
 
-          <!-- Flecha conectora 1 -> 2 -->
+          <!-- Flecha conectora animada 1 -> 2 -->
           <div class="flow-arrow-connector" data-arrow-step="1" aria-hidden="true">
-            <svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="1.3">
-              <path d="M2 8h26M23 3l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg viewBox="0 0 36 20" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path class="connector-pulse-path" d="M2 10h28"/>
+              <path d="M25 5l6 5-6 5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
 
-          <!-- TARJETA 02: Guía facial y procesamiento IA (Dark Card) -->
-          <article class="tryon-flow-card tryon-dark-card" data-panel-step="2" style="--stage-idx: 1;">
+          <!-- TARJETA 02: Guía facial y procesamiento IA (Dark Card Motion Graphics) -->
+          <article class="tryon-flow-card tryon-dark-card gsap-tryon-card" id="tryon-dark-card" data-panel-step="2" data-cursor="ESCANEAR">
             <div class="dark-card-header">
-              <strong>Probador virtual</strong>
-              <span>Paso 2 de 3</span>
+              <div class="dark-card-header-left">
+                <strong>Probador virtual IA</strong>
+                <span id="scan-step-subtitle">Paso 2 de 3 · Mapeo craneal 3D</span>
+              </div>
+              <button type="button" class="btn-simulate-scan" id="btn-simulate-scan" data-magnetic>
+                ✦ Simular Escaneo
+              </button>
             </div>
 
             <div class="dark-card-canvas">
+              <div class="biometric-telemetry-readout" aria-hidden="true">
+                <span id="telemetry-xyz">PITCH: +2.4° · YAW: -0.8°</span>
+                <span id="telemetry-fps">60 FPS · LATENCY 18ms</span>
+              </div>
+
+              <div class="ai-scan-beam" aria-hidden="true"></div>
+
               <svg class="guide-silhouette-svg" viewBox="0 0 300 250" fill="none" aria-label="Guía de encuadre facial CapFit">
-                <!-- Silueta de hombros -->
-                <path class="svg-shoulders" d="M 102 180 L 58 232 M 198 180 L 242 232" stroke="rgba(255, 255, 255, 0.55)" stroke-width="1.3" stroke-dasharray="5 5" stroke-linecap="round"/>
-                <!-- Óvalo facial naranja -->
-                <ellipse class="svg-face-oval" cx="150" cy="122" rx="46" ry="58" stroke="#e85d24" stroke-width="1.6" stroke-dasharray="5 4"/>
-                <!-- Línea ocular -->
-                <line x1="112" y1="112" x2="188" y2="112" stroke="rgba(255, 255, 255, 0.35)" stroke-width="1" stroke-dasharray="3 3"/>
+                <!-- Hombros -->
+                <path class="svg-shoulders" d="M 102 180 L 58 232 M 198 180 L 242 232" stroke="rgba(255, 255, 255, 0.45)" stroke-width="1.3" stroke-dasharray="5 5" stroke-linecap="round"/>
+                <!-- Ejes de referencia biométrica -->
+                <line x1="150" y1="32" x2="150" y2="205" stroke="rgba(232, 93, 36, 0.25)" stroke-width="1" stroke-dasharray="2 4"/>
+                <line x1="94" y1="112" x2="206" y2="112" stroke="rgba(255, 255, 255, 0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+                <!-- Óvalo facial naranja animado -->
+                <ellipse class="svg-face-oval" cx="150" cy="122" rx="46" ry="58" stroke="#e85d24" stroke-width="1.8" stroke-dasharray="6 4"/>
                 <!-- Copa de la gorra -->
-                <path class="svg-cap-dome" d="M 114 78 C 114 48, 186 48, 186 78 Z" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" fill="rgba(232, 93, 36, 0.16)"/>
+                <path class="svg-cap-dome" d="M 114 78 C 114 48, 186 48, 186 78 Z" stroke="rgba(255,255,255,0.92)" stroke-width="1.5" fill="rgba(232, 93, 36, 0.2)"/>
                 <!-- Visera -->
-                <path class="svg-cap-visor" d="M 102 78 Q 150 66 198 78 Q 150 88 102 78 Z" stroke="#ffffff" stroke-width="1.4" fill="rgba(255,255,255,0.08)"/>
+                <path class="svg-cap-visor" d="M 102 78 Q 150 66 198 78 Q 150 88 102 78 Z" stroke="#ffffff" stroke-width="1.5" fill="rgba(255,255,255,0.1)"/>
+                <!-- Nodos de malla facial (Landmarks) -->
+                <circle class="mesh-landmark-node" cx="132" cy="112" r="2.2"/>
+                <circle class="mesh-landmark-node" cx="168" cy="112" r="2.2"/>
+                <circle class="mesh-landmark-node" cx="150" cy="130" r="2"/>
+                <circle class="mesh-landmark-node" cx="136" cy="150" r="2"/>
+                <circle class="mesh-landmark-node" cx="164" cy="150" r="2"/>
+                <circle class="mesh-landmark-node" cx="114" cy="78" r="2.4"/>
+                <circle class="mesh-landmark-node" cx="186" cy="78" r="2.4"/>
               </svg>
             </div>
 
@@ -263,62 +409,75 @@
               <div class="status-col">
                 <span class="status-icon status-processing" aria-hidden="true"></span>
                 <strong>Procesando IA</strong>
-                <small>Detectando rostro</small>
+                <small id="ai-status-dynamic">Detectando rostro</small>
               </div>
 
               <div class="status-col">
                 <span class="status-icon status-pending" aria-hidden="true"></span>
                 <strong>Ajustando</strong>
-                <small>Ángulo y encuadre</small>
+                <small>Luz y sombra</small>
               </div>
             </div>
           </article>
 
-          <!-- Flecha conectora 2 -> 3 -->
+          <!-- Flecha conectora animada 2 -> 3 -->
           <div class="flow-arrow-connector" data-arrow-step="2" aria-hidden="true">
-            <svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="1.3">
-              <path d="M2 8h26M23 3l5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg viewBox="0 0 36 20" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path class="connector-pulse-path" d="M2 10h28"/>
+              <path d="M25 5l6 5-6 5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
 
-          <!-- TARJETA 03: Resultado y compra directa -->
-          <article class="tryon-flow-card" data-panel-step="3" style="--stage-idx: 2;">
+          <!-- TARJETA 03: Resultado y compra directa + Deslizador Antes/Después -->
+          <article class="tryon-flow-card gsap-tryon-card" data-panel-step="3" data-cursor="COMPARAR">
             <div class="result-select-top">
-              <div class="result-main-portrait">
+              <div class="result-main-portrait" id="interactive-compare-portrait">
+                <!-- Imagen Después (Con IA) -->
                 <img
                   id="tryon-result-portrait-img"
-                  src="/src/assets/images/tryon_model_result_1792104273495.jpg"
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80"
                   alt="Resultado verificado en probador virtual CapFit"
-                  referrerPolicy="no-referrer"
                 >
+                <!-- Capa Antes (Original) que se revela al deslizar o pulsar -->
+                <div class="before-portrait-layer" id="before-portrait-layer">
+                  <img
+                    src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=700&q=80"
+                    alt="Foto original antes del probador virtual"
+                  >
+                </div>
+                <div class="portrait-slider-line" id="portrait-slider-line"></div>
+
                 <div class="verified-floating-chip">
                   <span class="verified-check-dot" aria-hidden="true">✓</span>
-                  <span>Resultado verificado</span>
+                  <span id="verified-chip-text">Calce IA 99.2%</span>
                 </div>
+                <button type="button" class="compare-hold-pill" id="btn-compare-before">
+                  ⇄ Antes / Después
+                </button>
               </div>
 
               <div class="result-side-thumbs" aria-label="Vistas del resultado">
-                <button type="button" class="result-thumb-btn active" data-result-img="/src/assets/images/tryon_model_result_1792104273495.jpg" title="Resultado frontal">
-                  <img src="/src/assets/images/tryon_model_result_1792104273495.jpg" alt="Resultado frontal" referrerPolicy="no-referrer">
+                <button type="button" class="result-thumb-btn active" data-result-img="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80" title="Resultado frontal">
+                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" alt="Resultado frontal">
                 </button>
-                <button type="button" class="result-thumb-btn" data-result-img="/src/assets/images/tryon_model_side_1792104275059.jpg" title="Resultado perfil">
-                  <img src="/src/assets/images/tryon_model_side_1792104275059.jpg" alt="Resultado perfil" referrerPolicy="no-referrer">
+                <button type="button" class="result-thumb-btn" data-result-img="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80" title="Resultado perfil">
+                  <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80" alt="Resultado perfil">
                 </button>
-                <button type="button" class="result-thumb-btn" data-result-img="/assets/gorras/Gorra_azul_frente.webp" title="Prenda seleccionada">
-                  <img id="tryon-result-mini-img" src="/assets/gorras/Gorra_azul_frente.webp" alt="Prenda aplicada" referrerPolicy="no-referrer">
+                <button type="button" class="result-thumb-btn" data-result-img="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80" title="Prenda seleccionada">
+                  <img id="tryon-result-mini-img" src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=200&q=80" alt="Prenda aplicada">
                 </button>
               </div>
             </div>
 
             <div class="result-select-bottom">
-              <a href="https://app.capfit.store/#probador" class="btn-add-cart-dark">
+              <button type="button" class="btn-add-cart-dark" id="btn-demo-add-cart" data-magnetic>
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                   <circle cx="8" cy="17" r="1.3"/>
                   <circle cx="15" cy="17" r="1.3"/>
                   <path d="M2 3h2.4l2.2 9.5a1.5 1.5 0 001.5 1.2h7.4a1.5 1.5 0 001.5-1.1L18.5 6H5.2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <span>Agregar al carrito</span>
-              </a>
+                <span>Agregar al carrito · <span id="cart-btn-price">$24.990</span></span>
+              </button>
             </div>
           </article>
 
@@ -327,12 +486,11 @@
     </section>
 
     <!-- =============================================================== -->
-    <!-- 03. TIENDA — Aparición secuencial de tarjetas y zoom leve       -->
+    <!-- 03. TIENDA — Aparición secuencial de tarjetas y filtros vivos   -->
     <!-- =============================================================== -->
-    <section class="narrative-section section-catalog reveal-section" id="recorrido-tienda" data-stage="03">
-      <!-- Banner fotográfico de fondo como en Imagen 3 -->
+    <section class="narrative-section section-catalog" id="recorrido-tienda" data-stage="03">
       <div class="catalog-hero-backdrop">
-        <div class="landing-container catalog-banner-inner">
+        <div class="landing-container catalog-banner-inner gsap-reveal-up">
           <div class="catalog-banner-copy">
             <div class="kicker-line">
               <span class="kicker-dash" aria-hidden="true"></span>
@@ -342,11 +500,10 @@
               Cada producto de tu tienda incluye su propio acceso al probador.
             </h2>
             <p class="section-lead">
-              Filtros, categorías y una experiencia de compra pensada para que tus clientes encuentren lo que buscan y lo prueben de forma virtual.
+              Filtros, categorías y una experiencia de compra pensada para que tus clientes encuentren lo que buscan y lo envíen al probador virtual con un clic.
             </p>
           </div>
 
-          <!-- Selector segmentado superior derecho -->
           <div class="catalog-top-pills" role="group" aria-label="Filtrar por categoría">
             <button type="button" class="filter-tab-btn active" data-filter="todos">Todos (6)</button>
             <button type="button" class="filter-tab-btn" data-filter="gorras">Gorras (4)</button>
@@ -356,17 +513,17 @@
       </div>
 
       <div class="landing-container">
-        <div class="storefront-showcase-shell">
+        <div class="storefront-showcase-shell gsap-reveal-up">
 
-          <!-- Columna Izquierda: Grilla de productos con barra de búsqueda -->
           <div class="storefront-main-col">
             <div class="storefront-toolbar">
-              <div class="toolbar-sort-wrap">
+              <div class="toolbar-left-group">
                 <select id="landing-catalog-sort" class="toolbar-sort-select" aria-label="Ordenar productos">
                   <option value="recientes">Más recientes</option>
                   <option value="menor-precio">Menor precio</option>
                   <option value="mayor-precio">Mayor precio</option>
                 </select>
+                <span class="toolbar-results-counter" id="catalog-visible-count">Mostrando 6 productos</span>
               </div>
 
               <div class="toolbar-search-wrap">
@@ -377,7 +534,7 @@
                 <input
                   type="search"
                   id="landing-catalog-search"
-                  placeholder="Buscar productos..."
+                  placeholder="Buscar gorra, lente o marca..."
                   aria-label="Buscar productos en el catálogo"
                 >
               </div>
@@ -386,13 +543,13 @@
             <div class="catalog-showcase-grid" id="landing-catalog-grid">
 
               <!-- Producto 1 -->
-              <article class="catalog-item-card" style="--card-idx: 0;" data-category="gorras" data-brand="New Era" data-price="24990" data-order="1">
+              <article class="catalog-item-card gsap-catalog-card" data-category="gorras" data-brand="New Era" data-price="24990" data-order="1" data-cursor="PROBAR IA">
                 <div class="catalog-item-media">
                   <span class="card-status-tag tag-green">
                     <span class="tag-icon" aria-hidden="true">●</span> Nuevo
                   </span>
                   <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
-                  <img src="/assets/gorras/Gorra_negra_frente.webp" alt="Gorra Clásica Negra" loading="lazy" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80" alt="Gorra Clásica Negra" loading="lazy">
                 </div>
                 <div class="catalog-item-body">
                   <div class="item-meta-line">
@@ -403,19 +560,19 @@
                   <h3 class="item-title">Gorra Clásica Negra</h3>
                   <div class="item-footer-row">
                     <span class="item-price">$24.990</span>
-                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                    <button type="button" class="item-try-link" data-try-name="Gorra Clásica Negra" data-try-price="$24.990" data-try-img="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=600&q=80">Probar con IA →</button>
                   </div>
                 </div>
               </article>
 
               <!-- Producto 2 -->
-              <article class="catalog-item-card" style="--card-idx: 1;" data-category="gorras" data-brand="New Era" data-price="32500" data-order="2">
+              <article class="catalog-item-card gsap-catalog-card" data-category="gorras" data-brand="New Era" data-price="32500" data-order="2" data-cursor="PROBAR IA">
                 <div class="catalog-item-media">
                   <span class="card-status-tag tag-neutral">
                     <span class="tag-icon" aria-hidden="true">★</span> Edición Especial
                   </span>
                   <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
-                  <img src="/assets/gorras/messi_dorada_frente.webp" alt="Edición Dorada Selección" loading="lazy" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=600&q=80" alt="Edición Dorada Selección" loading="lazy">
                 </div>
                 <div class="catalog-item-body">
                   <div class="item-meta-line">
@@ -426,19 +583,19 @@
                   <h3 class="item-title">Edición Dorada Selección</h3>
                   <div class="item-footer-row">
                     <span class="item-price">$32.500</span>
-                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                    <button type="button" class="item-try-link" data-try-name="Edición Dorada Selección" data-try-price="$32.500" data-try-img="https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=600&q=80">Probar con IA →</button>
                   </div>
                 </div>
               </article>
 
               <!-- Producto 3 -->
-              <article class="catalog-item-card" style="--card-idx: 2;" data-category="anteojos" data-brand="Ray-Ban" data-price="28900" data-order="3">
+              <article class="catalog-item-card gsap-catalog-card" data-category="anteojos" data-brand="Ray-Ban" data-price="28900" data-order="3" data-cursor="PROBAR IA">
                 <div class="catalog-item-media">
                   <span class="card-status-tag tag-neutral">
                     <span class="tag-icon" aria-hidden="true">★</span> Más vendido
                   </span>
                   <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
-                  <img src="/assets/anteojos/anteojo.webp" alt="Urban Black UV400" loading="lazy" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=600&q=80" alt="Urban Black UV400" loading="lazy">
                 </div>
                 <div class="catalog-item-body">
                   <div class="item-meta-line">
@@ -449,19 +606,19 @@
                   <h3 class="item-title">Urban Black UV400</h3>
                   <div class="item-footer-row">
                     <span class="item-price">$28.900</span>
-                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                    <button type="button" class="item-try-link" data-try-name="Urban Black UV400" data-try-price="$28.900" data-try-img="https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=600&q=80">Probar con IA →</button>
                   </div>
                 </div>
               </article>
 
               <!-- Producto 4 -->
-              <article class="catalog-item-card" style="--card-idx: 3;" data-category="gorras" data-brand="47 Brand" data-price="27400" data-order="4">
+              <article class="catalog-item-card gsap-catalog-card" data-category="gorras" data-brand="47 Brand" data-price="27400" data-order="4" data-cursor="PROBAR IA">
                 <div class="catalog-item-media">
                   <span class="card-status-tag tag-green">
                     <span class="tag-icon" aria-hidden="true">●</span> Nuevo
                   </span>
                   <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
-                  <img src="/assets/gorras/Agila_frente.webp" alt="Gorra Águila Bordada" loading="lazy" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=600&q=80" alt="Gorra Águila Bordada" loading="lazy">
                 </div>
                 <div class="catalog-item-body">
                   <div class="item-meta-line">
@@ -472,19 +629,19 @@
                   <h3 class="item-title">Gorra Águila Bordada</h3>
                   <div class="item-footer-row">
                     <span class="item-price">$27.400</span>
-                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                    <button type="button" class="item-try-link" data-try-name="Gorra Águila Bordada" data-try-price="$27.400" data-try-img="https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=600&q=80">Probar con IA →</button>
                   </div>
                 </div>
               </article>
 
               <!-- Producto 5 -->
-              <article class="catalog-item-card" style="--card-idx: 4;" data-category="gorras" data-brand="New Era" data-price="24900" data-order="5">
+              <article class="catalog-item-card gsap-catalog-card" data-category="gorras" data-brand="New Era" data-price="24900" data-order="5" data-cursor="PROBAR IA">
                 <div class="catalog-item-media">
                   <span class="card-status-tag tag-neutral">
                     <span class="tag-icon" aria-hidden="true">★</span> Más vendido
                   </span>
                   <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
-                  <img src="/assets/gorras/Gorra_azul_frente.webp" alt="Gorra Azul Marino" loading="lazy" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1534215754734-18e55d13e346?auto=format&fit=crop&w=600&q=80" alt="Gorra Azul Marino" loading="lazy">
                 </div>
                 <div class="catalog-item-body">
                   <div class="item-meta-line">
@@ -495,19 +652,19 @@
                   <h3 class="item-title">Gorra Azul Marino</h3>
                   <div class="item-footer-row">
                     <span class="item-price">$24.900</span>
-                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                    <button type="button" class="item-try-link" data-try-name="Gorra Azul Marino" data-try-price="$24.900" data-try-img="https://images.unsplash.com/photo-1534215754734-18e55d13e346?auto=format&fit=crop&w=600&q=80">Probar con IA →</button>
                   </div>
                 </div>
               </article>
 
               <!-- Producto 6 -->
-              <article class="catalog-item-card" style="--card-idx: 5;" data-category="anteojos" data-brand="Oakley" data-price="26500" data-order="6">
+              <article class="catalog-item-card gsap-catalog-card" data-category="anteojos" data-brand="Oakley" data-price="26500" data-order="6" data-cursor="PROBAR IA">
                 <div class="catalog-item-media">
                   <span class="card-status-tag tag-green">
                     <span class="tag-icon" aria-hidden="true">●</span> Nuevo
                   </span>
                   <button type="button" class="card-fav-btn" aria-label="Guardar en favoritos">♡</button>
-                  <img src="/assets/anteojos/ant_arg.png" alt="Edición Celeste" loading="lazy" referrerPolicy="no-referrer">
+                  <img src="https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=600&q=80" alt="Edición Celeste" loading="lazy">
                 </div>
                 <div class="catalog-item-body">
                   <div class="item-meta-line">
@@ -518,15 +675,19 @@
                   <h3 class="item-title">Edición Celeste</h3>
                   <div class="item-footer-row">
                     <span class="item-price">$26.500</span>
-                    <a href="https://app.capfit.store/#probador" class="item-try-link">Probar con IA →</a>
+                    <button type="button" class="item-try-link" data-try-name="Edición Celeste" data-try-price="$26.500" data-try-img="https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=600&q=80">Probar con IA →</button>
                   </div>
                 </div>
               </article>
 
+              <div class="catalog-empty-state" id="catalog-empty-state">
+                <p>No encontramos accesorios con esos filtros. Probá ampliar el rango de precio o limpiar la búsqueda.</p>
+              </div>
+
             </div>
           </div>
 
-          <!-- Columna Derecha: Sidebar de Filtros (Imagen 3) -->
+          <!-- Columna Derecha: Sidebar de Filtros -->
           <aside class="storefront-filter-sidebar" aria-label="Filtros de tienda">
             <div class="sidebar-top-row">
               <strong>Filtrar por</strong>
@@ -559,10 +720,10 @@
             </div>
 
             <div class="sidebar-block">
-              <h4>Precio</h4>
+              <h4>Precio máximo</h4>
               <div class="price-range-labels">
-                <span>$20.000</span>
-                <span id="price-filter-display">$60.000</span>
+                <span>$24.000</span>
+                <span id="price-filter-display" class="mono-num">$60.000</span>
               </div>
               <div class="price-slider-wrap">
                 <input
@@ -613,7 +774,7 @@
             </div>
 
             <button type="button" class="btn-reset-sidebar" id="btn-clear-filters-bottom">
-              <span>Limpiar filtros</span>
+              <span>Restablecer filtros</span>
             </button>
           </aside>
 
@@ -622,15 +783,14 @@
     </section>
 
     <!-- =============================================================== -->
-    <!-- 04. BACKOFFICE — 1º Indicadores → 2º Tabla → 3º Funcionalidades -->
+    <!-- 04. BACKOFFICE — Con rotación 3D al scrollear y barra IA viva   -->
     <!-- =============================================================== -->
-    <section class="narrative-section section-migration reveal-section" id="recorrido-migracion" data-stage="04">
+    <section class="narrative-section section-migration" id="recorrido-migracion" data-stage="04">
       <div class="landing-container">
         <div class="migration-layout">
 
-          <!-- Columna Izquierda: Funcionalidades (Fase 3 de revelado) -->
-          <div class="migration-copy">
-            <div class="bo-phase-indicators">
+          <div class="migration-copy gsap-reveal-up">
+            <div>
               <div class="kicker-line">
                 <span class="kicker-dash" aria-hidden="true"></span>
                 <span>04. ADMINISTRÁ TU TIENDA</span>
@@ -641,12 +801,12 @@
               </h2>
 
               <p class="section-lead">
-                Administrá tu catálogo, pedidos, páginas y cuotas de IA desde un panel simple y completo. Todo lo que necesitás para hacer crecer tu tienda, en un solo lugar.
+                Administrá tu catálogo, pedidos, páginas y cuotas de IA desde un panel simple y completo. Todo lo que necesitás para hacer crecer tu tienda, sin depender de desarrolladores.
               </p>
             </div>
 
-            <div class="admin-capability-list bo-phase-capabilities" role="tablist" aria-label="Módulos del panel de administración">
-              <button type="button" class="capability-item active" style="--cap-idx: 0;" role="tab" aria-selected="true" data-admin-view="catalogo">
+            <div class="admin-capability-list" role="tablist" aria-label="Módulos del panel de administración">
+              <button type="button" class="capability-item active" role="tab" aria-selected="true" data-admin-view="catalogo">
                 <span class="cap-icon-box" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -657,12 +817,12 @@
                 <span class="cap-number">01</span>
                 <div class="cap-text">
                   <strong>Catálogo, Variantes y Control de Stock</strong>
-                  <p>Cargá de gorras y anteojos con imágenes de frente y perfil, colores, precios promocionales y alertas de stock bajo.</p>
+                  <p>Carga de gorras y anteojos con imágenes de frente y perfil, colores, precios promocionales y alertas de stock bajo.</p>
                 </div>
                 <span class="cap-arrow" aria-hidden="true">→</span>
               </button>
 
-              <button type="button" class="capability-item" style="--cap-idx: 1;" role="tab" aria-selected="false" data-admin-view="pedidos">
+              <button type="button" class="capability-item" role="tab" aria-selected="false" data-admin-view="pedidos">
                 <span class="cap-icon-box" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <rect x="2" y="5" width="20" height="14" rx="2"/>
@@ -677,7 +837,7 @@
                 <span class="cap-arrow" aria-hidden="true">→</span>
               </button>
 
-              <button type="button" class="capability-item" style="--cap-idx: 2;" role="tab" aria-selected="false" data-admin-view="secciones">
+              <button type="button" class="capability-item" role="tab" aria-selected="false" data-admin-view="secciones">
                 <span class="cap-icon-box" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -692,7 +852,7 @@
                 <span class="cap-arrow" aria-hidden="true">→</span>
               </button>
 
-              <button type="button" class="capability-item" style="--cap-idx: 3;" role="tab" aria-selected="false" data-admin-view="cuota">
+              <button type="button" class="capability-item" role="tab" aria-selected="false" data-admin-view="cuota">
                 <span class="cap-icon-box" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path d="M18 20V10M12 20V4M6 20v-6" stroke-linecap="round"/>
@@ -707,8 +867,8 @@
               </button>
             </div>
 
-            <div class="migration-cta-block bo-phase-capabilities" style="--cap-idx: 4;">
-              <a href="https://admin.capfit.store/" class="btn-dark-pill">
+            <div class="migration-cta-block">
+              <a href="https://admin.capfit.store/" class="btn-dark-pill" data-magnetic data-cursor="MIGRAR">
                 <span>Migrá tu tienda a CapFit</span>
                 <span aria-hidden="true">→</span>
               </a>
@@ -716,12 +876,10 @@
             </div>
           </div>
 
-          <!-- Columna Derecha: Ventana de Backoffice (1º Indicadores -> 2º Tabla) -->
           <div class="migration-visual-stage">
-            <div class="backoffice-window">
+            <div class="backoffice-window" id="backoffice-3d-window" data-cursor="PANEL">
 
-              <!-- Barra lateral del Backoffice (Fase 1: Indicadores) -->
-              <div class="bo-sidebar bo-phase-indicators">
+              <div class="bo-sidebar">
                 <div class="bo-brand">CAPFIT</div>
                 <ul class="bo-nav-list">
                   <li class="bo-nav-item" data-bo-tab="catalogo">
@@ -745,13 +903,11 @@
                 </ul>
               </div>
 
-              <!-- Área principal del Backoffice -->
               <div class="bo-main">
 
                 <!-- Vista 01: Productos -->
                 <div class="admin-shell-body active" data-admin-panel="catalogo">
-                  <!-- Fase 1: Indicadores de cabecera y contadores -->
-                  <div class="bo-main-header bo-phase-indicators">
+                  <div class="bo-main-header">
                     <div>
                       <h3>Productos</h3>
                       <p>Gestioná tu catálogo de gorras y anteojos</p>
@@ -765,14 +921,13 @@
                     </div>
                   </div>
 
-                  <div class="bo-subtabs bo-phase-indicators">
+                  <div class="bo-subtabs">
                     <span class="bo-subtab active">Todos (24)</span>
                     <span class="bo-subtab">Gorras (16)</span>
                     <span class="bo-subtab">Anteojos (8)</span>
                   </div>
 
-                  <!-- Fase 2: Tabla de datos reales -->
-                  <div class="bo-table bo-phase-table">
+                  <div class="bo-table">
                     <div class="bo-table-head">
                       <span>Producto</span>
                       <span>Tipo</span>
@@ -782,9 +937,9 @@
                       <span></span>
                     </div>
 
-                    <div class="bo-table-row" style="--row-idx: 0;">
+                    <div class="bo-table-row">
                       <div class="bo-prod-cell">
-                        <img src="/assets/gorras/Gorra_azul_frente.webp" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <img src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=120&q=80" alt="" loading="lazy">
                         <div>
                           <strong>Gorra Clásica Negra</strong>
                           <small>GOR-001</small>
@@ -797,9 +952,9 @@
                       <span class="bo-dots">⋮</span>
                     </div>
 
-                    <div class="bo-table-row" style="--row-idx: 1;">
+                    <div class="bo-table-row">
                       <div class="bo-prod-cell">
-                        <img src="/assets/anteojos/anteojo.webp" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <img src="https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=120&q=80" alt="" loading="lazy">
                         <div>
                           <strong>Urban Black UV400</strong>
                           <small>ANT-002</small>
@@ -812,9 +967,9 @@
                       <span class="bo-dots">⋮</span>
                     </div>
 
-                    <div class="bo-table-row" style="--row-idx: 2;">
+                    <div class="bo-table-row">
                       <div class="bo-prod-cell">
-                        <img src="/assets/gorras/blanca_frente.png" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <img src="https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=120&q=80" alt="" loading="lazy">
                         <div>
                           <strong>Gorra Beige Premium</strong>
                           <small>GOR-003</small>
@@ -827,9 +982,9 @@
                       <span class="bo-dots">⋮</span>
                     </div>
 
-                    <div class="bo-table-row" style="--row-idx: 3;">
+                    <div class="bo-table-row">
                       <div class="bo-prod-cell">
-                        <img src="/assets/anteojos/band.webp" alt="" loading="lazy" referrerPolicy="no-referrer">
+                        <img src="https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=120&q=80" alt="" loading="lazy">
                         <div>
                           <strong>Lentes Polarizados Care</strong>
                           <small>ANT-004</small>
@@ -843,7 +998,7 @@
                     </div>
                   </div>
 
-                  <div class="bo-table-footer bo-phase-table">
+                  <div class="bo-table-footer">
                     <span>Mostrando 4 de 24 productos</span>
                     <div class="bo-pagination">
                       <span>←</span>
@@ -970,8 +1125,7 @@
               </div>
             </div>
 
-            <!-- Fase 1: Indicador Flotante Probador IA 48 / 100 -->
-            <div class="floating-quota-widget bo-phase-indicators">
+            <div class="floating-quota-widget" id="floating-quota-widget">
               <div class="quota-widget-icon" aria-hidden="true">✦</div>
               <div class="quota-widget-content">
                 <div class="quota-widget-top">
@@ -983,7 +1137,7 @@
                 </div>
                 <div class="quota-widget-bar-row">
                   <div class="quota-widget-track">
-                    <div class="quota-widget-fill" style="width: 48%;"></div>
+                    <div class="quota-widget-fill" id="gsap-quota-bar"></div>
                   </div>
                   <span class="quota-widget-count mono-num">48 / 100</span>
                 </div>
@@ -997,11 +1151,11 @@
     </section>
 
     <!-- =============================================================== -->
-    <!-- 05. PLANES Y CUOTAS DE IA — Entrada escalonada + Énfasis Growth -->
+    <!-- 05. PLANES Y CUOTAS DE IA — Con Switch Mensual / Anual          -->
     <!-- =============================================================== -->
-    <section class="narrative-section section-plans reveal-section" id="recorrido-planes" data-stage="05">
+    <section class="narrative-section section-plans" id="recorrido-planes" data-stage="05">
       <div class="landing-container">
-        <div class="section-header-split plans-header-split">
+        <div class="section-header-split plans-header-split gsap-reveal-up">
           <div>
             <div class="kicker-line">
               <span class="kicker-dash" aria-hidden="true"></span>
@@ -1041,18 +1195,31 @@
           </div>
         </div>
 
-        <!-- Grilla de 5 planes reales (Imagen 5) -->
+        <!-- Selector de ciclo Mensual / Anual -->
+        <div class="billing-toggle-row gsap-reveal-up">
+          <div class="billing-pill-switch" role="group" aria-label="Ciclo de facturación">
+            <button type="button" class="billing-opt-btn active" data-billing="monthly">Facturación Mensual</button>
+            <button type="button" class="billing-opt-btn" data-billing="annual">
+              <span>Facturación Anual</span>
+              <span class="billing-save-tag">Ahorrá 20%</span>
+            </button>
+          </div>
+          <span class="toolbar-results-counter">Precios expresados en USD y pesificados al tipo de cambio oficial en Mercado Pago.</span>
+        </div>
+
+        <!-- Grilla de 5 planes reales -->
         <div class="plans-grid" id="landing-plans-grid">
 
           <!-- FREE -->
-          <article class="plan-card" style="--plan-idx: 0;" data-plan-id="free">
+          <article class="plan-card gsap-plan-card" data-plan-id="free">
             <div class="plan-top">
               <div class="plan-header">
                 <h3 class="plan-name">FREE</h3>
                 <div class="plan-price-wrap">
-                  <span class="plan-price">$0</span>
+                  <span class="plan-price" data-usd-month="$0" data-usd-year="$0">$0</span>
                   <div class="plan-currency-row">
                     <span>USD / mes</span>
+                    <span class="ars-price" data-ars-month="Gratis" data-ars-year="Gratis">Gratis</span>
                   </div>
                 </div>
                 <p class="plan-quota"><strong>20</strong> generaciones / mes</p>
@@ -1064,19 +1231,19 @@
                 <li>Conversión a plan pagado</li>
               </ul>
             </div>
-            <a href="https://admin.capfit.store/" class="btn-plan-outline">Comenzar Gratis</a>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline" data-magnetic>Comenzar Gratis</a>
           </article>
 
           <!-- STARTER -->
-          <article class="plan-card" style="--plan-idx: 1;" data-plan-id="starter">
+          <article class="plan-card gsap-plan-card" data-plan-id="starter">
             <div class="plan-top">
               <div class="plan-header">
                 <h3 class="plan-name">STARTER</h3>
                 <div class="plan-price-wrap">
-                  <span class="plan-price">$10</span>
+                  <span class="plan-price" data-usd-month="$10" data-usd-year="$8">$10</span>
                   <div class="plan-currency-row">
                     <span>USD / mes</span>
-                    <span class="ars-price">$18.000 ARS</span>
+                    <span class="ars-price" data-ars-month="$18.000 ARS" data-ars-year="$14.400 ARS">$18.000 ARS</span>
                   </div>
                 </div>
                 <p class="plan-quota"><strong>150</strong> generaciones / mes</p>
@@ -1088,11 +1255,11 @@
                 <li>Acceso API básico</li>
               </ul>
             </div>
-            <a href="https://admin.capfit.store/" class="btn-plan-outline">Elegir Starter</a>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline" data-magnetic>Elegir Starter</a>
           </article>
 
-          <!-- GROWTH (Dark Featured Card - Más elegido) -->
-          <article class="plan-card plan-card-featured" style="--plan-idx: 2;" data-plan-id="growth">
+          <!-- GROWTH -->
+          <article class="plan-card plan-card-featured gsap-plan-card" data-plan-id="growth" data-cursor="RECOMENDADO">
             <div class="plan-top">
               <div class="plan-header">
                 <div class="plan-title-row">
@@ -1100,10 +1267,10 @@
                   <span class="plan-popular-pill">Más elegido</span>
                 </div>
                 <div class="plan-price-wrap">
-                  <span class="plan-price">$20</span>
+                  <span class="plan-price" data-usd-month="$20" data-usd-year="$16">$20</span>
                   <div class="plan-currency-row">
                     <span>USD / mes</span>
-                    <span class="ars-price">$36.000 ARS</span>
+                    <span class="ars-price" data-ars-month="$36.000 ARS" data-ars-year="$28.800 ARS">$36.000 ARS</span>
                   </div>
                 </div>
                 <p class="plan-quota"><strong>350</strong> generaciones / mes</p>
@@ -1112,23 +1279,23 @@
                 <li>Con branding personalizado</li>
                 <li>Analytics básico</li>
                 <li>Integración TiendaNube</li>
-                <li>Dashboard</li>
+                <li>Dashboard completo</li>
                 <li>Soporte prioritario</li>
               </ul>
             </div>
-            <a href="https://admin.capfit.store/" class="btn-plan-solid-light">Elegir Growth</a>
+            <a href="https://admin.capfit.store/" class="btn-plan-solid-light" data-magnetic>Elegir Growth</a>
           </article>
 
           <!-- PRO -->
-          <article class="plan-card" style="--plan-idx: 3;" data-plan-id="pro">
+          <article class="plan-card gsap-plan-card" data-plan-id="pro">
             <div class="plan-top">
               <div class="plan-header">
                 <h3 class="plan-name">PRO</h3>
                 <div class="plan-price-wrap">
-                  <span class="plan-price">$50</span>
+                  <span class="plan-price" data-usd-month="$50" data-usd-year="$40">$50</span>
                   <div class="plan-currency-row">
                     <span>USD / mes</span>
-                    <span class="ars-price">$90.000 ARS</span>
+                    <span class="ars-price" data-ars-month="$90.000 ARS" data-ars-year="$72.000 ARS">$90.000 ARS</span>
                   </div>
                 </div>
                 <p class="plan-quota"><strong>1.000</strong> generaciones / mes</p>
@@ -1142,19 +1309,19 @@
                 <li>Custom dashboard</li>
               </ul>
             </div>
-            <a href="https://admin.capfit.store/" class="btn-plan-outline">Elegir Pro</a>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline" data-magnetic>Elegir Pro</a>
           </article>
 
           <!-- ENTERPRISE -->
-          <article class="plan-card" style="--plan-idx: 4;" data-plan-id="enterprise">
+          <article class="plan-card gsap-plan-card" data-plan-id="enterprise">
             <div class="plan-top">
               <div class="plan-header">
                 <h3 class="plan-name">ENTERPRISE</h3>
                 <div class="plan-price-wrap">
-                  <span class="plan-price">$200</span>
+                  <span class="plan-price" data-usd-month="$200" data-usd-year="$160">$200</span>
                   <div class="plan-currency-row">
                     <span>USD / mes</span>
-                    <span class="ars-price">$360.000 ARS</span>
+                    <span class="ars-price" data-ars-month="$360.000 ARS" data-ars-year="$288.000 ARS">$360.000 ARS</span>
                   </div>
                 </div>
                 <p class="plan-quota"><strong>4.000</strong> generaciones / mes</p>
@@ -1168,9 +1335,61 @@
                 <li>Priority queue</li>
               </ul>
             </div>
-            <a href="https://admin.capfit.store/" class="btn-plan-outline">Contactar / Activar</a>
+            <a href="https://admin.capfit.store/" class="btn-plan-outline" data-magnetic>Contactar / Activar</a>
           </article>
 
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================================== -->
+    <!-- PREGUNTAS FRECUENTES (FAQ EDITORIAL)                            -->
+    <!-- =============================================================== -->
+    <section class="faq-section" id="recorrido-faq">
+      <div class="landing-container faq-grid gsap-reveal-up">
+        <div>
+          <div class="kicker-line">
+            <span class="kicker-dash" aria-hidden="true"></span>
+            <span>DUDAS FRECUENTES</span>
+          </div>
+          <h2 class="section-display-title">
+            Todo listo para salir a vender en minutos.
+          </h2>
+          <p class="section-lead" style="margin-top: 0.85rem;">
+            Respondemos las consultas más habituales de marcas de streetwear, ópticas y tiendas de accesorios.
+          </p>
+        </div>
+
+        <div class="faq-accordion">
+          <div class="faq-item is-open">
+            <button type="button" class="faq-question">
+              <span>¿Necesito fotos 3D especiales de mis gorras o anteojos?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              No. Solo necesitás las fotos habituales de tu catálogo (frente y perfil en buena iluminación). El motor de IA de CapFit detecta automáticamente la geometría de la prenda y la adapta a la perspectiva del rostro del comprador.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question">
+              <span>¿Puedo usar mi propio dominio o integrarlo con TiendaNube?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              Sí. Desde el Plan Growth podés conectar tu propio subdominio o sincronizar tu catálogo directamente con TiendaNube y cobrar a través de tu cuenta de Mercado Pago sin comisiones adicionales por venta.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question">
+              <span>¿Qué pasa con las fotos que se sacan mis clientes?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-answer">
+              La privacidad es prioritaria: las fotografías capturadas desde el celular o webcam se procesan en memoria efímera únicamente para devolver la previsualización y no se almacenan ni utilizan para entrenar modelos externos.
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1179,28 +1398,28 @@
     <!-- 06. CIERRE — Transición marfil → negro, titular, CTAs y footer  -->
     <!-- =============================================================== -->
     <div class="closing-atmosphere-shell" id="closing-atmosphere">
-      <section class="narrative-section section-closing reveal-section" id="recorrido-cierre" data-stage="06">
-        <div class="landing-container closing-inner">
-          <div class="editorial-meta closing-meta closing-seq-item" style="--close-delay: 120ms;">
+      <section class="narrative-section section-closing" id="recorrido-cierre" data-stage="06">
+        <div class="landing-container closing-inner gsap-reveal-up">
+          <div class="editorial-meta closing-meta">
             <span class="meta-accent">06. Empezá hoy</span>
             <span class="meta-dot" aria-hidden="true">·</span>
             <span class="meta-sub-light">CapFit Plataforma Oficial</span>
           </div>
 
-          <h2 class="closing-title closing-seq-item" style="--close-delay: 220ms;">
+          <h2 class="closing-title">
             Transformá cada visita<br>en una prueba real.
           </h2>
 
-          <p class="closing-subtitle closing-seq-item" style="--close-delay: 320ms;">
+          <p class="closing-subtitle">
             Recorré la tienda demostrativa en vivo para experimentar el probador virtual como comprador, o ingresá al panel administrativo para dar de alta y gestionar tu propia tienda.
           </p>
 
-          <div class="closing-actions closing-seq-item" style="--close-delay: 420ms;">
-            <a href="https://app.capfit.store/" class="btn-closing-orange">
+          <div class="closing-actions">
+            <a href="https://app.capfit.store/" class="btn-closing-orange" data-magnetic data-cursor="PROBAR">
               <span>Probar Tienda Demo</span>
               <span aria-hidden="true">→</span>
             </a>
-            <a href="https://admin.capfit.store/" class="btn-closing-outline-pill">
+            <a href="https://admin.capfit.store/" class="btn-closing-outline-pill" data-magnetic data-cursor="ADMIN">
               <span>Acceder al Backoffice</span>
               <span aria-hidden="true">→</span>
             </a>
@@ -1208,7 +1427,7 @@
         </div>
       </section>
 
-      <footer class="landing-footer closing-seq-item" id="landing-footer" style="--close-delay: 540ms;">
+      <footer class="landing-footer" id="landing-footer">
         <div class="landing-container footer-inner">
           <div class="footer-brand-col">
             <span class="footer-wordmark">CAPFIT</span>
@@ -1228,6 +1447,14 @@
 
   </main>
 
-  <script src="/landing/js/landing.js" defer></script>
+  <!-- Toast interactivo -->
+  <div class="capfit-toast" id="capfit-toast" role="status" aria-live="polite">
+    <span class="toast-dot"></span>
+    <span id="capfit-toast-text">Producto cargado en el probador virtual</span>
+  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+<script src="/landing/js/landing.js" defer></script>
 </body>
 </html>
