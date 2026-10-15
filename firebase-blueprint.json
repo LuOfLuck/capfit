@@ -12,6 +12,8 @@
         "about": { "type": "object" },
         "adminUsername": { "type": "string", "maxLength": 64 },
         "adminPassword": { "type": "string", "maxLength": 64 },
+        "ownerEmail": { "type": "string", "maxLength": 120 },
+        "ownerUid": { "type": "string", "maxLength": 128 },
         "plan": { "type": "string", "maxLength": 50 },
         "aiMonthlyLimit": { "type": "number" },
         "aiGenerationsUsed": { "type": "number" },
@@ -20,6 +22,118 @@
         "createdAt": { "type": "string", "maxLength": 40 }
       },
       "required": ["id", "subdomain", "name"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Global CapFit ID shopper profile, head measurement fit profile, base selfies for 1-click try-on, and saved shipping addresses",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 120 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 40 },
+        "dni": { "type": "string", "maxLength": 30 },
+        "ownedStores": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of storeIds owned by this user (written only by backend)"
+        },
+        "fitProfile": {
+          "type": "object",
+          "properties": {
+            "headCircumferenceCm": { "type": "number" },
+            "preferredStyles": { "type": "array", "items": { "type": "string" } },
+            "fittedSize": { "type": "string", "maxLength": 20 }
+          }
+        },
+        "baseSelfies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "imageUrl": { "type": "string" },
+              "isDefault": { "type": "boolean" },
+              "uploadedAt": { "type": "string" }
+            }
+          }
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "alias": { "type": "string" },
+              "recipientName": { "type": "string" },
+              "street": { "type": "string" },
+              "number": { "type": "string" },
+              "floorApt": { "type": "string" },
+              "city": { "type": "string" },
+              "province": { "type": "string" },
+              "postalCode": { "type": "string" },
+              "isDefault": { "type": "boolean" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "maxLength": 40 },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["uid", "email"]
+    },
+    "StoreCustomer": {
+      "title": "StoreCustomer",
+      "description": "Tenant relation document per store: store_customers/{storeId}_{uid}",
+      "type": "object",
+      "properties": {
+        "storeId": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "customerSnapshot": {
+          "type": "object",
+          "properties": {
+            "displayName": { "type": "string" },
+            "email": { "type": "string" },
+            "phone": { "type": "string" }
+          }
+        },
+        "wishlistProductIds": { "type": "array", "items": { "type": "string" } },
+        "marketingOptIn": { "type": "boolean" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "totalOrders": { "type": "number" },
+            "totalSpent": { "type": "number" },
+            "tryOnsCount": { "type": "number" },
+            "firstInteractionAt": { "type": "string" },
+            "lastOrderAt": { "type": "string" }
+          }
+        }
+      },
+      "required": ["storeId", "userId"]
+    },
+    "TryOnGeneration": {
+      "title": "TryOnGeneration",
+      "description": "History of virtual try-on generations for AI analytics and user history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "storeId": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "isOwnerTest": { "type": "boolean" },
+        "productId": { "type": "string", "maxLength": 64 },
+        "productSnapshot": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "price": { "type": "number" },
+            "thumbnailUrl": { "type": "string" }
+          }
+        },
+        "resultImageUrl": { "type": "string" },
+        "convertedToOrder": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["storeId", "resultImageUrl", "createdAt"]
     },
     "Product": {
       "title": "Product",
@@ -60,16 +174,28 @@
       "properties": {
         "id": { "type": "string", "maxLength": 64 },
         "storeId": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "buyerEmail": { "type": "string", "maxLength": 120 },
+        "isClaimed": { "type": "boolean" },
         "customer": { "type": "object" },
         "items": { "type": "array" },
         "total": { "type": "number" },
+        "totalAmount": { "type": "number" },
         "subtotal": { "type": "number" },
         "shippingCost": { "type": "number" },
+        "shippingTracking": {
+          "type": "object",
+          "properties": {
+            "carrier": { "type": "string" },
+            "trackingCode": { "type": "string" },
+            "shippedAt": { "type": "string" }
+          }
+        },
         "status": { "type": "string", "maxLength": 40 },
         "paymentStatus": { "type": "string", "maxLength": 40 },
         "createdAt": { "type": "string", "maxLength": 40 }
       },
-      "required": ["id", "storeId", "total", "status"]
+      "required": ["id", "storeId", "status"]
     },
     "AILog": {
       "title": "AILog",
@@ -107,7 +233,7 @@
     },
     "/stores/{storeId}/products/{productId}": {
       "schema": "Product",
-      "description": "Store products subcollection dedicated to each client store (gorras, anteojos, accesorios)"
+      "description": "Store products subcollection dedicated to each client store"
     },
     "/products/{productId}": {
       "schema": "Product",
@@ -115,7 +241,19 @@
     },
     "/orders/{orderId}": {
       "schema": "Order",
-      "description": "Store customer orders"
+      "description": "Store customer orders with CapFit ID association and shipping tracking"
+    },
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "Global CapFit ID shopper and owner profile with fit measurements, selfies, and addresses"
+    },
+    "/store_customers/{relationId}": {
+      "schema": "StoreCustomer",
+      "description": "Per-store customer engagement relationship ({storeId}_{uid}) with wishlist and stats"
+    },
+    "/try_on_generations/{genId}": {
+      "schema": "TryOnGeneration",
+      "description": "History of virtual try-on generations"
     },
     "/ai_logs/{logId}": {
       "schema": "AILog",

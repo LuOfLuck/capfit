@@ -314,6 +314,15 @@ const SuscripcionManager = (() => {
       (window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-') ? Store.getCurrentStoreId() : 'principal');
   }
 
+  function getSubscriptionAuthHeaders(extra = {}) {
+    const headers = { ...extra };
+    const token = sessionStorage.getItem('capfit_admin_auth_token') || sessionStorage.getItem('capfit_session');
+    if (token && token.includes('.')) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
   /**
    * Retorna una copia inmutable del estado actual.
    */
@@ -622,7 +631,7 @@ const SuscripcionManager = (() => {
         try {
           await fetch('/api/subscriptions/simulate-approval', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getSubscriptionAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ storeId: getActiveStoreId(), planId: returnedPlanId })
           });
         } catch (e) {}
@@ -880,37 +889,33 @@ const SuscripcionManager = (() => {
       };
     }
 
-    // Botón verificar estado de suscripción
+    // Botón verificar estado de suscripción real con el servidor (sin invocar simulate-approval en flujos de pasarela)
     const verifyBtn = modal.querySelector('#mp-sub-verify-footer');
     if (verifyBtn) {
       verifyBtn.onclick = async () => {
         verifyBtn.disabled = true;
-        verifyBtn.innerHTML = `<span>⏳ Verificando con Mercado Pago...</span>`;
-
-        try {
-          await fetch('/api/subscriptions/simulate-approval', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ storeId: storeId, planId: plan.id })
-          });
-        } catch (e) {}
+        verifyBtn.innerHTML = `<span>⏳ Verificando estado con Mercado Pago...</span>`;
 
         await cargarEstadoSuscripcion();
         modal.remove();
         render();
 
-        if (window.showCustomModal) {
-          window.showCustomModal({
-            title: '¡Suscripción Activada!',
-            message: `Tu tienda ahora cuenta con el Plan ${plan.name} (${plan.generations_per_month.toLocaleString('es-AR')} fotos IA/mes).`,
-            icon: 'success',
-            buttonText: '¡Excelente!'
-          });
+        if (_estado.planActualId === plan.id && _estado.estadoSuscripcion === 'active') {
+          if (window.showCustomModal) {
+            window.showCustomModal({
+              title: '¡Suscripción Activada!',
+              message: `Tu tienda ahora cuenta con el Plan ${plan.name} (${plan.generations_per_month.toLocaleString('es-AR')} fotos IA/mes).`,
+              icon: 'success',
+              buttonText: '¡Excelente!'
+            });
+          }
+        } else if (window.showToast) {
+          window.showToast('Estado de suscripción actualizado. Si acabás de pagar, Mercado Pago confirmará el alta en unos instantes.');
         }
       };
     }
 
-    // Botón confirmar suscripción en tarjeta directa
+    // Botón confirmar suscripción en tarjeta directa (modo simulación en desarrollo)
     const submitBtn = modal.querySelector('#mp-sub-submit-btn');
     if (submitBtn) {
       submitBtn.onclick = async () => {
@@ -923,7 +928,7 @@ const SuscripcionManager = (() => {
         try {
           const res = await fetch('/api/subscriptions/simulate-approval', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getSubscriptionAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ storeId: storeId, planId: plan.id })
           });
           const resData = await res.json();
@@ -1066,7 +1071,7 @@ const SuscripcionManager = (() => {
         const storeId = getActiveStoreId();
         const res = await fetch('/api/subscriptions/create-preapproval', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getSubscriptionAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             planId: plan.id,
             storeId: storeId
@@ -1076,19 +1081,20 @@ const SuscripcionManager = (() => {
         const data = await res.json();
         closeModal();
 
+        if (!res.ok || !data.ok) {
+          alert(data.error || 'Debes iniciar sesión como administrador de la tienda para gestionar la suscripción.');
+          return;
+        }
+
         // En lugar de redirigir toda la ventana (haciendo imposible salir), abrimos la ventana popup con la X para salir/cancelar
         openMercadoPagoSubscriptionPopup({
           plan,
-          initPoint: (data.ok && data.init_point) ? data.init_point : null,
+          initPoint: (data.ok && data.init_point && !data.simulated) ? data.init_point : null,
           storeId
         });
       } catch (err) {
         closeModal();
-        openMercadoPagoSubscriptionPopup({
-          plan,
-          initPoint: null,
-          storeId: getActiveStoreId()
-        });
+        alert('Error al iniciar suscripción: ' + err.message);
       }
     };
   }
@@ -1105,7 +1111,7 @@ const SuscripcionManager = (() => {
       const storeId = getActiveStoreId();
       const res = await fetch('/api/subscriptions/cancel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getSubscriptionAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ storeId })
       });
       const data = await res.json();

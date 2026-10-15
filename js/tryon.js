@@ -556,6 +556,19 @@ function mostrarResultado(imgURL) {
     if (video) video.style.display = 'none';
     ri.style.display = 'block';
     if (resActions) resActions.style.display = 'flex';
+
+    // Registrar en historial seguro de try_on_generations
+    if (window.CapfitCustomer && typeof window.CapfitCustomer.recordTryOnGeneration === 'function') {
+      window.CapfitCustomer.recordTryOnGeneration({
+        productId: item ? item.id : null,
+        productSnapshot: item ? {
+          name: item.nombre,
+          price: item.precio,
+          thumbnailUrl: item.imgPreview || item.imagen
+        } : null,
+        resultImageUrl: imgURL
+      });
+    }
   };
 
   ri.onload = onResultReady;

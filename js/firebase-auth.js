@@ -188,60 +188,37 @@
     await sendPasswordResetEmail(auth, email.trim());
   }
 
-  // Verificar credenciales de Firebase Auth contra el backend de CAPFIT validando Custom Claims y Documento Firestore
+  // Verificar credenciales de Firebase Auth contra el backend de CAPFIT enviando el ID Token firmado (RS256)
   async function verifySessionWithBackend(firebaseUser, targetStoreId = null) {
     if (!firebaseUser) throw new Error('Usuario no autenticado en Firebase.');
 
-    // 1. Extraer Custom Claims desde el token JWT de Firebase Auth
-    let customClaims = {};
-    try {
-      const tokenResult = await firebaseUser.getIdTokenResult(true);
-      if (tokenResult && tokenResult.claims) {
-        customClaims = tokenResult.claims;
-      }
-    } catch (claimErr) {
-      console.warn('[FirebaseAuth] Advertencia al leer custom claims:', claimErr);
-    }
+    // 1. Obtener el ID Token criptográfico firmado por Google/Firebase
+    const idToken = await firebaseUser.getIdToken(true);
 
-    // 2. Intentar consultar documento de Firestore en la colección store_owners directamente
-    let firestoreUserData = null;
-    try {
-      const { getFirestore, doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-      const { getApps } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
-      const apps = getApps();
-      if (apps && apps.length > 0) {
-        const db = getFirestore(apps[0]);
-        const ownerSnap = await getDoc(doc(db, 'store_owners', firebaseUser.uid));
-        if (ownerSnap && ownerSnap.exists()) {
-          firestoreUserData = ownerSnap.data();
-        }
-      }
-    } catch (fsErr) {
-      // No bloqueante: el backend también verifica Firestore directamente
-    }
-
-    // 3. Sanitizar storeId objetivo para evitar IDs de desarrollo o prefijos ais-
+    // 2. Sanitizar storeId objetivo para evitar IDs de desarrollo o prefijos ais-
     const cleanTargetStore = (targetStoreId && typeof targetStoreId === 'string' && !targetStoreId.startsWith('ais-'))
       ? targetStoreId.trim()
       : ((window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-')) ? Store.getCurrentStoreId() : null);
 
     const res = await fetch('/api/admin/auth/firebase-verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
       body: JSON.stringify({
+        idToken,
         uid: firebaseUser.uid,
         email: firebaseUser.email,
         displayName: firebaseUser.displayName || '',
         photoURL: firebaseUser.photoURL || '',
-        customClaims,
-        firestoreUserData,
         targetStoreId: cleanTargetStore
       })
     });
 
     const data = await res.json();
     if (data.ok) {
-      // Guardar sesión autorizada de administrador para la tienda validada
+      // Guardar sesión autorizada de administrador firmada con HMAC para la tienda validada
       sessionStorage.setItem('capfit_session', data.token);
       sessionStorage.setItem('capfit_role', data.role);
       sessionStorage.setItem('capfit_store_id', data.storeId);
@@ -267,10 +244,16 @@
     const user = firebaseUser || currentFirebaseUser;
     if (!user) throw new Error('Debes autenticarte primero para registrar tu tienda.');
 
+    const idToken = await user.getIdToken(true);
+
     const res = await fetch('/api/admin/auth/firebase-register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
       body: JSON.stringify({
+        idToken,
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || storeName,
@@ -286,7 +269,7 @@
       throw new Error(data.error || 'No se pudo crear la tienda.');
     }
 
-    // Guardar sesión autorizada
+    // Guardar sesión autorizada firmada por el servidor
     sessionStorage.setItem('capfit_session', data.token);
     sessionStorage.setItem('capfit_role', 'store_owner');
     sessionStorage.setItem('capfit_store_id', data.storeId);
@@ -298,14 +281,23 @@
     return data;
   }
 
-  // Verificar si hay sesión de Backoffice activa
+  // Verificar si hay sesión de Backoffice activa con token firmado válido (formato HMAC o JWT con '.')
   function isBackofficeAuthenticated() {
     const token = sessionStorage.getItem('capfit_session');
     const role = sessionStorage.getItem('capfit_role');
-    return Boolean(token && (role === 'store_owner' || role === 'superadmin'));
+    if (token && !token.includes('.')) {
+      // Limpiar tokens planos heredados sin firma criptográfica
+      sessionStorage.removeItem('capfit_session');
+      return false;
+    }
+    return Boolean(token && token.includes('.') && (role === 'store_owner' || role === 'superadmin'));
   }
 
   function getStoredAdminSession() {
+    const token = sessionStorage.getItem('capfit_session');
+    if (token && !token.includes('.')) {
+      sessionStorage.removeItem('capfit_session');
+    }
     return {
       token: sessionStorage.getItem('capfit_session'),
       role: sessionStorage.getItem('capfit_role'),
@@ -315,6 +307,22 @@
       email: sessionStorage.getItem('capfit_user_email'),
       name: sessionStorage.getItem('capfit_user_name')
     };
+  }
+
+  async function getAuthHeaders(extraHeaders = {}) {
+    const headers = { ...extraHeaders };
+    const sessionToken = sessionStorage.getItem('capfit_session');
+    if (sessionToken && sessionToken.includes('.')) {
+      headers['Authorization'] = `Bearer ${sessionToken}`;
+      return headers;
+    }
+    if (currentFirebaseUser && typeof currentFirebaseUser.getIdToken === 'function') {
+      try {
+        const idToken = await currentFirebaseUser.getIdToken();
+        if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+      } catch (_) {}
+    }
+    return headers;
   }
 
   // Exponer API global
@@ -331,6 +339,7 @@
     registerStoreForOwner,
     isBackofficeAuthenticated,
     getStoredAdminSession,
+    getAuthHeaders,
     getCurrentUser: () => currentFirebaseUser,
     onAuthStateChanged: (cb) => {
       authStateListeners.push(cb);

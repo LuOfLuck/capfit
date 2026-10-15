@@ -12,13 +12,20 @@ const StoreManager = require('./store-manager');
 
 const CONFIG_FILE = path.join(__dirname, '..', 'data', 'mercadopago_config.json');
 
-// Cargar credenciales guardadas en disco al arrancar
+// Cargar credenciales priorizando variables de entorno sobre el archivo local de respaldo
 function loadSavedCredentials() {
+  let fileCreds = {
+    accessToken: '',
+    publicKey: '',
+    webhookSecret: '',
+    testBuyerEmail: ''
+  };
+
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const raw = fs.readFileSync(CONFIG_FILE, 'utf8');
       const parsed = JSON.parse(raw);
-      return {
+      fileCreds = {
         accessToken: parsed.accessToken || '',
         publicKey: parsed.publicKey || '',
         webhookSecret: parsed.webhookSecret || '',
@@ -28,11 +35,12 @@ function loadSavedCredentials() {
   } catch (e) {
     console.warn('Nota al cargar mercadopago_config.json:', e.message);
   }
+
   return {
-    accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || '',
-    publicKey: process.env.MERCADO_PAGO_PUBLIC_KEY || process.env.MP_PUBLIC_KEY || '',
-    webhookSecret: process.env.MERCADO_PAGO_WEBHOOK_SECRET || process.env.MP_WEBHOOK_SECRET || '',
-    testBuyerEmail: ''
+    accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || fileCreds.accessToken || '',
+    publicKey: process.env.MERCADO_PAGO_PUBLIC_KEY || process.env.MP_PUBLIC_KEY || fileCreds.publicKey || '',
+    webhookSecret: process.env.MERCADO_PAGO_WEBHOOK_SECRET || process.env.MP_WEBHOOK_SECRET || fileCreds.webhookSecret || '',
+    testBuyerEmail: process.env.MERCADO_PAGO_TEST_BUYER_EMAIL || fileCreds.testBuyerEmail || ''
   };
 }
 
@@ -41,6 +49,10 @@ let _cachedCollectorInfo = null;
 let _cachedTestBuyer = null;
 
 function saveCredentialsToDisk(creds) {
+  // En producción o entornos serverless no se escriben secretos en disco
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    return;
+  }
   try {
     const dir = path.dirname(CONFIG_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -51,11 +63,11 @@ function saveCredentialsToDisk(creds) {
 }
 
 function getAccessToken() {
-  return _customCredentials.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || '';
+  return process.env.MERCADO_PAGO_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || _customCredentials.accessToken || '';
 }
 
 function getWebhookSecret() {
-  return _customCredentials.webhookSecret || process.env.MERCADO_PAGO_WEBHOOK_SECRET || process.env.MP_WEBHOOK_SECRET || '';
+  return process.env.MERCADO_PAGO_WEBHOOK_SECRET || process.env.MP_WEBHOOK_SECRET || _customCredentials.webhookSecret || '';
 }
 
 function getClient() {
@@ -79,21 +91,40 @@ function setCredentials(creds = {}) {
   const token = getAccessToken();
   return {
     hasAccessToken: Boolean(token),
-    hasPublicKey: Boolean(_customCredentials.publicKey),
-    hasWebhookSecret: Boolean(_customCredentials.webhookSecret),
+    hasPublicKey: Boolean(process.env.MERCADO_PAGO_PUBLIC_KEY || process.env.MP_PUBLIC_KEY || _customCredentials.publicKey),
+    hasWebhookSecret: Boolean(getWebhookSecret()),
     isSandbox: token ? token.startsWith('TEST-') : true
   };
 }
 
 function getCredentialsStatus() {
+  const envToken = process.env.MERCADO_PAGO_ACCESS_TOKEN || process.env.MP_ACCESS_TOKEN || '';
   const token = getAccessToken();
   return {
     configured: Boolean(token),
+    source: envToken ? 'environment' : (token ? 'local_fallback' : 'none'),
     hasAccessToken: Boolean(token),
-    hasPublicKey: Boolean(_customCredentials.publicKey || process.env.MERCADO_PAGO_PUBLIC_KEY || process.env.MP_PUBLIC_KEY),
+    hasPublicKey: Boolean(process.env.MERCADO_PAGO_PUBLIC_KEY || process.env.MP_PUBLIC_KEY || _customCredentials.publicKey),
     hasWebhookSecret: Boolean(getWebhookSecret()),
     isSandbox: token ? token.startsWith('TEST-') : true,
-    maskedToken: token ? `${token.substring(0, 8)}...${token.substring(token.length - 4)}` : ''
+    maskedToken: token && token.length >= 8 ? `••••••••${token.substring(token.length - 4)}` : ''
+  };
+}
+
+async function testConnection(customToken = null) {
+  const token = (customToken && typeof customToken === 'string' && customToken.trim()) ? customToken.trim() : getAccessToken();
+  if (!token) {
+    return { ok: false, error: 'No hay Access Token configurado en variables de entorno ni en la configuración.' };
+  }
+  const info = await getCollectorInfo(token);
+  if (!info || !info.id) {
+    return { ok: false, error: 'No se pudo autenticar con Mercado Pago. Verificá que el Access Token sea válido.' };
+  }
+  return {
+    ok: true,
+    collectorId: info.id,
+    siteId: info.site_id,
+    isTestUser: info.isTestUser
   };
 }
 
@@ -328,7 +359,7 @@ async function createSubscriptionPreapproval({ planId, storeId, payerEmail, back
           sandbox_init_point: mpData.sandbox_init_point || mpData.init_point,
           external_reference: externalReference,
           mode: collector.isTestUser ? 'sandbox' : 'production',
-          test_buyer: _cachedTestBuyer ? { email: _cachedTestBuyer.email, password: _cachedTestBuyer.password } : null
+          test_buyer: _cachedTestBuyer ? { email: _cachedTestBuyer.email } : null
         };
       }
 
@@ -549,6 +580,7 @@ module.exports = {
   cancelSubscription,
   setCredentials,
   getCredentialsStatus,
+  testConnection,
   getAccessToken,
   getWebhookSecret
 };

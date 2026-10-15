@@ -218,6 +218,7 @@ const defaultPrincipal = {
 
 // Cachés en memoria
 const storesCache = new Map([['principal', { ...defaultPrincipal }]]);
+const storeSecretsCache = new Map();
 const cachedProducts = new Map();
 const cachedOrders = new Map();
 let isInitialized = false;
@@ -390,7 +391,7 @@ function resolveStoreFromRequest(req, bodyObj = null) {
       isAdminPortal: true,
       active: true
     };
-  } else if (hostWithoutPort === 'capfit.store' || hostWithoutPort === 'www.capfit.store') {
+  } else if (hostWithoutPort === 'app.capfit.store' || hostWithoutPort === 'capfit.store' || hostWithoutPort === 'www.capfit.store') {
     hostStore = getStoreById('principal');
   } else if (!isDevOrSharedEnvironment) {
     const all = getAllStores();
@@ -410,7 +411,7 @@ function resolveStoreFromRequest(req, bodyObj = null) {
             isAdminPortal: true,
             active: true
           };
-        } else if (sub === 'www' || sub === 'capfit' || sub === 'shop') {
+        } else if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'app') {
           hostStore = getStoreById('principal');
         } else {
           const matchBySub = getStoreBySubdomain(sub);
@@ -530,14 +531,23 @@ async function createOrUpdateStoreWithSecrets(storeInput) {
     console.warn('Error guardando store en Firestore:', err.message);
   }
 
-  // 2. Guardar credenciales exclusivamente en store_secrets/{storeId}
+  // 2. Guardar credenciales exclusivamente en store_secrets/{storeId} y caché privada de servidor
   const effectiveUser = adminUsername || username;
   const effectivePass = adminPassword || password;
   if (effectiveUser !== undefined || effectivePass !== undefined) {
+    const existingSecret = storeSecretsCache.get(storeId) || {};
+    const finalUser = effectiveUser || existingSecret.adminUsername || `admin_${storeId}`;
+    const finalPass = effectivePass !== undefined ? effectivePass : (existingSecret.adminPassword || '');
+    storeSecretsCache.set(storeId, {
+      storeId,
+      adminUsername: finalUser,
+      adminPassword: finalPass
+    });
+
     const secretData = {
       storeId,
-      adminUsername: effectiveUser || `admin_${storeId}`,
-      adminPassword: effectivePass || '',
+      adminUsername: finalUser,
+      adminPassword: finalPass,
       updatedAt: serverTimestamp()
     };
     try {
@@ -669,20 +679,36 @@ async function deleteStore(storeId) {
     await deleteDoc(doc(db, 'store_secrets', storeId));
   } catch (_) {}
   storesCache.delete(storeId);
+  storeSecretsCache.delete(storeId);
   cachedProducts.delete(storeId);
   cachedOrders.delete(storeId);
   return true;
 }
 
 /**
- * Verificación segura de credenciales contra store_secrets
+ * Verificación segura de credenciales contra store_secrets (sin contraseñas de prueba cableadas)
  */
 async function verifyStoreCredentials(storeId, username, password) {
   if (!storeId || !password) return { valid: false, reason: 'Credenciales incompletas' };
 
-  const masterPassword = process.env.ADMIN_PASSWORD || 'capfit2026';
-  if (password === masterPassword && (!username || username === 'admin' || username === 'superadmin')) {
+  const masterPassword = (process.env.ADMIN_PASSWORD || '').trim();
+  if (masterPassword && password === masterPassword && (!username || username === 'admin' || username === 'superadmin' || username === (process.env.SUPERADMIN_EMAIL || 'lucasg33322@gmail.com'))) {
     return { valid: true, role: 'superadmin', storeId: '*' };
+  }
+
+  // Verificar primero en caché privada de servidor (para tiendas creadas en la sesión actual)
+  const memSecret = storeSecretsCache.get(storeId);
+  if (memSecret && memSecret.adminPassword) {
+    const userOk = !username || !memSecret.adminUsername || memSecret.adminUsername.toLowerCase() === username.toLowerCase() || storeId.toLowerCase() === username.toLowerCase();
+    if (userOk && memSecret.adminPassword === password) {
+      return { valid: true, role: 'tenant_admin', storeId };
+    }
+  }
+
+  // Verificar variable de entorno por tienda opcional: STORE_PASSWORD_<STOREID>
+  const envStorePass = process.env[`STORE_PASSWORD_${String(storeId).toUpperCase().replace(/[^A-Z0-9]/g, '_')}`];
+  if (envStorePass && envStorePass.trim() && password === envStorePass.trim()) {
+    return { valid: true, role: 'tenant_admin', storeId };
   }
 
   try {
@@ -693,8 +719,8 @@ async function verifyStoreCredentials(storeId, username, password) {
     }
 
     const secret = secretSnap.data();
-    const usernameMatches = !username || secret.adminUsername === username;
-    const passwordMatches = secret.adminPassword === password;
+    const usernameMatches = !username || !secret.adminUsername || secret.adminUsername.toLowerCase() === username.toLowerCase();
+    const passwordMatches = Boolean(secret.adminPassword && secret.adminPassword === password);
 
     if (usernameMatches && passwordMatches) {
       return { valid: true, role: 'tenant_admin', storeId };

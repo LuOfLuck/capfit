@@ -44,8 +44,28 @@ const AdminPanel = (() => {
   let _allStores = [];
   let _loginMode = 'store'; // 'store' | 'superadmin'
 
+  function getActiveAuthToken() {
+    const t1 = sessionStorage.getItem(SESSION_KEY);
+    if (t1 && t1.includes('.')) return t1;
+    const t2 = sessionStorage.getItem('capfit_session');
+    if (t2 && t2.includes('.')) return t2;
+    // Limpiar tokens planos antiguos no firmados
+    if (t1 && !t1.includes('.')) sessionStorage.removeItem(SESSION_KEY);
+    if (t2 && !t2.includes('.')) sessionStorage.removeItem('capfit_session');
+    return null;
+  }
+
+  function getAuthHeaders(extra = {}) {
+    const headers = { ...extra };
+    const token = getActiveAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  }
+
   function isLoggedIn() {
-    return !!(sessionStorage.getItem(SESSION_KEY) || sessionStorage.getItem('capfit_session'));
+    return Boolean(getActiveAuthToken());
   }
 
   function escapeHtml(str) {
@@ -324,7 +344,8 @@ const AdminPanel = (() => {
       _currentSubdomain = data.subdomain || 'tienda1';
       _userEmail = payload.username.includes('@') ? payload.username : `${payload.username}@capfit.store`;
 
-      sessionStorage.setItem(SESSION_KEY, data.token || 'valid');
+      sessionStorage.setItem(SESSION_KEY, data.token);
+      sessionStorage.setItem('capfit_session', data.token);
       sessionStorage.setItem(ROLE_KEY, _adminRole);
       sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
       sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
@@ -383,7 +404,9 @@ const AdminPanel = (() => {
 
   async function loadOrders() {
     try {
-      const res = await fetch(`/api/orders${getStoreQuery()}`);
+      const res = await fetch(`/api/orders${getStoreQuery()}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         _orders = await res.json();
       }
@@ -415,7 +438,9 @@ const AdminPanel = (() => {
   async function loadAllStores() {
     if (_adminRole !== 'superadmin') return;
     try {
-      const res = await fetch('/api/admin/stores');
+      const res = await fetch('/api/admin/stores', {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         _allStores = await res.json();
       }
@@ -456,7 +481,7 @@ const AdminPanel = (() => {
     try {
       const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}${getStoreQuery()}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ stock: stockVal })
       });
       const data = await res.json();
@@ -484,7 +509,7 @@ const AdminPanel = (() => {
 
       const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}${getStoreQuery()}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       const data = await res.json();
@@ -516,7 +541,8 @@ const AdminPanel = (() => {
 
     try {
       const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}${getStoreQuery()}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Error al eliminar');
@@ -730,9 +756,9 @@ const AdminPanel = (() => {
     const processed = await cropAndConvertToSquareWebP(file, 600);
 
     // 2. Enviar la imagen ya procesada en .webp al backend
-    const res = await fetch('/api/admin/upload', {
+    const res = await fetch(`/api/admin/upload${getStoreQuery()}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         filename: processed.filename,
         base64: processed.base64
@@ -744,12 +770,11 @@ const AdminPanel = (() => {
   }
 
   // ── Order Modifiers ──
-  // ── Order Modifiers ──
   async function updateOrderStatus(orderId, updates) {
     try {
       const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}${getStoreQuery()}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(updates)
       });
       const data = await res.json();
@@ -835,7 +860,7 @@ const AdminPanel = (() => {
     const sub = _currentSubdomain || 'principal';
     if (host.includes('capfit.store')) {
       if (sub === 'principal' || sub === 'capfit') {
-        window.open('https://capfit.store/', '_blank');
+        window.open('https://app.capfit.store/', '_blank');
       } else {
         window.open(`https://${sub}.capfit.store/`, '_blank');
       }
@@ -2033,11 +2058,13 @@ const AdminPanel = (() => {
       if (window.PagesManager && PagesManager.saveSection) {
         await PagesManager.saveSection(key, sectionData, _currentStoreId);
       } else {
-        await fetch(`/api/stores/${encodeURIComponent(_currentStoreId)}/sections`, {
+        const res = await fetch(`/api/stores/${encodeURIComponent(_currentStoreId)}/sections`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ sectionKey: key, data: sectionData })
         });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Error al guardar la sección');
       }
 
       if (window.showToast) {
@@ -2240,7 +2267,7 @@ const AdminPanel = (() => {
       if (window.showToast) window.showToast('Creando nueva tienda en la nube...');
       const res = await fetch('/api/admin/stores', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           name,
           subdomain,
@@ -2337,7 +2364,7 @@ const AdminPanel = (() => {
     try {
       const res = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(updates)
       });
       const data = await res.json();
@@ -2969,7 +2996,7 @@ const AdminPanel = (() => {
     try {
       const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}${getStoreQuery()}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           nombre: name,
           marca: brand,
@@ -3018,7 +3045,7 @@ const AdminPanel = (() => {
         const uploadedUrl = await uploadImageFile(file);
         const res = await fetch(`/api/admin/products/${encodeURIComponent(productId)}${getStoreQuery()}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             imgPreview: uploadedUrl,
             imgFrontal: uploadedUrl
@@ -3206,7 +3233,7 @@ const AdminPanel = (() => {
     try {
       const res = await fetch(`/api/admin/products${getStoreQuery()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       const data = await res.json();
@@ -3271,7 +3298,10 @@ const AdminPanel = (() => {
   async function syncCatalogToFirestore() {
     try {
       if (window.showToast) window.showToast('Sincronizando con base de datos en la nube...');
-      const res = await fetch(`/api/admin/products/sync${getStoreQuery()}`, { method: 'POST' });
+      const res = await fetch(`/api/admin/products/sync${getStoreQuery()}`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Error en sincronización');
       if (window.showToast) window.showToast(`¡${data.count || _products.length} productos guardados en Firestore para ${_currentStoreName}!`);

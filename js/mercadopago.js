@@ -477,15 +477,30 @@ const MercadoPagoGateway = (() => {
         try {
           const { items } = getOrderData();
           const holderName = document.getElementById('mp-card-holder')?.value?.trim();
+          const user = (window.CapfitCustomer && typeof window.CapfitCustomer.getUser === 'function') ? window.CapfitCustomer.getUser() : null;
+          const defaultAddr = (window.CapfitCustomer && typeof window.CapfitCustomer.getDefaultAddress === 'function') ? window.CapfitCustomer.getDefaultAddress() : null;
+
+          const buyerEmail = user ? user.email : 'comprador@gmail.com';
+          const customerName = (user && user.displayName) || holderName || 'Cliente CAPFIT';
+          const customerPhone = (user && user.phone) || '+54 9 11 5240-8910';
+
           const orderPayload = {
             id: randomOrderNum,
+            userId: user ? user.uid : null,
+            buyerEmail: buyerEmail,
+            isClaimed: Boolean(user),
             customer: {
-              name: holderName || 'Cliente CAPFIT',
-              email: 'comprador@gmail.com',
-              phone: '+54 9 11 5240-8910',
-              address: 'Envío prioritario a domicilio',
-              city: 'Buenos Aires',
-              postalCode: '1425'
+              name: customerName,
+              email: buyerEmail,
+              phone: customerPhone,
+              address: defaultAddr ? `${defaultAddr.street} ${defaultAddr.number || ''}`.trim() : 'Envío prioritario a domicilio',
+              city: defaultAddr ? defaultAddr.city : 'Buenos Aires',
+              postalCode: defaultAddr ? defaultAddr.postalCode : '1425'
+            },
+            shippingTracking: {
+              carrier: 'Andreani',
+              trackingCode: '',
+              shippedAt: null
             },
             items: items.map(it => ({
               id: it.product.id,
@@ -499,17 +514,32 @@ const MercadoPagoGateway = (() => {
             subtotal: total,
             shipping: (window.Cart && window.Cart.getFreeShippingRemaining() === 0 ? 0 : 3500),
             total: total,
+            totalAmount: total,
+            status: 'pending',
             paymentMethod: methodNameStr,
-            paymentStatus: method === 'cash' ? 'Pendiente' : 'Aprobado',
+            paymentStatus: 'Pendiente',
             shippingStatus: 'Por preparar',
             notes: ''
           };
 
-          fetch('/api/orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderPayload)
-          }).then(r => r.json()).then(data => {
+          (async () => {
+            const headers = { 'Content-Type': 'application/json' };
+            const fbUser = (window.CapfitAuth && typeof window.CapfitAuth.getCurrentUser === 'function')
+              ? window.CapfitAuth.getCurrentUser()
+              : null;
+            if (fbUser && typeof fbUser.getIdToken === 'function') {
+              try {
+                const idToken = await fbUser.getIdToken();
+                if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+              } catch (_) {}
+            }
+
+            const r = await fetch('/api/orders', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(orderPayload)
+            });
+            const data = await r.json();
             if (data && data.ok) {
               if (window.Catalogo) window.Catalogo.reload();
               if (window.AdminPanel && window.AdminPanel.isLoggedIn()) {
@@ -517,7 +547,7 @@ const MercadoPagoGateway = (() => {
                 window.AdminPanel.loadProducts();
               }
             }
-          }).catch(err => console.error('Error guardando orden en servidor:', err));
+          })().catch(err => console.error('Error guardando orden en servidor:', err));
         } catch (err) {
           console.error('Error procesando datos del pedido:', err);
         }

@@ -71,6 +71,17 @@
       </ul>
 
       <div class="nav-actions">
+        <button id="nav-btn-account" class="nav-account-btn" onclick="window.CapfitCustomer ? window.CapfitCustomer.openAccountModal() : null" title="Mi Cuenta / Iniciar Sesión">
+          <span id="nav-account-avatar" class="nav-account-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </span>
+          <span id="nav-account-label" class="nav-account-label">Mi Cuenta</span>
+          <span id="nav-owner-badge" class="nav-owner-badge" style="display:none;" title="Dueño de Tienda">👑 Dueño</span>
+        </button>
+
         <a href="#carrito" onclick="navigateToView('carrito')" class="nav-icon-btn nav-cart-btn" title="Ver Carrito">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
@@ -642,6 +653,14 @@
 
           </div>
 
+          <!-- CapFit ID Saved Selfies Quick Bar -->
+          <div id="tryon-capfit-selfies-bar" class="tryon-capfit-selfies-bar" style="display:none">
+            <div class="capfit-selfies-header">
+              <span>✨ <strong>Tus selfies guardadas en CapFit ID</strong> (1 solo clic para probar):</span>
+            </div>
+            <div id="tryon-selfies-chips" class="tryon-selfies-chips"></div>
+          </div>
+
           <!-- Direct Purchase & Watermark Download Actions on AI result -->
           <div id="tryon-result-actions" class="tryon-result-actions" style="display:none">
             <div class="tryon-buy-now-card">
@@ -753,10 +772,6 @@
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
             <p id="error-msg">Ocurrió un error al procesar la imagen.</p>
-          </div>
-
-          <div class="tryon-success-banner">
-            ¡Así te queda! Se ve realista porque usamos IA entrenada para cada ángulo y tipo de rostro.
           </div>
         </div>
 
@@ -1641,6 +1656,7 @@
   <script src="js/image-utils.js"></script>
   <script src="js/config.js"></script>
   <script src="js/firebase-auth.js"></script>
+  <script src="js/customer-account.js"></script>
   <script src="js/store.js"></script>
   <script src="js/cart.js"></script>
   <script src="js/catalogo.js"></script>

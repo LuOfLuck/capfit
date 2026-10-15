@@ -6,10 +6,11 @@ dist/
 build/
 coverage/
 
-# Environment files
+# Environment & secret config files
 .env
 .env.local
 .env.*.local
+data/mercadopago_config.json
 
 # Logs
 npm-debug.log*

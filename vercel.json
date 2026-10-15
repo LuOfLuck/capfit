@@ -4,13 +4,26 @@
     { "src": "api/serverless.js", "use": "@vercel/node" },
     { "src": "api/**/*.js", "use": "@vercel/node" },
     { "src": "index.html", "use": "@vercel/static" },
+    { "src": "landing/**", "use": "@vercel/static" },
     { "src": "css/**", "use": "@vercel/static" },
     { "src": "js/**", "use": "@vercel/static" },
     { "src": "assets/**", "use": "@vercel/static" }
   ],
   "routes": [
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "www.capfit.store" }],
+      "status": 301,
+      "headers": { "Location": "https://capfit.store/$1" }
+    },
     { "src": "/api/(.*)", "dest": "/api/serverless.js" },
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "capfit.store" }],
+      "dest": "/landing/$1"
+    },
     { "handle": "filesystem" },
+    { "src": "/landing/(.*)", "dest": "/landing/$1" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

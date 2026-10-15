@@ -50,8 +50,8 @@ const Store = (() => {
   function getSubdomainFromHost() {
     try {
       const host = (window.location.hostname || '').toLowerCase();
-      // Si el dominio es directamente capfit.store o www.capfit.store -> siempre es la tienda principal
-      if (host === 'capfit.store' || host === 'www.capfit.store') {
+      // Si el dominio es directamente app.capfit.store, capfit.store o www.capfit.store -> siempre es la tienda principal
+      if (host === 'app.capfit.store' || host === 'capfit.store' || host === 'www.capfit.store') {
         return 'principal';
       }
       // Ignorar completamente dominios de Google Cloud Run, AI Studio, localhost y dominios de despliegue
@@ -69,7 +69,7 @@ const Store = (() => {
       const parts = host.split('.');
       if (parts.length >= 2) {
         const sub = parts[0];
-        if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'shpo') {
+        if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'shpo' || sub === 'app') {
           return 'principal';
         }
         if (sub && sub !== 'api' && sub !== 'admin' && !sub.startsWith('ais-')) {
@@ -87,13 +87,13 @@ const Store = (() => {
       const s = p.get('store') || p.get('tienda');
       if (s) {
         const clean = s.trim().toLowerCase();
-        if (clean === 'www' || clean === 'capfit' || clean === 'principal' || clean === 'shop' || clean === 'shpo') {
+        if (clean === 'www' || clean === 'capfit' || clean === 'principal' || clean === 'shop' || clean === 'shpo' || clean === 'app') {
           return 'principal';
         }
         if (!clean.startsWith('ais-')) return clean;
       }
 
-      // 2. Subdominio de host de producción (ej: prendakxp.capfit.store)
+      // 2. Subdominio de host de producción (ej: prendakxp.capfit.store o app.capfit.store)
       const hostSub = getSubdomainFromHost();
       if (hostSub) return hostSub;
 
@@ -130,8 +130,8 @@ const Store = (() => {
     if (!storeId || storeId === 'principal') {
       localStorage.removeItem('capfit_active_store_id');
       const host = (window.location.hostname || '').toLowerCase();
-      if (host.includes('capfit.store') && host !== 'capfit.store') {
-        window.location.href = `https://capfit.store/`;
+      if (host.includes('capfit.store') && host !== 'app.capfit.store') {
+        window.location.href = `https://app.capfit.store/`;
         return;
       }
       const url = new URL(window.location.href);

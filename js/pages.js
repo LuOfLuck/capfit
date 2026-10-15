@@ -237,18 +237,24 @@
 
       this.renderAll();
 
-      // Guardar en Firestore vía backend
+      // Guardar en Firestore vía backend (requiere sesión administrativa verificada)
       try {
+        const token = sessionStorage.getItem('capfit_admin_auth_token') || sessionStorage.getItem('capfit_session');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token && token.includes('.')) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
         const res = await fetch(`/api/stores/${encodeURIComponent(sId)}/sections`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ sectionKey, data: sectionData })
         });
         const json = await res.json();
-        if (json && json.ok) {
-          if (window.showToast) {
-            window.showToast(`✅ Sección guardada en Firebase Firestore (${sId})`);
-          }
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || 'No autorizado para editar secciones de la tienda');
+        }
+        if (window.showToast) {
+          window.showToast(`✅ Sección guardada en Firebase Firestore (${sId})`);
         }
         return json;
       } catch (err) {
