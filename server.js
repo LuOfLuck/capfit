@@ -238,18 +238,6 @@ async function appHandler(req, res) {
   const rawHost = req.headers['x-forwarded-host'] || req.headers.host || '';
   const hostHdr = rawHost.toLowerCase().split(',')[0].trim().split(':')[0];
 
-  // 1. Redirección www.capfit.store -> capfit.store (301 Permanente)
-  // Protección anti-bucle: si x-forwarded-host ya indica capfit.store o se desactiva por env, se evita el bucle
-  const forwardedHost = (req.headers['x-forwarded-host'] || '').toLowerCase().split(',')[0].trim().split(':')[0];
-  if (hostHdr === 'www.capfit.store' && forwardedHost !== 'capfit.store') {
-    const redirectUrl = `https://capfit.store${req.url || '/'}`;
-    res.writeHead(301, {
-      'Location': redirectUrl,
-      'Cache-Control': 'public, max-age=3600'
-    });
-    res.end();
-    return;
-  }
 
   const isCapfitDomain = hostHdr.endsWith('capfit.store');
   const isAdminDomain = hostHdr === 'admin.capfit.store' || hostHdr.startsWith('admin.');

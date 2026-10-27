@@ -66,8 +66,7 @@ Este documento resume la arquitectura, estructura, reglas de negocio y estado t�
 ## 3. Lógica de Negocio y Reglas Críticas
 
 1. **Resolución y Separación de Dominios**:
-   - `capfit.store`: Landing comercial oficial para captación de marcas y ventas.
-   - `www.capfit.store`: Redirige o sirve la landing comercial sin bucles.
+   - `capfit.store` & `www.capfit.store`: Landing comercial oficial para captación de marcas y ventas (ambos dominios sirven la landing directamente sin redirección).
    - `app.capfit.store`: Tienda de demostración insignia (`id: 'principal'`).
    - `admin.capfit.store`: Portal exclusivo para el backoffice y login de dueños. Cualquier acceso a `/admin` o `/account` desde dominios de tiendas públicas es redirigido con HTTP 302 a este subdominio.
    - `[subdominio].capfit.store`: Tiendas privadas de clientes aisladas en Firestore.

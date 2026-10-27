@@ -2,7 +2,7 @@
  * CAPFIT — Pruebas de Separación de Landing Comercial y Enrutamiento Multi-Tenant por Dominio
  *
  * Verifica:
- * 1. "www.capfit.store" -> Redirección HTTP 301 permanente a "https://capfit.store"
+ * 1. "www.capfit.store" -> Sirve exclusivamente la landing comercial (/landing/index.html)
  * 2. "capfit.store" -> Sirve exclusivamente los archivos de la landing comercial (/landing/index.html)
  * 3. "/landing" -> Permite visualizar la landing en entornos locales y de desarrollo
  * 4. "app.capfit.store" -> Sirve la aplicación principal (/index.html), incluyendo la tienda demo (principal)
@@ -68,23 +68,24 @@ async function runDomainTests() {
     }
   }
 
-  // 1. www.capfit.store -> 301 a capfit.store
-  await test('www.capfit.store redirige con HTTP 301 permanente a https://capfit.store/', async () => {
+  // 1. www.capfit.store -> Sirve directamente la landing comercial (200 OK)
+  await test('www.capfit.store sirve directamente la landing comercial', async () => {
     const res = await makeRequest(server, {
       path: '/',
       headers: { host: 'www.capfit.store' }
     });
-    assert.equal(res.status, 301);
-    assert.equal(res.headers.location, 'https://capfit.store/');
+    assert.equal(res.status, 200);
+    assert.ok(res.body.includes('LANDING COMERCIAL (capfit.store)'), 'Debe contener el marcador de la landing');
+    assert.ok(res.body.includes('https://app.capfit.store/'), 'Debe contener el enlace a app.capfit.store');
   });
 
-  await test('www.capfit.store preserva la ruta en la redirección 301', async () => {
+  await test('www.capfit.store sirve hojas de estilo de landing/css/landing.css', async () => {
     const res = await makeRequest(server, {
-      path: '/caracteristicas?ref=promo',
+      path: '/css/landing.css',
       headers: { host: 'www.capfit.store' }
     });
-    assert.equal(res.status, 301);
-    assert.equal(res.headers.location, 'https://capfit.store/caracteristicas?ref=promo');
+    assert.equal(res.status, 200);
+    assert.ok(res.body.includes('Landing Comercial de CapFit'), 'Debe servir landing.css');
   });
 
   // 2. capfit.store -> Landing comercial (/landing/index.html)
