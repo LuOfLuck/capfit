@@ -2973,4 +2973,186 @@
       .kinetic-loader {
         padding: 1.5rem;
       }
+
+      .startup-modal-card {
+        padding: 1.75rem 1.4rem 1.5rem;
+        border-radius: 18px;
+      }
+
+      .startup-modal-title {
+        font-size: 1.75rem;
+      }
+
+      .btn-startup-cta {
+        width: 100%;
+      }
+    }
+
+    /* ==========================================================================
+       MODAL: EARLY STAGE STARTUP POPUP
+       ========================================================================== */
+    .startup-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(14, 14, 16, 0.58);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
+    }
+
+    .startup-modal-overlay.is-active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .startup-modal-card {
+      position: relative;
+      background: #ffffff;
+      border-radius: 22px;
+      width: 100%;
+      max-width: 535px;
+      padding: 2.3rem 2.6rem 2.05rem;
+      box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.05);
+      transform: scale(0.94) translateY(14px);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .startup-modal-overlay.is-active .startup-modal-card {
+      transform: scale(1) translateY(0);
+    }
+
+    .startup-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.85rem;
+    }
+
+    .startup-modal-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      color: #111113;
+    }
+
+    .startup-modal-brand-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--accent-orange);
+      display: inline-block;
+    }
+
+    .startup-modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #52525b;
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    .startup-modal-close:hover {
+      background-color: #f4f4f5;
+      color: #09090b;
+    }
+
+    .startup-modal-tag {
+      font-family: var(--font-sans);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #71717a;
+      margin-bottom: 0.7rem;
+    }
+
+    .startup-modal-title {
+      font-family: var(--font-display);
+      font-size: 2.3rem;
+      font-weight: 600;
+      line-height: 1.15;
+      color: #111113;
+      margin-bottom: 1.25rem;
+      letter-spacing: -0.01em;
+    }
+
+    .startup-modal-title em {
+      font-style: italic;
+      color: var(--accent-orange);
+      font-weight: 600;
+    }
+
+    .startup-modal-body {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: #52525b;
+    }
+
+    .startup-modal-body p {
+      margin-bottom: 1.1rem;
+    }
+
+    .startup-modal-body p.startup-lead-secondary {
+      margin-bottom: 1.45rem;
+      color: #52525b;
+    }
+
+    .btn-startup-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: #111113;
+      color: #ffffff;
+      padding: 0.92rem 2.2rem;
+      border-radius: var(--radius-pill);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+      transition: background-color 0.22s, transform 0.2s, box-shadow 0.22s;
+    }
+
+    .btn-startup-cta:hover {
+      background: var(--accent-orange);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(232, 93, 36, 0.28);
+      color: #ffffff;
+    }
+
+    .startup-modal-footer {
+      border-top: 1px solid #f0f0f3;
+      margin-top: 1.7rem;
+      padding-top: 1.05rem;
+    }
+
+    .startup-modal-footer-note {
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      color: #a1a1aa;
+      display: block;
     }

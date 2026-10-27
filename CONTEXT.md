@@ -96,6 +96,12 @@ Este documento resume la arquitectura, estructura, reglas de negocio y estado t�
   - Se actualizó `vercel.json` y `server.js` para servir `/landing/` de forma nativa en ambos dominios (`capfit.store` y `www.capfit.store`), desactivando el rebote infinito.
 - **Acción sugerida para el usuario en Vercel**:
   - En **Settings → Domains** de Vercel, configurar `capfit.store` como dominio principal de producción (sin redirección) y dejar que Vercel gestione si desea redirigir `www.capfit.store` hacia `capfit.store` en un único sentido.
+- **Popup Modal "Early Stage Startup" en la Landing Comercial**:
+  - Modal editorial incorporado exactamente según el diseño aprobado en `/landing/index.html` con backdrop blur, tipografía serif Cormorant Garamond, acento naranja en *Virtual Try-On.* y botón CTA `PROBAR CAPFIT →`.
+  - El botón CTA redirige directamente a `https://app.capfit.store/` para explorar la tienda demo.
+  - Apertura programada automáticamente tras cargar la imagen principal del Hero / completar la animación de entrada inicial.
+  - Cierre interactivo mediante botón `✕`, clic fuera del modal o tecla `Escape`.
 - **Estado de Pruebas**:
   - `npm test`: **19/19 pruebas pasando** (8 de enrutamiento/landing + 11 de seguridad multi-tenant).
   - Linter: `npm run lint` ejecutado con éxito sin errores de sintaxis.
+

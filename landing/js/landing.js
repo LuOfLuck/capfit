@@ -97,7 +97,14 @@
           opacity: 0,
           rotateX: 8,
           duration: 1,
-          ease: 'expo.out'
+          ease: 'expo.out',
+          onComplete: () => {
+            if (typeof window.capfitOpenStartupModal === 'function') {
+              setTimeout(() => {
+                window.capfitOpenStartupModal();
+              }, 650);
+            }
+          }
         }, '-=0.75');
       }
 
@@ -795,8 +802,74 @@
         }, { passive: true });
       }
 
+      /* ── 14. MODAL: EARLY STAGE STARTUP POPUP ── */
+      function initStartupModal() {
+        const overlay = document.getElementById('startup-modal-overlay');
+        const card = document.getElementById('startup-modal-card');
+        const closeBtn = document.getElementById('startup-modal-close');
+        const ctaBtn = document.getElementById('startup-modal-cta');
+        if (!overlay || !card) return;
+
+        let hasShown = false;
+
+        function openModal() {
+          if (hasShown) return;
+          hasShown = true;
+          overlay.classList.add('is-active');
+          overlay.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+          overlay.classList.remove('is-active');
+          overlay.setAttribute('aria-hidden', 'true');
+          document.body.style.overflow = '';
+        }
+
+        window.capfitOpenStartupModal = openModal;
+
+        if (closeBtn) {
+          closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeModal();
+          });
+        }
+
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) {
+            closeModal();
+          }
+        });
+
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && overlay.classList.contains('is-active')) {
+            closeModal();
+          }
+        });
+
+        // Trigger after hero image finishes loading and renders in viewport
+        const heroImg = document.getElementById('hero-masked-img');
+        const scheduleTrigger = (delay) => {
+          setTimeout(() => {
+            openModal();
+          }, delay);
+        };
+
+        if (heroImg) {
+          if (heroImg.complete) {
+            scheduleTrigger(1800);
+          } else {
+            heroImg.addEventListener('load', () => scheduleTrigger(1200), { once: true });
+            scheduleTrigger(2800);
+          }
+        } else {
+          scheduleTrigger(2000);
+        }
+      }
+
       window.addEventListener('load', () => {
         initLenisAndGSAP();
+        initStartupModal();
         initKineticIntro();
         initMagneticCursor();
         initHero3DTilt();
