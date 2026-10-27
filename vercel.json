@@ -10,20 +10,19 @@
     { "src": "assets/**", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "has": [{ "type": "host", "value": "www.capfit.store" }],
-      "status": 301,
-      "headers": { "Location": "https://capfit.store/$1" }
-    },
     { "src": "/api/(.*)", "dest": "/api/serverless.js" },
+    { "handle": "filesystem" },
+    { "src": "/landing/(.*)", "dest": "/landing/$1" },
     {
       "src": "/(.*)",
       "has": [{ "type": "host", "value": "capfit.store" }],
       "dest": "/landing/$1"
     },
-    { "handle": "filesystem" },
-    { "src": "/landing/(.*)", "dest": "/landing/$1" },
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "www.capfit.store" }],
+      "dest": "/landing/$1"
+    },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

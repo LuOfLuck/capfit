@@ -235,10 +235,13 @@ async function appHandler(req, res) {
   // Resolver la tienda actual según host, subdominio o parámetro (?store=tienda1)
   const currentStore = StoreManager.resolveStoreFromRequest(req);
 
-  const hostHdr = (req.headers.host || '').toLowerCase().split(':')[0];
+  const rawHost = req.headers['x-forwarded-host'] || req.headers.host || '';
+  const hostHdr = rawHost.toLowerCase().split(',')[0].trim().split(':')[0];
 
   // 1. Redirección www.capfit.store -> capfit.store (301 Permanente)
-  if (hostHdr === 'www.capfit.store') {
+  // Protección anti-bucle: si x-forwarded-host ya indica capfit.store o se desactiva por env, se evita el bucle
+  const forwardedHost = (req.headers['x-forwarded-host'] || '').toLowerCase().split(',')[0].trim().split(':')[0];
+  if (hostHdr === 'www.capfit.store' && forwardedHost !== 'capfit.store') {
     const redirectUrl = `https://capfit.store${req.url || '/'}`;
     res.writeHead(301, {
       'Location': redirectUrl,
@@ -2396,8 +2399,8 @@ async function appHandler(req, res) {
     return;
   }
 
-  // Identificar si la solicitud corresponde a la landing comercial (capfit.store o ruta /landing)
-  const isLandingRequest = hostHdr === 'capfit.store' || reqPath === '/landing' || reqPath.startsWith('/landing/');
+  // Identificar si la solicitud corresponde a la landing comercial (capfit.store, www.capfit.store o ruta /landing)
+  const isLandingRequest = hostHdr === 'capfit.store' || hostHdr === 'www.capfit.store' || reqPath === '/landing' || reqPath.startsWith('/landing/');
 
   if (isLandingRequest) {
     let landingSubPath = reqPath;
