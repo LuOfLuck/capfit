@@ -11,18 +11,33 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/serverless.js" },
-    { "handle": "filesystem" },
-    { "src": "/landing/(.*)", "dest": "/landing/$1" },
     {
-      "src": "/(.*)",
+      "src": "/landing/(.*)",
+      "dest": "/landing/$1"
+    },
+    {
+      "src": "/landing",
+      "dest": "/landing/index.html"
+    },
+    {
+      "src": "/css/landing.css",
+      "dest": "/landing/css/landing.css"
+    },
+    {
+      "src": "/js/landing.js",
+      "dest": "/landing/js/landing.js"
+    },
+    {
+      "src": "^/((?!api/|landing/|assets/|css/|js/|favicon\\.ico).*)?$",
       "has": [{ "type": "host", "value": "capfit.store" }],
-      "dest": "/landing/$1"
+      "dest": "/landing/index.html"
     },
     {
-      "src": "/(.*)",
+      "src": "^/((?!api/|landing/|assets/|css/|js/|favicon\\.ico).*)?$",
       "has": [{ "type": "host", "value": "www.capfit.store" }],
-      "dest": "/landing/$1"
+      "dest": "/landing/index.html"
     },
+    { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
