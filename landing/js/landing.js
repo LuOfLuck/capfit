@@ -818,6 +818,9 @@
           overlay.classList.add('is-active');
           overlay.setAttribute('aria-hidden', 'false');
           document.body.style.overflow = 'hidden';
+          if (typeof window.capfitTrack === 'function') {
+            window.capfitTrack('startup_modal_view', { origin: 'hero_intro' });
+          }
         }
 
         function closeModal() {
@@ -827,6 +830,14 @@
         }
 
         window.capfitOpenStartupModal = openModal;
+
+        if (ctaBtn) {
+          ctaBtn.addEventListener('click', () => {
+            if (typeof window.capfitTrack === 'function') {
+              window.capfitTrack('cta_click', { cta_label: 'PROBAR CAPFIT', cta_target: 'app.capfit.store', section: 'startup_modal' });
+            }
+          });
+        }
 
         if (closeBtn) {
           closeBtn.addEventListener('click', (e) => {
@@ -884,5 +895,34 @@
         initFaqAccordion();
         initScrollAnimations(tryOnState);
         initScrollProgressBar();
+        initLandingAnalyticsTracking();
       });
+
+      function initLandingAnalyticsTracking() {
+        document.querySelectorAll('a[href^="https://app.capfit.store"]').forEach((link) => {
+          link.addEventListener('click', () => {
+            const label = link.textContent.trim().replace(/\s+/g, ' ');
+            const section = link.closest('section, header, footer, .startup-modal-card')?.className || 'general';
+            if (typeof window.capfitTrack === 'function') {
+              window.capfitTrack('cta_click', {
+                cta_label: label,
+                cta_target: 'app.capfit.store',
+                section: section
+              });
+            }
+          });
+        });
+
+        document.querySelectorAll('.plans-card, .plan-card').forEach((card) => {
+          const btn = card.querySelector('a, button');
+          if (btn) {
+            btn.addEventListener('click', () => {
+              const planName = card.querySelector('.plan-name, .plan-title')?.textContent?.trim() || 'Plan';
+              if (typeof window.capfitTrack === 'function') {
+                window.capfitTrack('select_plan_click', { plan: planName });
+              }
+            });
+          }
+        });
+      }
     })();

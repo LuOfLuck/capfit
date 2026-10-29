@@ -101,7 +101,13 @@ Este documento resume la arquitectura, estructura, reglas de negocio y estado t�
   - El botón CTA redirige directamente a `https://app.capfit.store/` para explorar la tienda demo.
   - Apertura programada automáticamente tras cargar la imagen principal del Hero / completar la animación de entrada inicial.
   - Cierre interactivo mediante botón `✕`, clic fuera del modal o tecla `Escape`.
+- **Integración de Google Analytics 4 (GA4)**:
+  - Carga asíncrona no bloqueante de `gtag.js` con anonimización de IP (`anonymize_ip: true`) implementada en `/js/analytics.js` y `/landing/js/analytics.js`.
+  - Configurado en `landing/index.html` (landing comercial `capfit.store`) y en `index.html` (tienda y probador `app.capfit.store`).
+  - ID de medición activo: `G-RJFGW1349J` configurado directamente en `js/analytics.js`, `landing/js/analytics.js` y endpoint `GET /api/analytics-config` (con override opcional vía variable de entorno `GA_MEASUREMENT_ID`).
+  - Registro de eventos personalizados: vistas de página, clics en CTAs de la landing (`cta_click`), apertura del modal de startup (`startup_modal_view`), inicio de probador virtual (`tryon_start`), renderizado exitoso (`tryon_complete`) y compra/carrito (`add_to_cart`).
 - **Estado de Pruebas**:
-  - `npm test`: **19/19 pruebas pasando** (8 de enrutamiento/landing + 11 de seguridad multi-tenant).
+  - `npm test`: **21/21 pruebas pasando** (10 de enrutamiento/landing/analytics + 11 de seguridad multi-tenant).
   - Linter: `npm run lint` ejecutado con éxito sin errores de sintaxis.
+
 

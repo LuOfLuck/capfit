@@ -294,6 +294,14 @@ async function runVirtualTryOn(photoDataURL, garmentImgPath) {
   const item = (window.Store && Store.getGorraActiva) ? Store.getGorraActiva() : window.gorraActiva;
   const tipo = item?.tipo || 'gorra';
 
+  if (typeof window.capfitTrack === 'function') {
+    window.capfitTrack('tryon_start', {
+      product_name: item?.nombre || 'Producto',
+      product_id: item?.id || '',
+      category: tipo
+    });
+  }
+
   startTryOnProgress();
 
   try {
@@ -569,6 +577,14 @@ function mostrarResultado(imgURL) {
         resultImageUrl: imgURL
       });
     }
+
+    if (typeof window.capfitTrack === 'function') {
+      window.capfitTrack('tryon_complete', {
+        product_name: item ? item.nombre : 'Producto',
+        product_id: item ? item.id : '',
+        category: item?.tipo || 'gorra'
+      });
+    }
   };
 
   ri.onload = onResultReady;
@@ -591,6 +607,15 @@ function comprarGorraDirecto() {
   if (!item) {
     alert('Seleccioná una gorra del catálogo.');
     return;
+  }
+  if (typeof window.capfitTrack === 'function') {
+    window.capfitTrack('add_to_cart', {
+      product_name: item.nombre,
+      product_id: item.id,
+      price: item.precio,
+      currency: 'ARS',
+      origin: 'tryon_result'
+    });
   }
   if (window.Cart && Cart.addToCart) {
     Cart.addToCart(item, 1);

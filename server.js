@@ -706,6 +706,13 @@ async function appHandler(req, res) {
     return;
   }
 
+  // 0.15 GET /api/analytics-config (Configuración de Google Analytics 4)
+  if (reqPath === '/api/analytics-config' && req.method === 'GET') {
+    const measurementId = process.env.GA_MEASUREMENT_ID || 'G-RJFGW1349J';
+    sendJson(res, 200, { ok: true, measurementId });
+    return;
+  }
+
   // 0.2 GET & PUT /api/stores/:id/about (Sección Sobre Nosotros sincronizada con Firebase Firestore)
   if (reqPath.startsWith('/api/stores/') && reqPath.endsWith('/about')) {
     const parts = reqPath.split('/');

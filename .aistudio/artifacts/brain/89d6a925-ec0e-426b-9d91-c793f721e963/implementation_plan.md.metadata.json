@@ -1,6 +1,6 @@
 {
-  "summary": "Plan de implementación para el blindaje de seguridad de CapFit: unificación del proyecto Firebase capfit-6689b, verificación de tokens JWT de Firebase y sesiones firmadas con HMAC en el servidor, protección de endpoints administrativos, financieros y de pedidos, eliminación de contraseñas de prueba, migración segura de credenciales de Mercado Pago y suite de pruebas de seguridad automatizadas.",
-  "updatedAt": "2026-10-15T20:57:27.932121215Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Plan integral para la integración de Google Analytics 4 (GA4) en la landing comercial (capfit.store) y en la aplicación multi-tienda (app.capfit.store), con seguimiento de visitas, eventos de conversión de e-commerce y telemetría de interacción con el probador virtual con IA.",
+  "updatedAt":  "2026-10-29T00:22:14.306995783Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

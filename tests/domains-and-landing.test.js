@@ -157,6 +157,27 @@ async function runDomainTests() {
     assert.equal(apiRes.json.store.id, 'tienda1');
   });
 
+  // 6. Verificación de Google Analytics 4 (GA4)
+  await test('Endpoint /api/analytics-config responde con measurementId G-RJFGW1349J', async () => {
+    const res = await makeRequest(server, {
+      path: '/api/analytics-config',
+      headers: { host: 'capfit.store' }
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.equal(res.json.measurementId, 'G-RJFGW1349J');
+  });
+
+  await test('js/analytics.js se sirve con el ID G-RJFGW1349J y capfitTrack', async () => {
+    const res = await makeRequest(server, {
+      path: '/js/analytics.js',
+      headers: { host: 'app.capfit.store' }
+    });
+    assert.equal(res.status, 200);
+    assert.ok(res.body.includes('G-RJFGW1349J'), 'Debe contener el ID G-RJFGW1349J');
+    assert.ok(res.body.includes('capfitTrack'), 'Debe contener la función capfitTrack');
+  });
+
   await new Promise((resolve) => server.close(resolve));
 
   console.log(`\n📊 Resultado final: ${passed} pruebas exitosas, ${failed} fallidas.\n`);
