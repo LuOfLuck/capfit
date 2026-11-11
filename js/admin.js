@@ -26,15 +26,15 @@ const AdminPanel = (() => {
   function sanitizeStoreId(s) {
     if (!s || typeof s !== 'string') return '';
     const clean = s.trim();
-    if (clean.startsWith('ais-') || clean.includes('run.app') || clean.includes('localhost')) {
+    if (clean.startsWith('ais-') || clean.includes('run.app') || clean.includes('localhost') || clean === 'admin_portal' || clean === 'admin' || clean === 'account') {
       return '';
     }
     return clean;
   }
 
   let _adminRole = sessionStorage.getItem(ROLE_KEY) || sessionStorage.getItem('capfit_role') || 'store_owner';
-  let _storedStore = sanitizeStoreId(sessionStorage.getItem(STORE_ID_KEY)) || sanitizeStoreId(sessionStorage.getItem('capfit_store_id'));
-  let _currentStoreId = _storedStore || (window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-') ? Store.getCurrentStoreId() : 'principal');
+  let _storedStore = sanitizeStoreId(sessionStorage.getItem(STORE_ID_KEY)) || sanitizeStoreId(sessionStorage.getItem('capfit_store_id')) || sanitizeStoreId(localStorage.getItem('capfit_active_store_id'));
+  let _currentStoreId = _storedStore || (window.Store && Store.getCurrentStoreId && sanitizeStoreId(Store.getCurrentStoreId()) ? sanitizeStoreId(Store.getCurrentStoreId()) : 'principal');
   let _currentStoreName = sessionStorage.getItem(STORE_NAME_KEY) || sessionStorage.getItem('capfit_store_name') || 'CAPFIT Store';
   let _currentSubdomain = sessionStorage.getItem(SUBDOMAIN_KEY) || sessionStorage.getItem('capfit_store_subdomain') || 'tienda1';
   let _userEmail = sessionStorage.getItem(USER_EMAIL_KEY) || '';
@@ -1210,11 +1210,23 @@ const AdminPanel = (() => {
   }
 
   function switchActiveStore(storeId) {
-    _currentStoreId = storeId;
-    sessionStorage.setItem(STORE_ID_KEY, storeId);
-    if (window.Store && Store.switchStore) {
-      // Sincroniza localmente sin recargar si es admin
+    const clean = sanitizeStoreId(storeId) || 'principal';
+    _currentStoreId = clean;
+    sessionStorage.setItem(STORE_ID_KEY, clean);
+    sessionStorage.setItem('capfit_store_id', clean);
+    localStorage.setItem('capfit_active_store_id', clean);
+
+    const found = _allStores.find(s => s.id === clean);
+    if (found) {
+      _currentStoreName = found.name || clean;
+      _currentSubdomain = found.subdomain || clean;
+      sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
+      sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
+      if (window.Store && Store.updateHeaderLogo) {
+        Store.updateHeaderLogo(found);
+      }
     }
+
     refreshData();
   }
 
@@ -1231,28 +1243,27 @@ const AdminPanel = (() => {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="admin-badge-status">
               <span class="pulse-dot"></span>
-              ${isSuper ? '👑 SuperAdmin SaaS' : ' Dueño de Tienda'}
+              ${isSuper ? '👑 SuperAdmin SaaS' : '🏪 Dueño de Tienda'}
             </div>
-            <span style="display:inline-flex;align-items:center;gap:4px;background:#0f172a;color:#ffffff;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-weight:700;letter-spacing:0.5px">
-              ⚡ admin.capfit.store
+            <span style="display:inline-flex;align-items:center;gap:5px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:0.76rem;padding:3px 10px;border-radius:6px;font-weight:700">
+              Gestionando: ${escapeHtml(_currentStoreName)} (${escapeHtml(_currentSubdomain)}.capfit.store)
             </span>
-   
             ${_userEmail ? `
               <span style="display:inline-flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:0.72rem;padding:3px 8px;border-radius:6px;font-weight:600">
-                👤 ${_userEmail}
+                👤 ${escapeHtml(_userEmail)}
               </span>
             ` : ''}
           </div>
-          <h2 class="admin-main-heading">${_currentStoreName}</h2>
+          <h2 class="admin-main-heading">${escapeHtml(_currentStoreName)}</h2>
         </div>
 
         <div class="admin-topbar-actions">
-          ${isSuper && _allStores.length > 1 ? `
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:0.75rem;color:var(--gray-500);font-weight:600">Tienda:</span>
-              <select class="admin-select-status" style="font-size:0.8rem;padding:6px 10px" onchange="AdminPanel.switchActiveStore(this.value)">
+          ${isSuper && _allStores.length > 0 ? `
+            <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #cbd5e1;padding:4px 10px;border-radius:8px">
+              <span style="font-size:0.75rem;color:#334155;font-weight:700">Cambiar tienda:</span>
+              <select class="admin-select-status" style="font-size:0.82rem;padding:4px 8px;font-weight:700" onchange="AdminPanel.switchActiveStore(this.value)">
                 ${_allStores.map(s => `
-                  <option value="${s.id}" ${s.id === _currentStoreId ? 'selected' : ''}>${s.name} (${s.subdomain})</option>
+                  <option value="${escapeHtml(s.id)}" ${s.id === _currentStoreId ? 'selected' : ''}>${escapeHtml(s.name)} (${escapeHtml(s.subdomain)}.capfit.store)</option>
                 `).join('')}
               </select>
             </div>
@@ -3735,7 +3746,7 @@ const AdminPanel = (() => {
       `;
     }
 
-    await Promise.all([loadProducts(), loadOrders(), loadStoreQuota(), loadStoreMpConfig()]);
+    await Promise.all([loadProducts(), loadOrders(), loadStoreQuota(), loadStoreMpConfig(), loadAllStores()]);
 
     // Si regresa del callback OAuth de Mercado Pago (?mp_oauth=success|error), abrir la pestaña de Configuración & Pagos
     try {
@@ -3763,6 +3774,8 @@ const AdminPanel = (() => {
   return {
     init: render,
     isLoggedIn,
+    getCurrentStoreId: () => (_currentStoreId && _currentStoreId !== 'admin_portal' && _currentStoreId !== 'admin') ? _currentStoreId : 'principal',
+    getCurrentStoreName: () => _currentStoreName,
     openStorefront,
     login,
     logout,

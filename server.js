@@ -1624,8 +1624,10 @@ async function appHandler(req, res) {
   // 1.05 GET /api/plans (Listado de planes y suscripciones CapFit)
   if (reqPath === '/api/plans' && req.method === 'GET') {
     const plans = StoreManager.getPlansCatalog ? StoreManager.getPlansCatalog() : [];
-    const store = StoreManager.getStoreById(currentStore.id) || currentStore;
-    const quota = StoreManager.getAiQuotaStatus(currentStore.id);
+    const rawTargetId = (qs.store && qs.store !== 'admin_portal' && qs.store !== 'admin') ? qs.store : currentStore.id;
+    const cleanTargetId = (!rawTargetId || rawTargetId === 'admin_portal' || rawTargetId === 'admin') ? 'principal' : rawTargetId;
+    const store = StoreManager.getStoreById(cleanTargetId) || StoreManager.getStoreBySubdomain(cleanTargetId) || StoreManager.getStoreById('principal') || currentStore;
+    const quota = StoreManager.getAiQuotaStatus(store.id);
     const planId = (store.planId || store.plan || 'free').toLowerCase();
     const planDetails = StoreManager.getPlanDetails ? StoreManager.getPlanDetails(planId) : null;
 
@@ -1651,7 +1653,13 @@ async function appHandler(req, res) {
       }
       const raw = await readBody(req);
       const body = JSON.parse(raw.toString() || '{}');
-      const storeId = body.storeId || qs.store || currentStore.id;
+      let storeId = body.storeId || qs.store || auth.storeId || currentStore.id;
+      if (!storeId || storeId === 'admin_portal' || storeId === 'admin') {
+        storeId = (auth.storeId && auth.storeId !== 'admin_portal' && auth.storeId !== 'admin') ? auth.storeId : 'principal';
+      }
+      const resolvedStore = StoreManager.getStoreById(storeId) || StoreManager.getStoreBySubdomain(storeId);
+      if (resolvedStore) storeId = resolvedStore.id;
+
       if (!AuthGuard.canManageStore(auth, storeId)) {
         sendJson(res, 403, { ok: false, error: `No tenés permisos para gestionar la suscripción de la tienda "${storeId}".` });
         return;
@@ -1690,9 +1698,10 @@ async function appHandler(req, res) {
 
   // 1.08 GET /api/subscriptions/status (Consultar estado de suscripción)
   if (reqPath === '/api/subscriptions/status' && req.method === 'GET') {
-    const targetStoreId = qs.store || qs.storeId || currentStore.id;
-    const store = StoreManager.getStoreById(targetStoreId) || currentStore;
-    const quota = StoreManager.getAiQuotaStatus(targetStoreId);
+    const rawTargetId = qs.store || qs.storeId || currentStore.id;
+    const cleanTargetId = (!rawTargetId || rawTargetId === 'admin_portal' || rawTargetId === 'admin') ? 'principal' : rawTargetId;
+    const store = StoreManager.getStoreById(cleanTargetId) || StoreManager.getStoreBySubdomain(cleanTargetId) || currentStore;
+    const quota = StoreManager.getAiQuotaStatus(store.id);
     const planDetails = StoreManager.getPlanDetails(store.planId || store.plan);
     const auth = await AuthGuard.authenticateRequest(req);
     const isAuthorizedAdmin = auth.authenticated && AuthGuard.canManageStore(auth, store.id);
@@ -1725,7 +1734,10 @@ async function appHandler(req, res) {
       }
       const raw = await readBody(req);
       const body = JSON.parse(raw.toString() || '{}');
-      const targetStoreId = body.storeId || qs.store || currentStore.id;
+      let targetStoreId = body.storeId || qs.store || auth.storeId || currentStore.id;
+      if (!targetStoreId || targetStoreId === 'admin_portal' || targetStoreId === 'admin') {
+        targetStoreId = (auth.storeId && auth.storeId !== 'admin_portal' && auth.storeId !== 'admin') ? auth.storeId : 'principal';
+      }
       if (!AuthGuard.canManageStore(auth, targetStoreId)) {
         sendJson(res, 403, { ok: false, error: `No tenés permisos para cancelar la suscripción de "${targetStoreId}".` });
         return;

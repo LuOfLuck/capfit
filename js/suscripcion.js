@@ -310,8 +310,22 @@ const SuscripcionManager = (() => {
   // ══════════════════════════════════════════════════════════════════════
 
   function getActiveStoreId() {
-    return sessionStorage.getItem('capfit_store_id') ||
-      (window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-') ? Store.getCurrentStoreId() : 'principal');
+    const candidates = [
+      (window.AdminPanel && typeof window.AdminPanel.getCurrentStoreId === 'function') ? window.AdminPanel.getCurrentStoreId() : null,
+      sessionStorage.getItem('capfit_admin_store_id'),
+      sessionStorage.getItem('capfit_store_id'),
+      localStorage.getItem('capfit_active_store_id'),
+      (window.Store && typeof Store.getCurrentStoreId === 'function') ? Store.getCurrentStoreId() : null
+    ];
+    for (const c of candidates) {
+      if (c && typeof c === 'string') {
+        const clean = c.trim();
+        if (clean && !clean.startsWith('ais-') && clean !== 'admin_portal' && clean !== 'admin' && clean !== 'account') {
+          return clean;
+        }
+      }
+    }
+    return 'principal';
   }
 
   function getSubscriptionAuthHeaders(extra = {}) {
@@ -497,15 +511,23 @@ const SuscripcionManager = (() => {
     const planes = obtenerPlanesCalculados();
     const currentPlan = planes.find(p => p.id === estado.planActualId) || planes[0];
     const cuota = obtenerEstadoCuota();
+    const activeStoreName = (estado.storeData && estado.storeData.storeName) ||
+      (window.AdminPanel && typeof window.AdminPanel.getCurrentStoreName === 'function' && window.AdminPanel.getCurrentStoreName()) ||
+      estado.storeId || 'Mi Tienda';
 
     return `
       <div class="sub-usage-hero-card">
         <div class="sub-usage-left">
-          <div class="sub-usage-badge">
-            <span class="sub-dot-pulse"></span>
-            <span>Plan Activo: <strong>${currentPlan.name}</strong></span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <div class="sub-usage-badge" style="margin-bottom:0">
+              <span class="sub-dot-pulse"></span>
+              <span>Plan Activo: <strong>${currentPlan.name}</strong></span>
+            </div>
+            <div style="background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.25);color:#ffffff;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:700">
+              🏪 Tienda: ${activeStoreName}
+            </div>
           </div>
-          <h2 class="sub-usage-title">Estado de tu Suscripción</h2>
+          <h2 class="sub-usage-title">Estado de tu Suscripción — ${activeStoreName}</h2>
           <p class="sub-usage-desc">
             Gestioná el consumo de generaciones de IA de tu tienda y escalá a un plan superior con débito automático de Mercado Pago cuando lo necesites.
           </p>

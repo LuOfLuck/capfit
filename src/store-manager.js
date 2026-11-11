@@ -453,21 +453,19 @@ function resolveStoreFromRequest(req, bodyObj = null) {
     hostWithoutPort.endsWith('.vercel.app')
   );
 
+  const isPlatformOrAdminHost = (
+    hostWithoutPort === 'admin.capfit.store' ||
+    hostWithoutPort.startsWith('admin.') ||
+    hostWithoutPort === 'account.capfit.store' ||
+    hostWithoutPort.startsWith('account.') ||
+    hostWithoutPort === 'app.capfit.store' ||
+    hostWithoutPort === 'capfit.store' ||
+    hostWithoutPort === 'www.capfit.store'
+  );
+
   let hostStore = null;
 
-  if (hostWithoutPort === 'admin.capfit.store' || hostWithoutPort.startsWith('admin.')) {
-    hostStore = {
-      id: 'admin_portal',
-      subdomain: 'admin',
-      fullDomain: 'admin.capfit.store',
-      name: 'Panel de Administración CAPFIT',
-      tagline: 'Backoffice y Administración Central',
-      isAdminPortal: true,
-      active: true
-    };
-  } else if (hostWithoutPort === 'app.capfit.store' || hostWithoutPort === 'capfit.store' || hostWithoutPort === 'www.capfit.store') {
-    hostStore = getStoreById('principal');
-  } else if (!isDevOrSharedEnvironment) {
+  if (!isPlatformOrAdminHost && !isDevOrSharedEnvironment) {
     const all = getAllStores();
     const matchByDomain = all.find(s => (s.fullDomain || '').toLowerCase() === hostWithoutPort);
     if (matchByDomain) {
@@ -476,17 +474,8 @@ function resolveStoreFromRequest(req, bodyObj = null) {
       const parts = hostWithoutPort.split('.');
       if (parts.length >= 2) {
         const sub = parts[0];
-        if (sub === 'admin' || sub === 'account') {
-          hostStore = {
-            id: 'admin_portal',
-            subdomain: 'admin',
-            fullDomain: 'admin.capfit.store',
-            name: 'Panel de Administración CAPFIT',
-            isAdminPortal: true,
-            active: true
-          };
-        } else if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'app') {
-          hostStore = getStoreById('principal');
+        if (sub === 'www' || sub === 'capfit' || sub === 'shop' || sub === 'app' || sub === 'admin' || sub === 'account') {
+          hostStore = null;
         } else {
           const matchBySub = getStoreBySubdomain(sub);
           if (matchBySub) hostStore = matchBySub;
@@ -495,7 +484,7 @@ function resolveStoreFromRequest(req, bodyObj = null) {
     }
   }
 
-  // Comprobar parámetros explícitos
+  // Comprobar parámetros explícitos (?store=, x-store-id, body.storeId)
   let candidateId = null;
   const headerStore = req.headers && (req.headers['x-store-id'] || req.headers['x-tenant-id']);
   if (headerStore) candidateId = String(headerStore).trim();
@@ -516,30 +505,18 @@ function resolveStoreFromRequest(req, bodyObj = null) {
     }
   }
 
+  // Si estamos en un subdominio exclusivo de una tienda (ej. prendakxp.capfit.store), prevalece la tienda del subdominio
   if (hostStore) {
-    if (candidateId) {
-      const clean = candidateId.toLowerCase();
-      if (clean !== hostStore.id.toLowerCase() && clean !== (hostStore.subdomain || '').toLowerCase()) {
-        return hostStore;
-      }
-    }
     return hostStore;
   }
 
+  // En admin.capfit.store, app.capfit.store o entornos de desarrollo, permitir resolver la tienda solicitada en candidateId
   if (candidateId) {
     const clean = candidateId.toLowerCase();
-    if (clean === 'admin') {
-      return {
-        id: 'admin_portal',
-        subdomain: 'admin',
-        fullDomain: 'admin.capfit.store',
-        name: 'Panel de Administración CAPFIT',
-        isAdminPortal: true,
-        active: true
-      };
+    if (clean !== 'admin_portal' && clean !== 'admin' && clean !== 'account') {
+      const found = getStoreById(clean) || getStoreBySubdomain(clean);
+      if (found && found.active !== false) return found;
     }
-    const found = getStoreById(clean);
-    if (found && found.active !== false) return found;
   }
 
   return getStoreById('principal') || { ...defaultPrincipal };

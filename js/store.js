@@ -90,16 +90,20 @@ const Store = (() => {
         if (clean === 'www' || clean === 'capfit' || clean === 'principal' || clean === 'shop' || clean === 'shpo' || clean === 'app') {
           return 'principal';
         }
-        if (!clean.startsWith('ais-')) return clean;
+        if (!clean.startsWith('ais-') && clean !== 'admin_portal' && clean !== 'admin' && clean !== 'account') return clean;
       }
 
       // 2. Subdominio de host de producción (ej: prendakxp.capfit.store o app.capfit.store)
       const hostSub = getSubdomainFromHost();
       if (hostSub) return hostSub;
 
-      // 3. Tienda guardada en sesión local (si no es un ID de despliegue temporal)
+      // 3. Tienda guardada en sesión de administrador o localStorage
+      const adminSaved = sessionStorage.getItem('capfit_admin_store_id') || sessionStorage.getItem('capfit_store_id');
+      if (adminSaved && !adminSaved.startsWith('ais-') && adminSaved !== 'admin_portal' && adminSaved !== 'admin') {
+        return adminSaved;
+      }
       const saved = localStorage.getItem('capfit_active_store_id');
-      if (saved && !saved.startsWith('ais-') && !saved.includes('run.app')) {
+      if (saved && !saved.startsWith('ais-') && !saved.includes('run.app') && saved !== 'admin_portal' && saved !== 'admin') {
         return saved;
       }
     } catch (e) {}
@@ -130,7 +134,7 @@ const Store = (() => {
     if (!storeId || storeId === 'principal') {
       localStorage.removeItem('capfit_active_store_id');
       const host = (window.location.hostname || '').toLowerCase();
-      if (host.includes('capfit.store') && host !== 'app.capfit.store') {
+      if (host.includes('capfit.store') && host !== 'app.capfit.store' && !host.startsWith('admin.')) {
         window.location.href = `https://app.capfit.store/`;
         return;
       }
@@ -141,7 +145,7 @@ const Store = (() => {
     } else {
       localStorage.setItem('capfit_active_store_id', storeId);
       const host = (window.location.hostname || '').toLowerCase();
-      if (host.endsWith('capfit.store')) {
+      if (host.endsWith('capfit.store') && !host.startsWith('admin.')) {
         // Redirigir directamente al subdominio si estamos en capfit.store
         window.location.href = `https://${storeId}.capfit.store/`;
         return;
@@ -159,11 +163,11 @@ const Store = (() => {
     getCurrentStore() { return _currentStore; },
     getAiQuota() { return _aiQuota; },
     getCurrentStoreId() {
-      if (_currentStore && _currentStore.id && !_currentStore.id.startsWith('ais-')) {
+      if (_currentStore && _currentStore.id && !_currentStore.id.startsWith('ais-') && _currentStore.id !== 'admin_portal' && _currentStore.id !== 'admin') {
         return _currentStore.id;
       }
       const q = getQueryStoreId();
-      return (q && !q.startsWith('ais-')) ? q : 'principal';
+      return (q && !q.startsWith('ais-') && q !== 'admin_portal' && q !== 'admin') ? q : 'principal';
     },
 
     // ── Gorras ──

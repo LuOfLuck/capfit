@@ -180,9 +180,8 @@
       return;
     }
 
-    // Si estamos en el subdominio admin.capfit.store, permanecer en la interfaz administrativa
+    // Si estamos en el subdominio admin.capfit.store, aplicar clase visual sin bloquear navegación a suscripciones u otras vistas
     if (isAdminPortalDomain()) {
-      cleanName = 'admin';
       document.body.classList.add('is-admin-domain');
     }
 
@@ -485,10 +484,10 @@
 
     let viewName = 'inicio';
 
-    // Detección de admin.capfit.store
+    // Detección de admin.capfit.store: por defecto abre 'admin', pero respeta #suscripcion u otras vistas si se navega explícitamente
     if (isAdminPortalDomain()) {
       document.body.classList.add('is-admin-domain');
-      viewName = 'admin';
+      viewName = hash ? hash : 'admin';
     } else {
       document.body.classList.remove('is-admin-domain');
       if (hash) {
