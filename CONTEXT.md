@@ -106,8 +106,11 @@ Este documento resume la arquitectura, estructura, reglas de negocio y estado t�
   - Configurado en `landing/index.html` (landing comercial `capfit.store`) y en `index.html` (tienda y probador `app.capfit.store`).
   - ID de medición activo: `G-RJFGW1349J` configurado directamente en `js/analytics.js`, `landing/js/analytics.js` y endpoint `GET /api/analytics-config` (con override opcional vía variable de entorno `GA_MEASUREMENT_ID`).
   - Registro de eventos personalizados: vistas de página, clics en CTAs de la landing (`cta_click`), apertura del modal de startup (`startup_modal_view`), inicio de probador virtual (`tryon_start`), renderizado exitoso (`tryon_complete`) y compra/carrito (`add_to_cart`).
+- **Ajustes de UI en Backoffice**:
+  - Se eliminó la insignia superior del portal (`admin.capfit.store · Panel de Control`) en el formulario de inicio de sesión/registro del panel de administración (`js/admin.js`).
 - **Estado de Pruebas**:
   - `npm test`: **21/21 pruebas pasando** (10 de enrutamiento/landing/analytics + 11 de seguridad multi-tenant).
   - Linter: `npm run lint` ejecutado con éxito sin errores de sintaxis.
+
 
 

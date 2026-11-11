@@ -41,6 +41,7 @@ const AdminPanel = (() => {
   let _userName = sessionStorage.getItem(USER_NAME_KEY) || '';
   let _portalTab = 'login'; // 'login' | 'register'
   let _aiQuota = null;
+  let _mpPaymentConfig = null;
   let _allStores = [];
   let _loginMode = 'store'; // 'store' | 'superadmin'
 
@@ -449,8 +450,25 @@ const AdminPanel = (() => {
     }
   }
 
+  async function loadStoreMpConfig() {
+    if (!isLoggedIn()) return;
+    try {
+      const res = await fetch(`/api/mp/credentials/status${getStoreQuery()}`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ok) {
+          _mpPaymentConfig = data;
+        }
+      }
+    } catch (e) {
+      console.warn('[Admin] Error cargando estado Mercado Pago de tienda:', e);
+    }
+  }
+
   async function refreshData() {
-    await Promise.all([loadProducts(), loadOrders(), loadStoreQuota(), loadAllStores()]);
+    await Promise.all([loadProducts(), loadOrders(), loadStoreQuota(), loadStoreMpConfig(), loadAllStores()]);
     renderMetrics();
     renderActiveTabContent();
   }
@@ -887,14 +905,6 @@ const AdminPanel = (() => {
 
     container.innerHTML = `
       <div class="auth-card">
-        
-        <!-- Admin Subdomain Portal Badge -->
-        <div style="text-align:center;margin-bottom:18px">
-          <span style="display:inline-flex;align-items:center;gap:6px;background:#0f172a;color:#ffffff;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;letter-spacing:0.5px">
-            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981"></span>
-            admin.capfit.store · Panel de Control
-          </span>
-        </div>
 
         <!-- Segmented Tab Switcher -->
         <div class="auth-tabs">
@@ -1290,6 +1300,11 @@ const AdminPanel = (() => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           Páginas & Secciones
         </button>
+        <button class="admin-tab-btn ${_activeTab === 'configuracion' ? 'active' : ''}" onclick="AdminPanel.switchTab('configuracion')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Configuración & Pagos
+          <span class="tab-badge" style="background:${_mpPaymentConfig && _mpPaymentConfig.mpConnected ? '#0284c7' : '#64748b'};color:#ffffff;font-weight:700">${_mpPaymentConfig && _mpPaymentConfig.mpConnected ? 'MP Activo' : 'MP'}</span>
+        </button>
         <button class="admin-tab-btn ${_activeTab === 'suscripcion' ? 'active' : ''}" onclick="AdminPanel.switchTab('suscripcion')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           Mi Suscripción
@@ -1317,6 +1332,8 @@ const AdminPanel = (() => {
       renderNewProductTab(tabArea);
     } else if (_activeTab === 'secciones') {
       renderSectionsTab(tabArea);
+    } else if (_activeTab === 'configuracion') {
+      renderPaymentConfigTab(tabArea);
     } else if (_activeTab === 'suscripcion') {
       if (window.SuscripcionManager) {
         SuscripcionManager.renderInto(tabArea);
@@ -1326,7 +1343,296 @@ const AdminPanel = (() => {
     }
   }
 
-  // (Componente de configuración de tokens de Mercado Pago removido)
+  // ── TAB: CONFIGURACIÓN → MÉTODOS DE PAGO → MERCADO PAGO (MULTI-TENANT POR TIENDA) ──
+  async function connectStoreMercadoPagoOAuth() {
+    try {
+      const btn = document.getElementById('btn-mp-oauth-connect');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Generando autorización segura...';
+      }
+      const res = await fetch(`/api/mp/oauth/authorize${getStoreQuery()}`, {
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (res.ok && data.ok && data.authorizeUrl) {
+        window.location.href = data.authorizeUrl;
+        return;
+      }
+      const msg = data.error || 'No se pudo iniciar la autorización OAuth con Mercado Pago.';
+      const feedbackEl = document.getElementById('mp-config-feedback');
+      if (feedbackEl) {
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.background = '#fffbeb';
+        feedbackEl.style.borderColor = '#fde68a';
+        feedbackEl.style.color = '#92400e';
+        feedbackEl.textContent = msg;
+      }
+      const manualBox = document.getElementById('mp-manual-token-box');
+      if (manualBox) manualBox.style.display = 'block';
+    } catch (e) {
+      if (window.showToast) window.showToast('Error al iniciar OAuth: ' + e.message);
+    } finally {
+      const btn = document.getElementById('btn-mp-oauth-connect');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Conectar Mercado Pago (OAuth Oficial)';
+      }
+    }
+  }
+
+  async function submitManualStoreMpToken(event) {
+    if (event) event.preventDefault();
+    const tokenInput = document.getElementById('mp-manual-access-token');
+    const pubKeyInput = document.getElementById('mp-manual-public-key');
+    const labelInput = document.getElementById('mp-manual-account-label');
+    const feedbackEl = document.getElementById('mp-config-feedback');
+
+    const accessToken = tokenInput ? tokenInput.value.trim() : '';
+    const publicKey = pubKeyInput ? pubKeyInput.value.trim() : '';
+    const accountLabel = labelInput ? labelInput.value.trim() : '';
+
+    if (!accessToken) {
+      if (feedbackEl) {
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.background = '#fef2f2';
+        feedbackEl.style.borderColor = '#fecaca';
+        feedbackEl.style.color = '#b91c1c';
+        feedbackEl.textContent = 'Por favor ingresá el Access Token de tu cuenta de Mercado Pago (APP_USR-... o TEST-...).';
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/mp/credentials/manual${getStoreQuery()}`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          storeId: _currentStoreId,
+          accessToken,
+          publicKey: publicKey || null,
+          accountLabel: accountLabel || null
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudieron vincular las credenciales.');
+      }
+      if (window.showToast) window.showToast(`¡Cuenta de Mercado Pago vinculada a ${_currentStoreName}!`);
+      if (window.Store && Store.syncCurrentStore) Store.syncCurrentStore();
+      await loadStoreMpConfig();
+      renderDashboard();
+    } catch (e) {
+      if (feedbackEl) {
+        feedbackEl.style.display = 'block';
+        feedbackEl.style.background = '#fef2f2';
+        feedbackEl.style.borderColor = '#fecaca';
+        feedbackEl.style.color = '#b91c1c';
+        feedbackEl.textContent = e.message;
+      }
+    }
+  }
+
+  async function connectQuickSandboxMpToken() {
+    const cleanSub = (_currentSubdomain || _currentStoreId || 'tienda').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const sandboxToken = `TEST-SANDBOX-${cleanSub.toUpperCase()}-${Date.now()}-041111`;
+    const sandboxLabel = `Cuenta Sandbox Vendedor (${_currentStoreName})`;
+
+    try {
+      const res = await fetch(`/api/mp/credentials/manual${getStoreQuery()}`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          storeId: _currentStoreId,
+          accessToken: sandboxToken,
+          publicKey: `TEST-PUB-${cleanSub.toUpperCase()}`,
+          accountLabel: sandboxLabel
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error al vincular token sandbox');
+      if (window.showToast) window.showToast(`¡Cuenta de prueba Mercado Pago vinculada a ${_currentStoreName}!`);
+      if (window.Store && Store.syncCurrentStore) Store.syncCurrentStore();
+      await loadStoreMpConfig();
+      renderDashboard();
+    } catch (e) {
+      if (window.showToast) window.showToast('Error: ' + e.message);
+    }
+  }
+
+  async function refreshStoreMercadoPagoToken() {
+    try {
+      const res = await fetch(`/api/mp/credentials/refresh${getStoreQuery()}`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ storeId: _currentStoreId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo renovar la conexión');
+      _mpPaymentConfig = data;
+      if (window.showToast) window.showToast('Credenciales de Mercado Pago verificadas y actualizadas.');
+      renderActiveTabContent();
+    } catch (e) {
+      if (window.showToast) window.showToast('Error verificando credenciales: ' + e.message);
+    }
+  }
+
+  async function disconnectStoreMercadoPago() {
+    try {
+      const res = await fetch(`/api/mp/credentials/disconnect${getStoreQuery()}`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ storeId: _currentStoreId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'No se pudo desconectar la cuenta');
+      if (window.showToast) window.showToast(`Cuenta de Mercado Pago desconectada de ${_currentStoreName}`);
+      if (window.Store && Store.syncCurrentStore) Store.syncCurrentStore();
+      await loadStoreMpConfig();
+      renderDashboard();
+    } catch (e) {
+      if (window.showToast) window.showToast('Error desconectando: ' + e.message);
+    }
+  }
+
+  function toggleManualMpBox() {
+    const el = document.getElementById('mp-manual-token-box');
+    if (el) {
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+  }
+
+  function renderPaymentConfigTab(container) {
+    const cfg = _mpPaymentConfig || { mpConnected: false };
+    const isConnected = Boolean(cfg.mpConnected);
+
+    container.innerHTML = `
+      <div class="admin-panel-card" style="max-width:920px;margin:0 auto;padding:28px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid #e2e8f0;margin-bottom:24px">
+          <div>
+            <div style="font-size:0.78rem;color:#64748b;font-weight:600;margin-bottom:6px">
+              Configuración · Métodos de pago · Mercado Pago
+            </div>
+            <h3 style="font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 6px">
+              Cobros Directos con Mercado Pago — ${escapeHtml(_currentStoreName)}
+            </h3>
+            <p style="font-size:0.9rem;color:#475569;margin:0;max-width:65ch;line-height:1.5">
+              Los pagos de tus compradores en <strong>${escapeHtml(_currentSubdomain)}.capfit.store</strong> se acreditan directamente en tu cuenta de Mercado Pago. CapFit no retiene fondos ni cobra comisiones por venta (0%).
+            </p>
+          </div>
+          <div style="text-align:right;font-size:0.82rem;color:#334155;font-weight:600">
+            Estado: <span style="color:${isConnected ? '#15803d' : '#b45309'};font-weight:700">${isConnected ? 'Cuenta Conectada' : 'Sin cuenta vinculada'}</span>
+          </div>
+        </div>
+
+        <div id="mp-config-feedback" style="display:none;padding:12px 16px;border-radius:8px;border:1px solid #e2e8f0;font-size:0.86rem;font-weight:600;margin-bottom:20px"></div>
+
+        ${isConnected ? `
+          <!-- Estado Conectado -->
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:22px;margin-bottom:24px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid #e2e8f0">
+              <div>
+                <div style="font-size:0.78rem;color:#64748b;margin-bottom:4px">Cuenta receptora de cobros en ${escapeHtml(_currentSubdomain)}.capfit.store</div>
+                <div style="font-size:1.15rem;font-weight:800;color:#0f172a">${escapeHtml(cfg.mpAccountLabel || 'Cuenta Vendedor Mercado Pago')}</div>
+              </div>
+              <div style="font-size:0.82rem;color:#475569;font-variant-numeric:tabular-nums">
+                Modo: <strong>${cfg.mpConnectionMode === 'oauth' ? 'OAuth 2.0 Oficial' : 'Credenciales Directas'}</strong> ·
+                Entorno: <strong>${cfg.mpLiveMode ? 'Producción' : 'Sandbox / Prueba'}</strong>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;font-size:0.85rem;color:#334155;font-variant-numeric:tabular-nums">
+              <div>
+                <span style="display:block;color:#64748b;font-size:0.76rem;margin-bottom:2px">ID Tienda Asociada</span>
+                <strong>${escapeHtml(_currentStoreId)} (${escapeHtml(_currentSubdomain)}.capfit.store)</strong>
+              </div>
+              <div>
+                <span style="display:block;color:#64748b;font-size:0.76rem;margin-bottom:2px">Usuario Mercado Pago</span>
+                <strong>${escapeHtml(cfg.mpUserId || 'Verificado')}</strong>
+              </div>
+              <div>
+                <span style="display:block;color:#64748b;font-size:0.76rem;margin-bottom:2px">Credencial Cifrada (AES-256)</span>
+                <strong style="font-family:monospace">${escapeHtml(cfg.maskedTokenHint || 'APP_USR-••••')}</strong>
+              </div>
+              <div>
+                <span style="display:block;color:#64748b;font-size:0.76rem;margin-bottom:2px">Vinculada el</span>
+                <strong>${cfg.mpConnectedAt ? formatDate(cfg.mpConnectedAt) : 'Activa'}</strong>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:22px;padding-top:16px;border-top:1px solid #e2e8f0">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <button type="button" class="admin-btn-sec" onclick="AdminPanel.refreshStoreMercadoPagoToken()">
+                  Renovar / Verificar Credenciales
+                </button>
+                <button type="button" class="admin-btn-outline" onclick="AdminPanel.toggleManualMpBox()">
+                  Cambiar Credenciales
+                </button>
+              </div>
+              <button type="button" class="admin-btn-danger-outline" id="btn-mp-disconnect" onclick="AdminPanel.disconnectStoreMercadoPago()">
+                Desconectar Cuenta
+              </button>
+            </div>
+          </div>
+        ` : `
+          <!-- Estado Desconectado -->
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin-bottom:22px">
+            <h4 style="font-size:1.05rem;font-weight:700;color:#0f172a;margin:0 0 8px">
+              Conectá tu cuenta de Mercado Pago para habilitar las ventas en tu tienda
+            </h4>
+            <p style="font-size:0.88rem;color:#475569;margin:0 0 20px;line-height:1.55">
+              Mientras tu tienda no tenga una cuenta vinculada, el botón de pago con Mercado Pago en el checkout permanecerá deshabilitado para los compradores. Al vincular tu cuenta, cada venta en <strong>${escapeHtml(_currentSubdomain)}.capfit.store</strong> generará un Checkout Pro asociado directamente a tus credenciales.
+            </p>
+
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <button type="button" id="btn-mp-oauth-connect" onclick="AdminPanel.connectStoreMercadoPagoOAuth()" style="background:#009ee3;color:#ffffff;border:none;padding:11px 22px;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Conectar Mercado Pago
+              </button>
+
+              <button type="button" class="admin-btn-sec" onclick="AdminPanel.connectQuickSandboxMpToken()">
+                Activar Modo Prueba (Sandbox) en 1 clic
+              </button>
+
+              <button type="button" class="admin-btn-outline" onclick="AdminPanel.toggleManualMpBox()">
+                Ingresar Token Manualmente
+              </button>
+            </div>
+          </div>
+        `}
+
+        <!-- Formulario de vinculación con Token de Prueba / Producción -->
+        <div id="mp-manual-token-box" style="display:${isConnected ? 'none' : 'block'};background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:22px">
+          <h4 style="font-size:0.98rem;font-weight:700;color:#0f172a;margin:0 0 6px">
+            Vincular Credenciales de Prueba o Token Directo (Exclusivo para ${escapeHtml(_currentStoreName)})
+          </h4>
+          <p style="font-size:0.83rem;color:#64748b;margin:0 0 16px">
+            Pegá el <code>Access Token</code> de tu aplicación de Mercado Pago (comienza con <code>APP_USR-...</code> o <code>TEST-...</code>). Se almacenará cifrado con AES-256-GCM en <code>store_secrets/${escapeHtml(_currentStoreId)}</code> sin compartirse con ninguna otra tienda.
+          </p>
+
+          <form onsubmit="AdminPanel.submitManualStoreMpToken(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div class="admin-field-group" style="grid-column:1 / -1">
+              <label for="mp-manual-access-token">Access Token del Vendedor (Obligatorio)</label>
+              <input type="password" id="mp-manual-access-token" placeholder="APP_USR-1234567890-041111-... o TEST-..." required style="font-family:monospace">
+            </div>
+            <div class="admin-field-group">
+              <label for="mp-manual-public-key">Public Key (Opcional)</label>
+              <input type="text" id="mp-manual-public-key" placeholder="APP_USR-... o TEST-..." style="font-family:monospace">
+            </div>
+            <div class="admin-field-group">
+              <label for="mp-manual-account-label">Etiqueta / Email identificatorio de la cuenta</label>
+              <input type="text" id="mp-manual-account-label" placeholder="Ej: cobros@${escapeHtml(_currentSubdomain)}.com">
+            </div>
+            <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;gap:10px;margin-top:6px">
+              <button type="submit" class="admin-btn-primary" style="padding:10px 22px">
+                Guardar Credenciales Cifradas
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+  }
 
   // ── TAB: PÁGINAS & SECCIONES PERSONALIZABLES (MULTI-TENANT FIRESTORE) ──
   function switchSectionSubtab(subtab) {
@@ -2718,6 +3024,7 @@ const AdminPanel = (() => {
               </div>
               <div class="order-method-tag">
                 <span>Medio de pago: <strong>${order.paymentMethod || 'Mercado Pago'}</strong></span>
+                ${order.mpPaymentId ? `<span>• ID Pago MP: <code>${escapeHtml(order.mpPaymentId)}</code></span>` : ''}
                 ${order.shipping > 0 ? `<span>• Envío: ${formatPrecio(order.shipping)}</span>` : '<span class="text-green">• Envío Gratis</span>'}
               </div>
             </div>
@@ -2732,6 +3039,8 @@ const AdminPanel = (() => {
                   <option value="Aprobado" ${order.paymentStatus === 'Aprobado' ? 'selected' : ''}>✅ Aprobado</option>
                   <option value="Pendiente" ${order.paymentStatus === 'Pendiente' ? 'selected' : ''}>⏳ Pendiente</option>
                   <option value="Rechazado" ${order.paymentStatus === 'Rechazado' ? 'selected' : ''}>❌ Rechazado</option>
+                  <option value="Cancelado" ${order.paymentStatus === 'Cancelado' ? 'selected' : ''}>🚫 Cancelado</option>
+                  <option value="Reembolsado" ${order.paymentStatus === 'Reembolsado' ? 'selected' : ''}>↩️ Reembolsado</option>
                 </select>
               </div>
 
@@ -3406,7 +3715,28 @@ const AdminPanel = (() => {
       `;
     }
 
-    await Promise.all([loadProducts(), loadOrders(), loadStoreQuota()]);
+    await Promise.all([loadProducts(), loadOrders(), loadStoreQuota(), loadStoreMpConfig()]);
+
+    // Si regresa del callback OAuth de Mercado Pago (?mp_oauth=success|error), abrir la pestaña de Configuración & Pagos
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const mpOauthState = urlParams.get('mp_oauth');
+      if (mpOauthState === 'success' || mpOauthState === 'error') {
+        _activeTab = 'configuracion';
+        if (window.showToast) {
+          window.showToast(
+            mpOauthState === 'success'
+              ? '¡Cuenta de Mercado Pago conectada exitosamente a tu tienda!'
+              : ('Aviso OAuth Mercado Pago: ' + (urlParams.get('mp_oauth_msg') || 'No se pudo completar la vinculación'))
+          );
+        }
+        urlParams.delete('mp_oauth');
+        urlParams.delete('mp_oauth_msg');
+        const cleanSearch = urlParams.toString();
+        window.history.replaceState({}, '', window.location.pathname + (cleanSearch ? `?${cleanSearch}` : '') + window.location.hash);
+      }
+    } catch (_) {}
+
     renderDashboard();
   }
 
@@ -3441,6 +3771,13 @@ const AdminPanel = (() => {
     loadProducts,
     loadOrders,
     loadStoreQuota,
+    loadStoreMpConfig,
+    connectStoreMercadoPagoOAuth,
+    submitManualStoreMpToken,
+    connectQuickSandboxMpToken,
+    refreshStoreMercadoPagoToken,
+    disconnectStoreMercadoPago,
+    toggleManualMpBox,
     filterProducts,
     filterStock,
     filterType,

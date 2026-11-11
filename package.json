@@ -5,10 +5,10 @@
     "dev": "node server.js",
     "start": "node server.js",
     "deploy": "vercel --prod",
-    "test": "node tests/domains-and-landing.test.js && node tests/security.test.js",
+    "test": "node tests/domains-and-landing.test.js && node tests/security.test.js && node tests/phase0-infrastructure.test.js && node tests/phase1-mp-multitenant.test.js",
     "test:rules": "node scripts/test-rules.js",
     "build": "echo 'Build complete'",
-    "lint": "node -c server.js && node -c src/auth-guard.js"
+    "lint": "node -c server.js && node -c src/auth-guard.js && node -c src/firebase-db.js && node -c src/store-manager.js && node -c src/mercadopago-store-payments.js && node -c api/serverless.js"
   },
   "dependencies": {
     "@gradio/client": "^2.2.1",

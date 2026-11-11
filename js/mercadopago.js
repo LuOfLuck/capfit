@@ -1,19 +1,64 @@
-// ── CAPFIT Mercado Pago Gateway Module ──
+// ── CAPFIT Multi-Tenant Mercado Pago Checkout Pro Module ──
+//
+// Flujo Fase 1:
+// 1. Verifica en el servidor (`/api/store/current`) si la tienda correspondiente al subdominio
+//    tiene su propia cuenta de Mercado Pago conectada (`mpConnected: true`).
+// 2. Si la tienda NO conectó Mercado Pago, muestra un aviso claro y deshabilita el inicio del pago.
+// 3. Si la tienda tiene Mercado Pago activo, solicita los datos de envío y contacto del comprador,
+//    envía el pedido al backend (`POST /api/payments/mp/create-preference`) donde se validan
+//    productos, stock y precios reales desde Firestore y se genera la preferencia de Checkout Pro
+//    usando exclusivamente las credenciales del vendedor (sin `application_fee` ni comisiones de CapFit).
+// 4. Redirige al comprador a Mercado Pago Checkout Pro y procesa el retorno (`?mp_return=success|pending|failure`).
 
 const MercadoPagoGateway = (() => {
-  let activeTab = 'card'; // 'card', 'account', 'qr', 'cash'
+  let _activeStore = null;
+  let _lastCreatedOrder = null;
 
   function formatPrice(num) {
-    return '$' + Math.round(num).toLocaleString('es-AR');
+    return '$' + Math.round(Number(num) || 0).toLocaleString('es-AR');
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function getActiveStoreId() {
+    if (window.Store && typeof window.Store.getCurrentStoreId === 'function') {
+      return window.Store.getCurrentStoreId() || 'principal';
+    }
+    return 'principal';
   }
 
   function getOrderData() {
     const items = window.Cart ? window.Cart.getItems() : [];
     const subtotal = window.Cart ? window.Cart.getSubtotal() : 0;
-    const isFreeShipping = window.Cart ? (window.Cart.getFreeShippingRemaining() === 0) : true;
+    const isFreeShipping = window.Cart ? window.Cart.getFreeShippingRemaining() === 0 : true;
     const shipping = isFreeShipping ? 0 : 3500;
     const total = subtotal + shipping;
     return { items, subtotal, shipping, total, isFreeShipping };
+  }
+
+  async function fetchFreshStoreStatus() {
+    const storeId = getActiveStoreId();
+    try {
+      const res = await fetch(`/api/store/current?store=${encodeURIComponent(storeId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ok && data.store) {
+          _activeStore = data.store;
+          _activeStore.subscriptionAccess = data.subscriptionAccess || null;
+          return _activeStore;
+        }
+      }
+    } catch (_) {}
+    if (window.Store && typeof window.Store.getCurrentStore === 'function') {
+      _activeStore = window.Store.getCurrentStore();
+    }
+    return _activeStore || { id: storeId, name: 'Tienda CAPFIT', subdomain: storeId, mpConnected: false };
   }
 
   function renderModalHTML() {
@@ -26,293 +71,195 @@ const MercadoPagoGateway = (() => {
     modal.style.display = 'none';
 
     modal.innerHTML = `
-      <div class="mp-modal-card">
+      <div class="mp-modal-card" style="max-width:540px">
         <!-- Top Navigation Header -->
         <div class="mp-header-top">
           <div class="mp-top-security">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>Pago seguro con <strong>Mercado Pago</strong></span>
+            <span>Checkout seguro con <strong>Mercado Pago Checkout Pro</strong></span>
           </div>
-          <button class="mp-close-btn" onclick="MercadoPagoGateway.close()">&times;</button>
+          <button class="mp-close-btn" type="button" onclick="MercadoPagoGateway.close()">&times;</button>
         </div>
 
         <div class="mp-header-brand-row">
-          <h2 class="mp-brand-logo">CAPFIT</h2>
+          <h2 class="mp-brand-logo" id="mp-checkout-store-title">CAPFIT</h2>
           <div class="mp-protected-badge">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-            <span>Tus datos están protegidos</span>
+            <span>Pago directo al vendedor</span>
           </div>
         </div>
 
         <div class="mp-scrollable-content">
-          <!-- Main Product Card Summary (Matches Screenshot 1) -->
+          <!-- Resumen de productos del carrito -->
           <div class="mp-product-summary-card">
-            <img id="mp-main-item-img" src="assets/gorras/Gorra_negra_frente.webp" alt="Gorra">
+            <img id="mp-main-item-img" src="assets/gorras/Gorra_negra_frente.webp" alt="Producto">
             <div class="mp-product-main-info">
-              <h3 id="mp-main-item-title">Gorra CAPFIT Premium</h3>
-              <p class="mp-product-meta">Talle: Ajustable</p>
+              <h3 id="mp-main-item-title">Producto</h3>
               <p class="mp-product-meta" id="mp-main-item-qty">Cantidad: 1</p>
+              <p class="mp-product-meta" id="mp-main-shipping-label">Envío a todo el país</p>
             </div>
             <div class="mp-product-price-col">
-              <span class="mp-product-price-val" id="mp-main-item-price">$31.400</span>
-              <button class="mp-detail-toggle-btn" onclick="MercadoPagoGateway.toggleOrderDetails()">
+              <span class="mp-product-price-val" id="mp-main-item-price" style="font-variant-numeric:tabular-nums">$0</span>
+              <button class="mp-detail-toggle-btn" type="button" onclick="MercadoPagoGateway.toggleOrderDetails()">
                 <span>Ver detalle</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
             </div>
           </div>
 
-          <!-- Collapsible Order Details Drawer -->
+          <!-- Lista desplegable de ítems -->
           <div class="mp-order-details-drawer" id="mp-order-details-drawer" style="display:none;">
             <div class="mp-items-list" id="mp-modal-items-list"></div>
           </div>
 
-          <!-- Promo Banner (Matches Green Banner in Screenshot 1) -->
-          <div class="mp-promo-banner">
-            <div class="mp-promo-icon-box">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+          <!-- Estado: Tienda sin Mercado Pago conectado -->
+          <div class="mp-modal-body" id="mp-step-not-connected" style="display:none;padding:22px">
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:18px;margin-bottom:18px">
+              <h4 style="margin:0 0 6px;color:#92400e;font-size:1rem;font-weight:700">
+                Pagos con Mercado Pago no disponibles aún en esta tienda
+              </h4>
+              <p style="margin:0;color:#78350f;font-size:0.88rem;line-height:1.5" id="mp-not-connected-msg">
+                El propietario de esta tienda todavía no vinculó su cuenta de Mercado Pago. Por seguridad, el pago está deshabilitado hasta que la tienda configure su método de cobro.
+              </p>
             </div>
-            <div class="mp-promo-text-col">
-              <strong>Hasta 6 cuotas sin interés</strong>
-              <span>Con tarjetas seleccionadas</span>
-            </div>
-            <svg class="mp-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <button type="button" class="mp-submit-btn" disabled style="opacity:0.55;cursor:not-allowed;background:#94a3b8">
+              <span>Pago con Mercado Pago Deshabilitado</span>
+            </button>
           </div>
 
-          <!-- Step 1: Payment Selection & Inputs -->
-          <div class="mp-modal-body" id="mp-step-selection">
-            <h3 class="mp-section-title">Elegí cómo querés pagar</h3>
+          <!-- Paso 1: Formulario de Datos de Envío y Redirección a Checkout Pro -->
+          <div class="mp-modal-body" id="mp-step-shipping" style="display:none;">
+            <h3 class="mp-section-title" style="margin-bottom:6px">Completá tus datos de envío</h3>
+            <p style="font-size:0.83rem;color:#64748b;margin:0 0 16px">
+              Luego de confirmar tus datos de entrega te redirigiremos a <strong>Mercado Pago Checkout Pro</strong> para abonar con tarjeta, dinero en cuenta, QR o efectivo.
+            </p>
 
-            <!-- Method Selector Tabs (4 Columns like Screenshot 1) -->
-            <div class="mp-method-tabs">
-              <button class="mp-tab-btn active" data-tab="card" onclick="MercadoPagoGateway.switchTab('card')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                <span>Tarjeta</span>
-              </button>
-              <button class="mp-tab-btn" data-tab="account" onclick="MercadoPagoGateway.switchTab('account')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M15 9.5H10.5a2 2 0 0 0 0 4h3a2 2 0 0 1 0 4H9"/></svg>
-                <span>Dinero en MP</span>
-              </button>
-              <button class="mp-tab-btn" data-tab="qr" onclick="MercadoPagoGateway.switchTab('qr')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                <span>QR / CVU</span>
-              </button>
-              <button class="mp-tab-btn" data-tab="cash" onclick="MercadoPagoGateway.switchTab('cash')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
-                <span>Efectivo</span>
-              </button>
-            </div>
+            <div id="mp-checkout-error-box" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px 14px;border-radius:8px;font-size:0.84rem;font-weight:600;margin-bottom:14px"></div>
 
-            <!-- Tab Content: Card -->
-            <div class="mp-tab-pane active" id="mp-pane-card">
-              <div class="mp-cards-accepted-strip">
-                <span class="mp-accepted-label">Tarjetas aceptadas</span>
-                <div class="mp-cards-logos-wrap">
-                  <span class="mp-card-logo-pill visa">VISA</span>
-                  <span class="mp-card-logo-pill mastercard">Mastercard</span>
-                  <span class="mp-card-logo-pill amex">AMEX</span>
-                  <span class="mp-card-logo-pill cabal">CABAL</span>
-                </div>
+            <form class="mp-form" id="mp-shipping-checkout-form" onsubmit="MercadoPagoGateway.submitCheckoutPro(event)">
+              <div class="mp-field-group">
+                <label for="mp-ship-name">Nombre y apellido quien recibe</label>
+                <input type="text" id="mp-ship-name" placeholder="Ej: Juan Pérez" required>
               </div>
 
-              <form class="mp-form" onsubmit="event.preventDefault(); MercadoPagoGateway.processPayment('card');">
+              <div class="mp-field-row" style="grid-template-columns:1fr 1fr">
                 <div class="mp-field-group">
-                  <label>Número de tarjeta</label>
-                  <div class="mp-input-wrap">
-                    <input type="text" id="mp-card-number" placeholder="4092 3078 6371 1073" maxlength="19" required oninput="MercadoPagoGateway.formatCardInput(this)">
-                    <div class="mp-input-right-actions">
-                      <span class="mp-card-brand-tag">VISA</span>
-                      <button type="button" class="mp-cam-scan-btn" title="Escanear tarjeta">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                      </button>
-                    </div>
-                  </div>
+                  <label for="mp-ship-email">Correo electrónico</label>
+                  <input type="email" id="mp-ship-email" placeholder="tu@email.com" required>
                 </div>
-
                 <div class="mp-field-group">
-                  <label>Nombre y apellido impreso en la tarjeta</label>
-                  <input type="text" id="mp-card-holder" placeholder="Lucas Guerrero" required>
+                  <label for="mp-ship-phone">Teléfono / WhatsApp</label>
+                  <input type="tel" id="mp-ship-phone" placeholder="+54 9 11 5555-0000" required>
                 </div>
+              </div>
 
-                <div class="mp-field-row">
-                  <div class="mp-field-group">
-                    <label>Vencimiento</label>
-                    <input type="text" id="mp-card-expiry" placeholder="12/32" maxlength="5" required oninput="MercadoPagoGateway.formatExpiryInput(this)">
-                  </div>
-                  <div class="mp-field-group">
-                    <label>CVC / Cód.</label>
-                    <div class="mp-input-wrap">
-                      <input type="password" id="mp-card-cvc" placeholder="123" maxlength="4" required>
-                      <span class="mp-help-icon" title="Código de 3 dígitos al dorso">?</span>
-                    </div>
-                  </div>
-                  <div class="mp-field-group">
-                    <label>DNI Titular</label>
-                    <input type="text" id="mp-card-dni" placeholder="12.345.678" required>
-                  </div>
-                </div>
+              <div class="mp-field-group">
+                <label for="mp-ship-address">Dirección de entrega (Calle, altura, piso/depto)</label>
+                <input type="text" id="mp-ship-address" placeholder="Ej: Av. Santa Fe 3200, Piso 4B" required>
+              </div>
 
+              <div class="mp-field-row" style="grid-template-columns:2fr 1fr">
                 <div class="mp-field-group">
-                  <label>Cuotas</label>
-                  <select id="mp-installments-select" class="mp-select">
-                    <option value="1">1 cuota de $31.400 (Sin interés)</option>
-                    <option value="3">3 cuotas sin interés de $10.466</option>
-                    <option value="6" selected>6 cuotas sin interés de $5.233 (Recomendado)</option>
-                  </select>
+                  <label for="mp-ship-city">Ciudad / Localidad</label>
+                  <input type="text" id="mp-ship-city" placeholder="Ej: CABA / Córdoba" required>
                 </div>
-
-                <button type="submit" class="mp-submit-btn">
-                  <span>Pagar</span>
-                  <span class="mp-btn-amount" id="mp-btn-card-amount">$31.400</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </button>
-              </form>
-            </div>
-
-            <!-- Tab Content: Dinero en Cuenta MP -->
-            <div class="mp-tab-pane" id="mp-pane-account" style="display:none;">
-              <div class="mp-account-box">
-                <div class="mp-account-header">
-                  <div class="mp-avatar">💙</div>
-                  <div>
-                    <strong>Tu cuenta de Mercado Pago</strong>
-                    <p>lucasg33322@gmail.com</p>
-                  </div>
-                  <span class="mp-verified-badge">✔ Verificado</span>
-                </div>
-                <div class="mp-balance-row">
-                  <span>Saldo disponible:</span>
-                  <strong class="mp-balance-val">$185.000,00</strong>
-                </div>
-                <div class="mp-account-note">
-                  ⚡ Descuento inmediato. Sin necesidad de ingresar datos de tarjetas.
+                <div class="mp-field-group">
+                  <label for="mp-ship-zip">Código Postal</label>
+                  <input type="text" id="mp-ship-zip" placeholder="1425" required>
                 </div>
               </div>
 
-              <button type="button" class="mp-submit-btn" onclick="MercadoPagoGateway.processPayment('account')">
-                <span>Pagar con Saldo MP</span>
-                <span class="mp-btn-amount" id="mp-btn-account-amount">$31.400</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              </button>
-            </div>
-
-            <!-- Tab Content: QR / CVU Transfer -->
-            <div class="mp-tab-pane" id="mp-pane-qr" style="display:none;">
-              <div class="mp-qr-box">
-                <div class="mp-qr-img-wrap">
-                  <svg class="mp-qr-svg" viewBox="0 0 100 100">
-                    <rect x="0" y="0" width="100" height="100" fill="#ffffff"/>
-                    <rect x="10" y="10" width="25" height="25" fill="#0f172a"/>
-                    <rect x="15" y="15" width="15" height="15" fill="#ffffff"/>
-                    <rect x="18" y="18" width="9" height="9" fill="#0f172a"/>
-
-                    <rect x="65" y="10" width="25" height="25" fill="#0f172a"/>
-                    <rect x="70" y="15" width="15" height="15" fill="#ffffff"/>
-                    <rect x="73" y="18" width="9" height="9" fill="#0f172a"/>
-
-                    <rect x="10" y="65" width="25" height="25" fill="#0f172a"/>
-                    <rect x="15" y="70" width="15" height="15" fill="#ffffff"/>
-                    <rect x="18" y="73" width="9" height="9" fill="#0f172a"/>
-
-                    <rect x="42" y="12" width="6" height="6" fill="#009ee3"/>
-                    <rect x="50" y="18" width="8" height="8" fill="#0f172a"/>
-                    <rect x="40" y="30" width="10" height="10" fill="#009ee3"/>
-                    <rect x="55" y="32" width="8" height="8" fill="#0f172a"/>
-                    <rect x="12" y="42" width="8" height="8" fill="#0f172a"/>
-                    <rect x="25" y="45" width="10" height="10" fill="#009ee3"/>
-                    <rect x="42" y="48" width="12" height="12" fill="#0f172a"/>
-                    <rect x="68" y="42" width="8" height="8" fill="#009ee3"/>
-                    <rect x="80" y="50" width="10" height="10" fill="#0f172a"/>
-                    <rect x="45" y="68" width="10" height="10" fill="#009ee3"/>
-                    <rect x="62" y="68" width="12" height="12" fill="#0f172a"/>
-                    <rect x="78" y="72" width="10" height="10" fill="#009ee3"/>
-                  </svg>
-                </div>
-                <div class="mp-qr-info">
-                  <strong>Escaneá con la app de Mercado Pago</strong>
-                  <p>Abrí la app, elegí "Escanear QR" y apuntá a esta pantalla.</p>
-                  <div class="mp-cvu-copy-box">
-                    <span>Alias: <strong>capfit.tienda.mp</strong></span>
-                    <button type="button" class="btn-copy-alias" onclick="navigator.clipboard.writeText('capfit.tienda.mp'); if(window.showToast) showToast('¡Alias copiado!');">Copiar</button>
-                  </div>
-                </div>
+              <div class="mp-field-group">
+                <label for="mp-ship-notes">Notas para el envío (Opcional)</label>
+                <input type="text" id="mp-ship-notes" placeholder="Ej: Timbre 4B, entregar en recepción">
               </div>
 
-              <button type="button" class="mp-submit-btn" onclick="MercadoPagoGateway.processPayment('qr')">
-                <span>Ya transferí / Acreditar pago</span>
+              <button type="submit" class="mp-submit-btn" id="btn-mp-redirect-checkout" style="margin-top:10px">
+                <span>Ir a Pagar en Mercado Pago</span>
+                <span class="mp-btn-amount" id="mp-btn-total-amount" style="font-variant-numeric:tabular-nums">$0</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
               </button>
-            </div>
+            </form>
 
-            <!-- Tab Content: Cash -->
-            <div class="mp-tab-pane" id="mp-pane-cash" style="display:none;">
-              <div class="mp-cash-box">
-                <div class="mp-cash-item">
-                  <strong>Pago Fácil / Rapipago</strong>
-                  <p>Te daremos un código de 8 dígitos para abonar en cualquier sucursal del país.</p>
-                </div>
-                <div class="mp-cash-item">
-                  <strong>Acreditación instantánea</strong>
-                  <p>Tu pedido se procesará automáticamente apenas efectúes el pago.</p>
-                </div>
-              </div>
-
-              <button type="button" class="mp-submit-btn" onclick="MercadoPagoGateway.processPayment('cash')">
-                <span>Generar cupón de pago</span>
-              </button>
-            </div>
-
-            <!-- Footer Trust Note (Matches Screenshot 1 Footer) -->
-            <div class="mp-footer-guarantee">
+            <div class="mp-footer-guarantee" style="margin-top:16px">
               <div class="mp-foot-guar-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-                <span>SSL 256-bit</span>
+                <span>Precios validados en servidor</span>
               </div>
-              <span class="mp-foot-divider">|</span>
+              <span class="mp-foot-divider">·</span>
               <div class="mp-foot-guar-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
-                <span>Procesa Mercado Pago</span>
+                <span>Checkout Pro Oficial</span>
               </div>
             </div>
           </div>
 
-          <!-- Step 2: Loading / Processing Screen -->
+          <!-- Paso 2: Procesando / Redirigiendo a Mercado Pago -->
           <div class="mp-modal-body mp-center-state" id="mp-step-processing" style="display:none;">
             <div class="mp-spinner"></div>
-            <h3 class="mp-process-title">Conectando con Mercado Pago...</h3>
-            <p class="mp-process-sub">Procesando tu pago de forma segura. No cierres esta ventana.</p>
+            <h3 class="mp-process-title" id="mp-processing-title">Generando preferencia en Mercado Pago...</h3>
+            <p class="mp-process-sub" id="mp-processing-sub">Validando stock y conectando con la cuenta del vendedor.</p>
           </div>
 
-          <!-- Step 3: Success Receipt Screen -->
-          <div class="mp-modal-body mp-center-state" id="mp-step-success" style="display:none;">
-            <div class="mp-success-check">
+          <!-- Paso 2.5: Entorno Sandbox de Prueba de Checkout Pro (solo cuando el vendedor usa token TEST-SANDBOX) -->
+          <div class="mp-modal-body" id="mp-step-sandbox-simulator" style="display:none;padding:22px">
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:18px">
+              <div style="font-size:0.75rem;color:#1d4ed8;font-weight:700;margin-bottom:4px">
+                MODO PRUEBA MULTI-TENANT · MERCADO PAGO CHECKOUT PRO
+              </div>
+              <h4 style="margin:0 0 6px;color:#1e3a8a;font-size:1.02rem;font-weight:800" id="mp-sandbox-seller-title">
+                Pasarela de prueba del vendedor
+              </h4>
+              <p style="margin:0;color:#1e40af;font-size:0.84rem;line-height:1.45">
+                Orden creada como <strong>Pendiente</strong> en el servidor con referencia externa única. Elegí el resultado del pago en Checkout Pro para disparar la confirmación por Webhook:
+              </p>
+            </div>
+
+            <div style="display:grid;gap:10px">
+              <button type="button" class="mp-submit-btn" style="background:#16a34a" onclick="MercadoPagoGateway.simulateSandboxReturn('approved')">
+                <span>Simular Pago Aprobado en Checkout Pro</span>
+              </button>
+              <button type="button" class="mp-submit-btn" style="background:#d97706" onclick="MercadoPagoGateway.simulateSandboxReturn('pending')">
+                <span>Simular Pago Pendiente (Efectivo / Rapipago)</span>
+              </button>
+              <button type="button" class="mp-submit-btn" style="background:#dc2626" onclick="MercadoPagoGateway.simulateSandboxReturn('rejected')">
+                <span>Simular Pago Rechazado (Restaura Stock)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Paso 3: Comprobante de Retorno (Aprobado / Pendiente / Rechazado) -->
+          <div class="mp-modal-body mp-center-state" id="mp-step-receipt" style="display:none;">
+            <div class="mp-success-check" id="mp-receipt-icon-wrap">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <h3 class="mp-success-title">¡Pago Aprobado!</h3>
-            <p class="mp-success-sub">Tu compra ha sido procesada con éxito.</p>
+            <h3 class="mp-success-title" id="mp-receipt-heading">¡Pago Aprobado!</h3>
+            <p class="mp-success-sub" id="mp-receipt-subheading">Tu compra fue procesada directamente con la tienda.</p>
 
-            <div class="mp-receipt-card">
+            <div class="mp-receipt-card" style="font-variant-numeric:tabular-nums">
+              <div class="mp-receipt-row">
+                <span>Tienda Vendedora:</span>
+                <strong id="mp-receipt-store-name">CAPFIT</strong>
+              </div>
               <div class="mp-receipt-row">
                 <span>Número de Orden:</span>
-                <strong id="mp-receipt-order-num">#MP-849201</strong>
+                <strong id="mp-receipt-order-num">#MP-000000</strong>
               </div>
               <div class="mp-receipt-row">
-                <span>Monto abonado:</span>
-                <strong id="mp-receipt-amount">$31.400</strong>
+                <span>Monto Total:</span>
+                <strong id="mp-receipt-amount">$0</strong>
               </div>
               <div class="mp-receipt-row">
-                <span>Medio de pago:</span>
-                <strong id="mp-receipt-method">Mercado Pago</strong>
+                <span>Medio de Pago:</span>
+                <strong id="mp-receipt-method">Mercado Pago Checkout Pro</strong>
               </div>
               <div class="mp-receipt-row">
-                <span>Estado:</span>
-                <span class="mp-status-pill">Aprobado</span>
+                <span>Estado del Pago:</span>
+                <strong id="mp-receipt-status-text" style="color:#15803d">Aprobado</strong>
               </div>
             </div>
 
-            <p class="mp-email-notice">Te enviamos el comprobante y detalle de seguimiento a tu correo.</p>
-
-            <button class="mp-success-btn" onclick="MercadoPagoGateway.finishOrder()">
-              Volver a CAPFIT
+            <button class="mp-success-btn" type="button" onclick="MercadoPagoGateway.finishOrder()">
+              Volver a la tienda
             </button>
           </div>
         </div>
@@ -334,9 +281,113 @@ const MercadoPagoGateway = (() => {
     return modal;
   }
 
+  function showStep(stepId) {
+    const steps = [
+      'mp-step-not-connected',
+      'mp-step-shipping',
+      'mp-step-processing',
+      'mp-step-sandbox-simulator',
+      'mp-step-receipt'
+    ];
+    steps.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = id === stepId ? (id === 'mp-step-processing' || id === 'mp-step-receipt' ? 'flex' : 'block') : 'none';
+      }
+    });
+  }
+
+  function prefillCustomerShippingForm() {
+    try {
+      const user = (window.CapfitCustomer && typeof window.CapfitCustomer.getUser === 'function')
+        ? window.CapfitCustomer.getUser()
+        : null;
+      const defaultAddr = (window.CapfitCustomer && typeof window.CapfitCustomer.getDefaultAddress === 'function')
+        ? window.CapfitCustomer.getDefaultAddress()
+        : null;
+
+      const nameEl = document.getElementById('mp-ship-name');
+      const emailEl = document.getElementById('mp-ship-email');
+      const phoneEl = document.getElementById('mp-ship-phone');
+      const addrEl = document.getElementById('mp-ship-address');
+      const cityEl = document.getElementById('mp-ship-city');
+      const zipEl = document.getElementById('mp-ship-zip');
+
+      if (user) {
+        if (nameEl && !nameEl.value && user.displayName) nameEl.value = user.displayName;
+        if (emailEl && !emailEl.value && user.email) emailEl.value = user.email;
+        if (phoneEl && !phoneEl.value && user.phone) phoneEl.value = user.phone;
+      }
+      if (defaultAddr) {
+        const fullStreet = `${defaultAddr.street || ''} ${defaultAddr.number || ''} ${defaultAddr.floorApt || ''}`.trim();
+        if (addrEl && !addrEl.value && fullStreet) addrEl.value = fullStreet;
+        if (cityEl && !cityEl.value && defaultAddr.city) cityEl.value = defaultAddr.city;
+        if (zipEl && !zipEl.value && defaultAddr.postalCode) zipEl.value = defaultAddr.postalCode;
+      }
+    } catch (_) {}
+  }
+
+  function renderReceiptState(order, storeName) {
+    renderModalHTML();
+    const modal = document.getElementById('mp-checkout-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    showStep('mp-step-receipt');
+
+    const payStatus = (order && order.paymentStatus) || 'Pendiente';
+    const isApproved = payStatus === 'Aprobado';
+    const isPending = payStatus === 'Pendiente';
+
+    const headingEl = document.getElementById('mp-receipt-heading');
+    const subEl = document.getElementById('mp-receipt-subheading');
+    const iconWrap = document.getElementById('mp-receipt-icon-wrap');
+    const statusTextEl = document.getElementById('mp-receipt-status-text');
+
+    if (headingEl) {
+      headingEl.textContent = isApproved
+        ? '¡Pago Aprobado!'
+        : (isPending ? 'Pago en Proceso de Acreditación' : 'Pago No Completado');
+    }
+    if (subEl) {
+      subEl.textContent = isApproved
+        ? 'El pago se acreditó directamente en la cuenta de Mercado Pago de la tienda.'
+        : (isPending
+            ? 'Tu orden quedó registrada como Pendiente. Apenas Mercado Pago confirme el pago, actualizaremos el estado automáticamente.'
+            : 'El pago fue rechazado o cancelado en Mercado Pago. El stock fue liberado.');
+    }
+    if (iconWrap) {
+      iconWrap.style.background = isApproved ? '#dcfce7' : (isPending ? '#fef3c7' : '#fee2e2');
+      iconWrap.style.color = isApproved ? '#16a34a' : (isPending ? '#d97706' : '#dc2626');
+    }
+    if (statusTextEl) {
+      statusTextEl.textContent = payStatus;
+      statusTextEl.style.color = isApproved ? '#15803d' : (isPending ? '#b45309' : '#b91c1c');
+    }
+
+    const storeNameEl = document.getElementById('mp-receipt-store-name');
+    if (storeNameEl) storeNameEl.textContent = storeName || (_activeStore && _activeStore.name) || 'Tienda';
+
+    const orderNumEl = document.getElementById('mp-receipt-order-num');
+    if (orderNumEl) orderNumEl.textContent = (order && order.id) || '#MP-ORD';
+
+    const amountEl = document.getElementById('mp-receipt-amount');
+    if (amountEl) amountEl.textContent = formatPrice((order && order.total) || 0);
+
+    // Si fue aprobado o quedó pendiente de acreditación, vaciar carrito
+    if ((isApproved || isPending) && window.Cart) {
+      window.Cart.clearCart();
+    }
+    if (window.Catalogo && typeof window.Catalogo.reload === 'function') {
+      window.Catalogo.reload();
+    }
+  }
+
   return {
-    open() {
-      const { items, total } = getOrderData();
+    async open() {
+      const { items, shipping, total } = getOrderData();
 
       if (!items || items.length === 0) {
         if (window.showToast) window.showToast('Tu carrito está vacío');
@@ -347,60 +398,79 @@ const MercadoPagoGateway = (() => {
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
 
-      // Reset states
-      document.getElementById('mp-step-selection').style.display = 'block';
-      document.getElementById('mp-step-processing').style.display = 'none';
-      document.getElementById('mp-step-success').style.display = 'none';
+      showStep('mp-step-processing');
+      const procTitle = document.getElementById('mp-processing-title');
+      const procSub = document.getElementById('mp-processing-sub');
+      if (procTitle) procTitle.textContent = 'Verificando tienda y pasarela...';
+      if (procSub) procSub.textContent = 'Comprobando conexión con Mercado Pago.';
 
-      // Set Main Product Card data from first item
+      // Actualizar resumen del carrito en el encabezado del modal
       const firstItem = items[0];
       if (firstItem && firstItem.product) {
         const imgEl = document.getElementById('mp-main-item-img');
         const titleEl = document.getElementById('mp-main-item-title');
         const qtyEl = document.getElementById('mp-main-item-qty');
+        const shipEl = document.getElementById('mp-main-shipping-label');
 
         if (imgEl) imgEl.src = firstItem.product.imgPreview || 'assets/gorras/Gorra_negra_frente.webp';
         if (titleEl) titleEl.textContent = firstItem.product.nombre + (items.length > 1 ? ` (+${items.length - 1} más)` : '');
-        if (qtyEl) qtyEl.textContent = `Cantidad: ${firstItem.quantity}`;
+        if (qtyEl) qtyEl.textContent = `Unidades totales: ${items.reduce((acc, it) => acc + (it.quantity || 1), 0)}`;
+        if (shipEl) shipEl.textContent = shipping === 0 ? 'Envío gratis incluido' : `Envío estándar: ${formatPrice(shipping)}`;
       }
 
-      // Set Order Amount
       const totalFormatted = formatPrice(total);
       const mainPriceEl = document.getElementById('mp-main-item-price');
       if (mainPriceEl) mainPriceEl.textContent = totalFormatted;
 
-      const cardBtnAmount = document.getElementById('mp-btn-card-amount');
-      if (cardBtnAmount) cardBtnAmount.textContent = totalFormatted;
+      const btnTotalEl = document.getElementById('mp-btn-total-amount');
+      if (btnTotalEl) btnTotalEl.textContent = totalFormatted;
 
-      const accBtnAmount = document.getElementById('mp-btn-account-amount');
-      if (accBtnAmount) accBtnAmount.textContent = totalFormatted;
-
-      // Update Installments select options
-      const instSelect = document.getElementById('mp-installments-select');
-      if (instSelect) {
-        instSelect.innerHTML = `
-          <option value="1">1 cuota de ${formatPrice(total)} (Sin interés)</option>
-          <option value="3">3 cuotas sin interés de ${formatPrice(total / 3)}</option>
-          <option value="6" selected>6 cuotas sin interés de ${formatPrice(total / 6)} (Recomendado)</option>
-        `;
-      }
-
-      // Populate Items list in drawer
       const itemsContainer = document.getElementById('mp-modal-items-list');
       if (itemsContainer) {
-        itemsContainer.innerHTML = items.map(item => `
+        itemsContainer.innerHTML = items.map((item) => `
           <div class="mp-item-row">
-            <img src="${item.product.imgPreview}" alt="${item.product.nombre}">
+            <img src="${escapeHtml(item.product.imgPreview)}" alt="${escapeHtml(item.product.nombre)}">
             <div class="mp-item-details">
-              <strong>${item.product.nombre}</strong>
-              <small>Cant: ${item.quantity} | Talle: Ajustable</small>
+              <strong>${escapeHtml(item.product.nombre)}</strong>
+              <small>Cant: ${item.quantity} · Color: ${escapeHtml(item.selectedColor?.name || 'Único')}</small>
             </div>
-            <span class="mp-item-price">${formatPrice(item.product.precio * item.quantity)}</span>
+            <span class="mp-item-price" style="font-variant-numeric:tabular-nums">${formatPrice(item.product.precio * item.quantity)}</span>
           </div>
         `).join('');
       }
 
-      this.switchTab('card');
+      // Consultar estado actualizado de la tienda en el backend
+      const store = await fetchFreshStoreStatus();
+      const storeTitleEl = document.getElementById('mp-checkout-store-title');
+      if (storeTitleEl) {
+        storeTitleEl.textContent = (store && store.name) ? store.name.toUpperCase() : 'CAPFIT';
+      }
+
+      // 1. Verificar si la tienda está suspendida por vencimiento > 7 días
+      if (store && store.subscriptionAccess && store.subscriptionAccess.canReceiveOrders === false) {
+        const msgEl = document.getElementById('mp-not-connected-msg');
+        if (msgEl) {
+          msgEl.textContent = store.subscriptionAccess.reason || 'Esta tienda se encuentra temporalmente suspendida y no puede recibir pedidos en este momento.';
+        }
+        showStep('mp-step-not-connected');
+        return;
+      }
+
+      // 2. Verificar si el dueño de la tienda conectó su cuenta de Mercado Pago
+      if (!store || !store.mpConnected) {
+        const msgEl = document.getElementById('mp-not-connected-msg');
+        if (msgEl) {
+          msgEl.textContent = `El propietario de "${(store && store.name) || 'esta tienda'}" todavía no conectó su cuenta de Mercado Pago. El pago online permanecerá deshabilitado hasta que la tienda configure su cuenta en Configuración → Métodos de pago.`;
+        }
+        showStep('mp-step-not-connected');
+        return;
+      }
+
+      // 3. Mostrar formulario de datos de envío antes de redirigir a Checkout Pro
+      const errBox = document.getElementById('mp-checkout-error-box');
+      if (errBox) errBox.style.display = 'none';
+      prefillCustomerShippingForm();
+      showStep('mp-step-shipping');
     },
 
     close() {
@@ -418,149 +488,185 @@ const MercadoPagoGateway = (() => {
       }
     },
 
-    switchTab(tab) {
-      activeTab = tab;
-      const tabs = document.querySelectorAll('.mp-tab-btn');
-      tabs.forEach(t => {
-        t.classList.toggle('active', t.getAttribute('data-tab') === tab);
-      });
+    async submitCheckoutPro(event) {
+      if (event) event.preventDefault();
 
-      const panes = ['card', 'account', 'qr', 'cash'];
-      panes.forEach(p => {
-        const paneEl = document.getElementById(`mp-pane-${p}`);
-        if (paneEl) {
-          paneEl.style.display = p === tab ? 'block' : 'none';
+      const errBox = document.getElementById('mp-checkout-error-box');
+      if (errBox) errBox.style.display = 'none';
+
+      const name = document.getElementById('mp-ship-name')?.value?.trim() || '';
+      const email = document.getElementById('mp-ship-email')?.value?.trim() || '';
+      const phone = document.getElementById('mp-ship-phone')?.value?.trim() || '';
+      const address = document.getElementById('mp-ship-address')?.value?.trim() || '';
+      const city = document.getElementById('mp-ship-city')?.value?.trim() || '';
+      const postalCode = document.getElementById('mp-ship-zip')?.value?.trim() || '';
+      const notes = document.getElementById('mp-ship-notes')?.value?.trim() || '';
+
+      if (!name || !email || !phone || !address || !city || !postalCode) {
+        if (errBox) {
+          errBox.textContent = 'Por favor completá todos los datos de contacto y dirección de entrega.';
+          errBox.style.display = 'block';
         }
-      });
-    },
-
-    formatCardInput(input) {
-      let val = input.value.replace(/\D/g, '');
-      val = val.substring(0, 16);
-      val = val.replace(/(.{4})/g, '$1 ').trim();
-      input.value = val;
-    },
-
-    formatExpiryInput(input) {
-      let val = input.value.replace(/\D/g, '');
-      if (val.length >= 2) {
-        val = val.substring(0, 2) + '/' + val.substring(2, 4);
+        return;
       }
-      input.value = val;
+
+      const { items } = getOrderData();
+      const storeId = getActiveStoreId();
+      const user = (window.CapfitCustomer && typeof window.CapfitCustomer.getUser === 'function')
+        ? window.CapfitCustomer.getUser()
+        : null;
+
+      showStep('mp-step-processing');
+      const procTitle = document.getElementById('mp-processing-title');
+      const procSub = document.getElementById('mp-processing-sub');
+      if (procTitle) procTitle.textContent = 'Creando tu orden y preferencia en Mercado Pago...';
+      if (procSub) procSub.textContent = 'Validando stock y precios reales con la tienda.';
+
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        const fbUser = (window.CapfitAuth && typeof window.CapfitAuth.getCurrentUser === 'function')
+          ? window.CapfitAuth.getCurrentUser()
+          : null;
+        if (fbUser && typeof fbUser.getIdToken === 'function') {
+          try {
+            const idToken = await fbUser.getIdToken();
+            if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+          } catch (_) {}
+        }
+
+        const payload = {
+          storeId,
+          userId: user ? user.uid : null,
+          buyerEmail: email,
+          customer: {
+            name,
+            email,
+            phone,
+            address,
+            city,
+            postalCode
+          },
+          notes,
+          items: items.map((it) => ({
+            id: it.product.id,
+            nombre: it.product.nombre,
+            color: it.selectedColor?.name || 'Único',
+            colorHex: it.selectedColor?.hex || '#111111',
+            quantity: it.quantity,
+            precio: it.product.precio,
+            imgPreview: it.product.imgPreview
+          }))
+        };
+
+        const res = await fetch(`/api/payments/mp/create-preference?store=${encodeURIComponent(storeId)}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'No se pudo generar el checkout de Mercado Pago.');
+        }
+
+        _lastCreatedOrder = data.order;
+
+        // Si es una preferencia real de Mercado Pago (https://www.mercadopago...), redirigir a Checkout Pro
+        const targetUrl = data.initPoint || data.sandboxInitPoint;
+        if (targetUrl && !targetUrl.includes('mp_sandbox_checkout=1')) {
+          window.location.href = targetUrl;
+          return;
+        }
+
+        // Si la tienda está usando un token Sandbox local (TEST-SANDBOX-...), mostrar el simulador de retorno de Checkout Pro
+        const sellerTitle = document.getElementById('mp-sandbox-seller-title');
+        if (sellerTitle) {
+          sellerTitle.textContent = `Checkout Pro — ${data.storeName || storeId} (Orden ${data.order.id})`;
+        }
+        showStep('mp-step-sandbox-simulator');
+      } catch (err) {
+        showStep('mp-step-shipping');
+        if (errBox) {
+          errBox.textContent = err.message || 'Error al iniciar el pago con Mercado Pago.';
+          errBox.style.display = 'block';
+        }
+      }
     },
 
-    processPayment(method) {
-      const { total } = getOrderData();
+    async simulateSandboxReturn(mpStatus) {
+      if (!_lastCreatedOrder) return;
+      const storeId = getActiveStoreId();
+      const paymentId = `SANDBOX_PAY_${Date.now()}`;
 
-      // Show processing state
-      document.getElementById('mp-step-selection').style.display = 'none';
-      document.getElementById('mp-step-processing').style.display = 'flex';
+      showStep('mp-step-processing');
+      const procTitle = document.getElementById('mp-processing-title');
+      if (procTitle) procTitle.textContent = 'Confirmando notificación de pago...';
 
-      setTimeout(() => {
-        // Show success state
-        document.getElementById('mp-step-processing').style.display = 'none';
-        document.getElementById('mp-step-success').style.display = 'flex';
+      try {
+        const res = await fetch('/api/payments/mp/verify-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeId,
+            orderId: _lastCreatedOrder.id,
+            paymentId,
+            sandboxStatus: mpStatus
+          })
+        });
+        const data = await res.json();
+        const updatedOrder = (data && data.order) || _lastCreatedOrder;
+        renderReceiptState(updatedOrder, _activeStore && _activeStore.name);
+      } catch (_) {
+        renderReceiptState(_lastCreatedOrder, _activeStore && _activeStore.name);
+      }
+    },
 
-        // Order Number & details
-        const randomOrderNum = '#MP-' + Math.floor(100000 + Math.random() * 900000);
-        document.getElementById('mp-receipt-order-num').textContent = randomOrderNum;
-        document.getElementById('mp-receipt-amount').textContent = formatPrice(total);
+    async handleCheckoutReturnFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const mpReturn = params.get('mp_return');
+        const orderId = params.get('order_id') || params.get('external_reference');
+        const paymentId = params.get('payment_id') || params.get('collection_id');
+        const storeId = params.get('store') || getActiveStoreId();
 
-        let methodNameStr = 'Tarjeta de Crédito Mercado Pago';
-        if (method === 'account') methodNameStr = 'Dinero en Cuenta Mercado Pago';
-        if (method === 'qr') methodNameStr = 'Transferencia CVU Mercado Pago';
-        if (method === 'cash') methodNameStr = 'Efectivo (Rapipago / Pago Fácil)';
+        if (!mpReturn || !orderId) return;
 
-        document.getElementById('mp-receipt-method').textContent = methodNameStr;
-
-        // Persistir orden real en servidor y descontar stock automáticamente
-        try {
-          const { items } = getOrderData();
-          const holderName = document.getElementById('mp-card-holder')?.value?.trim();
-          const user = (window.CapfitCustomer && typeof window.CapfitCustomer.getUser === 'function') ? window.CapfitCustomer.getUser() : null;
-          const defaultAddr = (window.CapfitCustomer && typeof window.CapfitCustomer.getDefaultAddress === 'function') ? window.CapfitCustomer.getDefaultAddress() : null;
-
-          const buyerEmail = user ? user.email : 'comprador@gmail.com';
-          const customerName = (user && user.displayName) || holderName || 'Cliente CAPFIT';
-          const customerPhone = (user && user.phone) || '+54 9 11 5240-8910';
-
-          const orderPayload = {
-            id: randomOrderNum,
-            userId: user ? user.uid : null,
-            buyerEmail: buyerEmail,
-            isClaimed: Boolean(user),
-            customer: {
-              name: customerName,
-              email: buyerEmail,
-              phone: customerPhone,
-              address: defaultAddr ? `${defaultAddr.street} ${defaultAddr.number || ''}`.trim() : 'Envío prioritario a domicilio',
-              city: defaultAddr ? defaultAddr.city : 'Buenos Aires',
-              postalCode: defaultAddr ? defaultAddr.postalCode : '1425'
-            },
-            shippingTracking: {
-              carrier: 'Andreani',
-              trackingCode: '',
-              shippedAt: null
-            },
-            items: items.map(it => ({
-              id: it.product.id,
-              nombre: it.product.nombre,
-              color: it.selectedColor?.name || 'Único',
-              colorHex: it.selectedColor?.hex || '#111111',
-              quantity: it.quantity,
-              precio: it.product.precio,
-              imgPreview: it.product.imgPreview
-            })),
-            subtotal: total,
-            shipping: (window.Cart && window.Cart.getFreeShippingRemaining() === 0 ? 0 : 3500),
-            total: total,
-            totalAmount: total,
-            status: 'pending',
-            paymentMethod: methodNameStr,
-            paymentStatus: 'Pendiente',
-            shippingStatus: 'Por preparar',
-            notes: ''
-          };
-
-          (async () => {
-            const headers = { 'Content-Type': 'application/json' };
-            const fbUser = (window.CapfitAuth && typeof window.CapfitAuth.getCurrentUser === 'function')
-              ? window.CapfitAuth.getCurrentUser()
-              : null;
-            if (fbUser && typeof fbUser.getIdToken === 'function') {
-              try {
-                const idToken = await fbUser.getIdToken();
-                if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
-              } catch (_) {}
-            }
-
-            const r = await fetch('/api/orders', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify(orderPayload)
-            });
-            const data = await r.json();
-            if (data && data.ok) {
-              if (window.Catalogo) window.Catalogo.reload();
-              if (window.AdminPanel && window.AdminPanel.isLoggedIn()) {
-                window.AdminPanel.loadOrders();
-                window.AdminPanel.loadProducts();
-              }
-            }
-          })().catch(err => console.error('Error guardando orden en servidor:', err));
-        } catch (err) {
-          console.error('Error procesando datos del pedido:', err);
+        await fetchFreshStoreStatus();
+        const verifyUrl = `/api/payments/mp/verify-order?store=${encodeURIComponent(storeId)}&order_id=${encodeURIComponent(orderId)}${paymentId ? `&payment_id=${encodeURIComponent(paymentId)}` : ''}`;
+        const res = await fetch(verifyUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.order) {
+            renderReceiptState(data.order, _activeStore && _activeStore.name);
+          }
         }
-      }, 1800);
+
+        // Limpiar parámetros de retorno de la URL sin recargar
+        params.delete('mp_return');
+        params.delete('order_id');
+        params.delete('payment_id');
+        params.delete('collection_id');
+        params.delete('collection_status');
+        params.delete('status');
+        params.delete('preference_id');
+        const cleanQuery = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '') + window.location.hash);
+      } catch (e) {
+        console.warn('[MercadoPagoGateway] Error verificando retorno de Checkout Pro:', e);
+      }
     },
 
     finishOrder() {
-      if (window.Cart) window.Cart.clearCart();
       this.close();
       if (window.navigateToView) window.navigateToView('inicio');
-      if (window.showToast) window.showToast('¡Muchas gracias por tu compra en CAPFIT!');
+      if (window.showToast) window.showToast('¡Gracias por tu visita!');
     }
   };
 })();
 
 window.MercadoPagoGateway = MercadoPagoGateway;
+window.addEventListener('DOMContentLoaded', () => {
+  if (window.MercadoPagoGateway && typeof window.MercadoPagoGateway.handleCheckoutReturnFromUrl === 'function') {
+    window.MercadoPagoGateway.handleCheckoutReturnFromUrl();
+  }
+});

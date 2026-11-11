@@ -18,10 +18,8 @@ const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'capfit-6689b';
 const GOOGLE_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 const SESSION_TTL_SECONDS = 12 * 60 * 60; // 12 hours
 
-// Secret key for HMAC-SHA256 session tokens.
-// Uses SESSION_SECRET / ADMIN_TOKEN_SECRET from environment if provided,
-// otherwise derives a random runtime secret per process boot so plain-text tokens can never be forged.
-const EphemeralBootEntropy = crypto.randomBytes(32).toString('hex');
+// Secret key for HMAC-SHA256 session tokens and AES-256-GCM encryption across serverless instances.
+let _warnedMissingSessionSecret = false;
 function getHmacSecret() {
   if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16) {
     return process.env.SESSION_SECRET.trim();
@@ -29,10 +27,102 @@ function getHmacSecret() {
   if (process.env.ADMIN_TOKEN_SECRET && process.env.ADMIN_TOKEN_SECRET.trim().length >= 16) {
     return process.env.ADMIN_TOKEN_SECRET.trim();
   }
-  return crypto
-    .createHash('sha256')
-    .update(`capfit-hmac-v1::${process.env.ADMIN_PASSWORD || ''}::${EphemeralBootEntropy}`)
-    .digest('hex');
+  if (!_warnedMissingSessionSecret && process.env.NODE_ENV === 'production') {
+    _warnedMissingSessionSecret = true;
+    console.warn('⚠️ [AuthGuard] SESSION_SECRET no definida en variables de entorno; usando derivación determinística de respaldo.');
+  }
+  const seed = `${process.env.ADMIN_PASSWORD || ''}::${process.env.MP_TOKEN_ENCRYPTION_KEY || ''}::${FIREBASE_PROJECT_ID}::capfit-serverless-v1`;
+  return crypto.createHash('sha256').update(seed).digest('hex');
+}
+
+function getEncryptionKey32() {
+  const rawKey = (process.env.MP_TOKEN_ENCRYPTION_KEY || '').trim() || getHmacSecret();
+  return crypto.createHash('sha256').update(`capfit-aes256gcm::${rawKey}`).digest();
+}
+
+/**
+ * Encrypts a string or JSON object using AES-256-GCM
+ * Format: enc_v1:<ivHex>:<authTagHex>:<cipherTextHex>
+ */
+function encryptSensitiveData(data) {
+  if (data === null || data === undefined) return null;
+  const plainText = typeof data === 'string' ? data : JSON.stringify(data);
+  const key = getEncryptionKey32();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `enc_v1:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
+}
+
+/**
+ * Decrypts an AES-256-GCM payload produced by encryptSensitiveData
+ */
+function decryptSensitiveData(payload, parseJson = true) {
+  if (!payload || typeof payload !== 'string' || !payload.startsWith('enc_v1:')) {
+    return null;
+  }
+  const parts = payload.split(':');
+  if (parts.length !== 4) return null;
+  try {
+    const key = getEncryptionKey32();
+    const iv = Buffer.from(parts[1], 'hex');
+    const authTag = Buffer.from(parts[2], 'hex');
+    const encryptedText = Buffer.from(parts[3], 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(encryptedText), decipher.final()]).toString('utf8');
+    if (parseJson) {
+      try {
+        return JSON.parse(decrypted);
+      } catch (_) {
+        return decrypted;
+      }
+    }
+    return decrypted;
+  } catch (err) {
+    console.warn('[AuthGuard] Error descifrando credencial AES-256-GCM:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Hashes a store password using scrypt with a random 16-byte salt
+ * Format: scrypt_v1:<saltHex>:<hashHex>
+ */
+function hashPassword(password) {
+  if (!password || typeof password !== 'string') return '';
+  if (password.startsWith('scrypt_v1:')) return password;
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt_v1:${salt}:${derived}`;
+}
+
+/**
+ * Verifies a password against either a scrypt_v1 hash or a legacy plain-text secret using constant-time comparison
+ */
+function verifyPasswordHash(plainPassword, storedSecret) {
+  if (!plainPassword || !storedSecret || typeof plainPassword !== 'string' || typeof storedSecret !== 'string') {
+    return false;
+  }
+  if (storedSecret.startsWith('scrypt_v1:')) {
+    const parts = storedSecret.split(':');
+    if (parts.length !== 3) return false;
+    const salt = parts[1];
+    const expectedHex = parts[2];
+    try {
+      const derivedBuf = crypto.scryptSync(plainPassword, salt, 64);
+      const expectedBuf = Buffer.from(expectedHex, 'hex');
+      if (derivedBuf.length !== expectedBuf.length) return false;
+      return crypto.timingSafeEqual(derivedBuf, expectedBuf);
+    } catch (_) {
+      return false;
+    }
+  }
+  const plainBuf = Buffer.from(plainPassword, 'utf8');
+  const storedBuf = Buffer.from(storedSecret, 'utf8');
+  if (plainBuf.length !== storedBuf.length) return false;
+  return crypto.timingSafeEqual(plainBuf, storedBuf);
 }
 
 // Cache for Google X.509 public certificates
@@ -422,6 +512,11 @@ function canManageStore(auth, targetStoreId) {
 
 module.exports = {
   FIREBASE_PROJECT_ID,
+  getHmacSecret,
+  encryptSensitiveData,
+  decryptSensitiveData,
+  hashPassword,
+  verifyPasswordHash,
   signSessionToken,
   verifySessionToken,
   verifyFirebaseIdToken,

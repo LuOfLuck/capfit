@@ -16,14 +16,16 @@ const fs    = require('fs');
 const path  = require('path');
 const url   = require('url');
 
+const crypto = require('crypto');
 const StoreManager = require('./src/store-manager');
 const FirebaseDb = require('./src/firebase-db');
 const MercadoPagoSubscriptions = require('./src/mercadopago-subscriptions');
+const MercadoPagoStorePayments = require('./src/mercadopago-store-payments');
 const CustomerService = require('./src/customer-service');
 const AuthGuard = require('./src/auth-guard');
 StoreManager.init().catch(err => console.error('StoreManager init error:', err));
 
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT, 10) || 3000;
 
 // Verificar que las keys estén configuradas
 if (!process.env.FAL_KEY) {
@@ -241,6 +243,15 @@ async function appHandler(req, res) {
 
   const isCapfitDomain = hostHdr.endsWith('capfit.store');
   const isAdminDomain = hostHdr === 'admin.capfit.store' || hostHdr.startsWith('admin.');
+  const isDedicatedTenantSubdomain = Boolean(
+    isCapfitDomain &&
+    !isAdminDomain &&
+    hostHdr !== 'capfit.store' &&
+    hostHdr !== 'www.capfit.store' &&
+    hostHdr !== 'app.capfit.store' &&
+    currentStore &&
+    !currentStore.isAdminPortal
+  );
 
   // Redirección hacia admin.capfit.store cuando se intenta acceder al panel/login desde una tienda pública
   if (isCapfitDomain && !isAdminDomain && (reqPath === '/admin' || reqPath === '/admin/' || reqPath === '/account' || reqPath === '/account/')) {
@@ -672,6 +683,7 @@ async function appHandler(req, res) {
   // 0. GET /api/store/current (Información de la tienda activa y su cuota mensual de IA)
   if (reqPath === '/api/store/current' && req.method === 'GET') {
     const quota = StoreManager.getAiQuotaStatus(currentStore.id);
+    const subAccess = StoreManager.getStoreSubscriptionAccess(currentStore);
     sendJson(res, 200, {
       ok: true,
       store: {
@@ -681,9 +693,12 @@ async function appHandler(req, res) {
         name: currentStore.name,
         tagline: currentStore.tagline,
         plan: currentStore.plan || 'Starter',
-        brandColor: currentStore.brandColor || '#111111'
+        brandColor: currentStore.brandColor || '#111111',
+        mpConnected: Boolean(currentStore.mpConnected),
+        mpConnectionMode: currentStore.mpConnectionMode || null
       },
-      aiQuota: quota
+      aiQuota: quota,
+      subscriptionAccess: subAccess
     });
     return;
   }
@@ -700,6 +715,7 @@ async function appHandler(req, res) {
       about: s.about || null,
       plan: s.plan,
       aiQuota: StoreManager.getAiQuotaStatus(s.id),
+      mpConnected: Boolean(s.mpConnected),
       active: s.active
     }));
     sendJson(res, 200, publicList);
@@ -1658,8 +1674,8 @@ async function appHandler(req, res) {
     return;
   }
 
-  // 1.07 POST /api/webhooks/mercadopago & /api/subscriptions/webhook (Webhook oficial de Mercado Pago)
-  if ((reqPath === '/api/webhooks/mercadopago' || reqPath === '/api/subscriptions/webhook') && req.method === 'POST') {
+  // 1.07 POST /api/subscriptions/webhook (Webhook de Suscripciones SaaS de Mercado Pago)
+  if (reqPath === '/api/subscriptions/webhook' && req.method === 'POST') {
     try {
       const raw = await readBody(req);
       const body = JSON.parse(raw.toString() || '{}');
@@ -1940,8 +1956,13 @@ async function appHandler(req, res) {
 
   // 2. GET /api/products (Público y Backoffice para la tienda actual)
   if (reqPath === '/api/products' && req.method === 'GET') {
-    const targetStoreId = qs.store || qs.storeId || currentStore.id;
-    const products = StoreManager.readStoreProducts(targetStoreId);
+    const requestedStoreParam = qs.store || qs.storeId || null;
+    if (isDedicatedTenantSubdomain && requestedStoreParam && String(requestedStoreParam).toLowerCase() !== String(currentStore.id).toLowerCase()) {
+      sendJson(res, 403, { ok: false, error: `No se permite consultar productos de otra tienda desde el subdominio ${currentStore.subdomain}.capfit.store.` });
+      return;
+    }
+    const targetStoreId = isDedicatedTenantSubdomain ? currentStore.id : (requestedStoreParam || currentStore.id);
+    const products = await StoreManager.fetchStoreProductsFromDb(targetStoreId);
     sendJson(res, 200, products);
     return;
   }
@@ -2125,7 +2146,7 @@ async function appHandler(req, res) {
     return;
   }
 
-  // 6. POST /api/admin/upload (Subida de fotos de productos convertidas a WebP — Requiere Admin autenticado)
+  // 6. POST /api/admin/upload (Subida persistente multi-tenant a Firebase Storage — Requiere Admin autenticado)
   if (reqPath === '/api/admin/upload' && req.method === 'POST') {
     try {
       const auth = await AuthGuard.authenticateRequest(req);
@@ -2141,32 +2162,80 @@ async function appHandler(req, res) {
       const raw = await readBody(req);
       const { filename, base64, storeId } = JSON.parse(raw.toString() || '{}');
       const targetStoreId = storeId || qs.store || auth.storeId || currentStore.id;
-      if (auth.role !== 'superadmin' && !AuthGuard.canManageStore(auth, targetStoreId)) {
+      if (!AuthGuard.canManageStore(auth, targetStoreId)) {
         sendJson(res, 403, { ok: false, error: `No tenés permisos para subir archivos en la tienda "${targetStoreId}".` });
         return;
       }
 
-      if (!base64) {
+      if (!base64 || typeof base64 !== 'string') {
         sendJson(res, 400, { ok: false, error: 'No se envió la imagen base64' });
         return;
       }
+
+      const mimeMatch = base64.match(/^data:(image\/(?:webp|png|jpeg|jpg));base64,/i);
+      const contentType = mimeMatch ? mimeMatch[1].toLowerCase() : 'image/webp';
       const cleanBase64 = base64.replace(/^data:[^;]+;base64,/, '');
       const buffer = Buffer.from(cleanBase64, 'base64');
 
-      // Asegurar extensión .webp para optimización y compatibilidad
+      if (buffer.length === 0 || buffer.length > 2 * 1024 * 1024) {
+        sendJson(res, 400, { ok: false, error: 'El archivo de imagen debe ser válido y pesar menos de 2MB.' });
+        return;
+      }
+
+      // Asegurar nombre seguro aislado por tienda y extensión .webp
+      const cleanStoreSlug = String(targetStoreId || 'principal').replace(/[^a-zA-Z0-9_-]/g, '_');
       const origExt = path.extname(filename || '');
       const safeBase = path.basename(filename || 'gorra', origExt).replace(/[^a-zA-Z0-9_-]/g, '_');
-      const safeFilename = `${safeBase}_${Date.now()}.webp`;
+      const safeFilename = `${cleanStoreSlug}_${safeBase}_${Date.now()}.webp`;
 
-      const uploadDir = path.join(__dirname, 'assets', 'gorras');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+      // 1. Subir a Firebase Storage bajo stores/{storeId}/products/{safeFilename}
+      let storageResult = null;
+      if (FirebaseDb && typeof FirebaseDb.uploadStoreProductImage === 'function') {
+        storageResult = await FirebaseDb.uploadStoreProductImage({
+          storeId: cleanStoreSlug,
+          filename: safeFilename,
+          buffer,
+          contentType
+        });
       }
-      fs.writeFileSync(path.join(uploadDir, safeFilename), buffer);
 
+      if (storageResult && storageResult.ok && storageResult.url) {
+        sendJson(res, 200, {
+          ok: true,
+          storeId: cleanStoreSlug,
+          storage: 'firebase_storage',
+          path: storageResult.path,
+          url: storageResult.url
+        });
+        return;
+      }
+
+      // 2. Fallback seguro si el entorno actual no permite escritura directa al bucket público
+      if (!process.env.VERCEL) {
+        try {
+          const uploadDir = path.join(__dirname, 'assets', 'gorras');
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          fs.writeFileSync(path.join(uploadDir, safeFilename), buffer);
+          sendJson(res, 200, {
+            ok: true,
+            storeId: cleanStoreSlug,
+            storage: 'local_assets',
+            path: `stores/${cleanStoreSlug}/products/${safeFilename}`,
+            url: `assets/gorras/${safeFilename}`
+          });
+          return;
+        } catch (_) {}
+      }
+
+      // 3. Fallback sin escritura en disco para entornos read-only (EROFS-safe)
       sendJson(res, 200, {
         ok: true,
-        url: `assets/gorras/${safeFilename}`
+        storeId: cleanStoreSlug,
+        storage: 'inline_webp',
+        path: `stores/${cleanStoreSlug}/products/${safeFilename}`,
+        url: `data:${contentType};base64,${cleanBase64}`
       });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
@@ -2174,7 +2243,7 @@ async function appHandler(req, res) {
     return;
   }
 
-  // 7. GET /api/orders (Listado de pedidos de la tienda — Protegido: Solo dueño de la tienda o SuperAdmin)
+  // 7. GET /api/orders (Listado de pedidos de la tienda consultando Firestore como fuente de verdad — Protegido)
   if (reqPath === '/api/orders' && req.method === 'GET') {
     const auth = await AuthGuard.authenticateRequest(req);
     if (!auth.authenticated) {
@@ -2186,25 +2255,46 @@ async function appHandler(req, res) {
       sendJson(res, 403, { ok: false, error: `No tenés permisos para consultar los pedidos de la tienda "${targetStoreId}".` });
       return;
     }
-    const orders = StoreManager.readStoreOrders(targetStoreId);
+    const orders = await StoreManager.fetchStoreOrdersFromDb(targetStoreId);
     sendJson(res, 200, orders);
     return;
   }
 
-  // 8. POST /api/orders (Nuevo pedido desde checkout — Fuerza paymentStatus: 'Pendiente' y recalcula precios reales)
+  // 8. POST /api/orders (Nuevo pedido desde checkout — Fuerza paymentStatus: 'Pendiente', valida stock/catálogo real y aísla por tienda)
   if (reqPath === '/api/orders' && req.method === 'POST') {
     try {
       const raw = await readBody(req);
       const orderData = JSON.parse(raw.toString() || '{}');
-      const targetStoreId = orderData.storeId || qs.store || currentStore.id;
-      const storeObj = StoreManager.getStoreById(targetStoreId);
+      const requestedStoreId = orderData.storeId || qs.store || null;
+
+      // Bloquear intento de crear una orden para otra tienda desde un subdominio dedicado
+      if (isDedicatedTenantSubdomain && requestedStoreId && String(requestedStoreId).toLowerCase() !== String(currentStore.id).toLowerCase()) {
+        sendJson(res, 403, {
+          ok: false,
+          error: `No se permite registrar pedidos para otra tienda ("${requestedStoreId}") desde el subdominio ${currentStore.subdomain}.capfit.store.`
+        });
+        return;
+      }
+
+      const targetStoreId = isDedicatedTenantSubdomain ? currentStore.id : (requestedStoreId || currentStore.id);
+      const storeObj = StoreManager.getStoreById(targetStoreId) || await StoreManager.getStorePublic(targetStoreId);
       if (!storeObj) {
         sendJson(res, 404, { ok: false, error: 'Tienda no encontrada' });
         return;
       }
 
-      const orders = StoreManager.readStoreOrders(storeObj.id);
-      const products = StoreManager.readStoreProducts(storeObj.id);
+      // Verificar reglas de suscripción (Activa o dentro de los 7 días de gracia permite compras; Suspendida >7 días bloquea)
+      const subAccess = StoreManager.getStoreSubscriptionAccess(storeObj);
+      if (!subAccess.canReceiveOrders) {
+        sendJson(res, 403, {
+          ok: false,
+          code: 'STORE_SUSPENDED',
+          error: subAccess.reason || 'Esta tienda se encuentra temporalmente suspendida y no puede recibir compras.'
+        });
+        return;
+      }
+
+      const products = await StoreManager.fetchStoreProductsFromDb(storeObj.id);
 
       const rawItems = Array.isArray(orderData.items) ? orderData.items : [];
       if (rawItems.length === 0) {
@@ -2221,34 +2311,69 @@ async function appHandler(req, res) {
         }
       }
 
-      // Recalcular precios unitarios y subtotal desde el catálogo oficial de la tienda
+      // Validar que cada producto exista en el catálogo real de la tienda, tenga stock suficiente y recalcular precios en el servidor
       let calculatedSubtotal = 0;
-      const sanitizedItems = rawItems.map(item => {
+      const sanitizedItems = [];
+
+      for (const item of rawItems) {
         const targetId = item.id || (item.product && item.product.id);
-        const catalogProd = products.find(p => p.id === targetId);
+        if (!targetId) {
+          sendJson(res, 400, { ok: false, error: 'Cada producto del pedido debe incluir un identificador válido.' });
+          return;
+        }
+        const catalogProd = products.find(p => String(p.id) === String(targetId));
+        if (!catalogProd) {
+          sendJson(res, 400, {
+            ok: false,
+            error: `El producto "${targetId}" no existe en el catálogo oficial de la tienda "${storeObj.name}".`
+          });
+          return;
+        }
+
         const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-        const officialPrice = catalogProd ? Number(catalogProd.precio) : Math.max(0, Number(item.precio) || 0);
+        if (catalogProd.stock !== undefined && Number(catalogProd.stock) < qty) {
+          sendJson(res, 400, {
+            ok: false,
+            code: 'INSUFFICIENT_STOCK',
+            error: `Stock insuficiente para "${catalogProd.nombre}" (disponible: ${catalogProd.stock}, solicitado: ${qty}).`
+          });
+          return;
+        }
+
+        const officialPrice = Number(catalogProd.precio);
+        if (isNaN(officialPrice) || officialPrice <= 0) {
+          sendJson(res, 400, { ok: false, error: `El producto "${catalogProd.nombre}" tiene un precio inválido en catálogo.` });
+          return;
+        }
+
         calculatedSubtotal += officialPrice * qty;
 
-        return {
-          id: targetId || `item_${Date.now()}`,
-          nombre: catalogProd ? catalogProd.nombre : String(item.nombre || 'Producto CAPFIT'),
+        sanitizedItems.push({
+          id: catalogProd.id,
+          nombre: catalogProd.nombre,
           color: item.color || 'Único',
           colorHex: item.colorHex || '#111111',
           quantity: qty,
           precio: officialPrice,
-          imgPreview: catalogProd ? catalogProd.imgPreview : (item.imgPreview || 'assets/gorras/Gorra_negra_frente.webp')
-        };
-      });
+          unitPrice: officialPrice,
+          imgPreview: catalogProd.imgPreview || 'assets/gorras/Gorra_negra_frente.webp'
+        });
+      }
 
       const storeSections = StoreManager.getStoreSections(storeObj.id);
       const freeShippingThreshold = (storeSections && storeSections.envios && Number(storeSections.envios.freeShippingThreshold)) || 40000;
-      const officialShipping = calculatedSubtotal >= freeShippingThreshold ? 0 : (orderData.shipping !== undefined ? Math.max(0, Number(orderData.shipping)) : 3500);
+      const standardShippingCost = (storeSections && storeSections.envios && Number(storeSections.envios.standardCost)) || 3500;
+      const defaultShipping = calculatedSubtotal >= freeShippingThreshold ? 0 : standardShippingCost;
+      const officialShipping = orderData.shipping !== undefined && orderData.shipping !== null
+        ? Math.max(0, Math.round(Number(orderData.shipping) || 0))
+        : defaultShipping;
       const calculatedTotal = calculatedSubtotal + officialShipping;
 
-      const orderId = orderData.id || ('#MP-' + Math.floor(100000 + Math.random() * 900000));
+      // Generar siempre un ID de orden único en el servidor para evitar colisiones o sobrescritura de órdenes existentes
+      const orderId = `#MP-${Date.now().toString().slice(-6)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
       const buyerEmail = (orderData.buyerEmail || (orderData.customer && orderData.customer.email) || (auth.authenticated && auth.email) || '').toLowerCase().trim();
       const isClaimed = Boolean(verifiedUserId);
+      const nowIso = new Date().toISOString();
 
       // Decisión de seguridad confirmada: Toda orden creada desde checkout público nace como 'Pendiente'
       const newOrder = {
@@ -2257,7 +2382,9 @@ async function appHandler(req, res) {
         userId: verifiedUserId,
         buyerEmail: buyerEmail,
         isClaimed: isClaimed,
-        date: new Date().toISOString(),
+        date: nowIso,
+        createdAt: nowIso,
+        paidAt: null,
         customer: orderData.customer || {
           name: 'Comprador ' + (storeObj.name || 'CAPFIT'),
           email: buyerEmail || 'cliente@ejemplo.com',
@@ -2269,9 +2396,11 @@ async function appHandler(req, res) {
         items: sanitizedItems,
         subtotal: calculatedSubtotal,
         shipping: officialShipping,
+        shippingCost: officialShipping,
         total: calculatedTotal,
         totalAmount: calculatedTotal,
-        paymentMethod: orderData.paymentMethod || 'Tarjeta de Crédito Mercado Pago',
+        currency: 'ARS',
+        paymentMethod: orderData.paymentMethod || 'Mercado Pago',
         paymentStatus: 'Pendiente',
         shippingStatus: 'Por preparar',
         shippingTracking: {
@@ -2281,27 +2410,26 @@ async function appHandler(req, res) {
         },
         trackingCode: '',
         notes: orderData.notes ? String(orderData.notes).slice(0, 500) : '',
-        status: 'pending'
+        status: 'pending',
+        externalReference: `ord_${storeObj.id}_${orderId}`,
+        mpPreferenceId: null,
+        mpPaymentId: null,
+        processedWebhookIds: []
       };
 
       // Descontar stock automáticamente de los productos del pedido en la tienda
       sanitizedItems.forEach(item => {
-        const prod = products.find(p => p.id === item.id);
+        const prod = products.find(p => String(p.id) === String(item.id));
         if (prod && prod.stock !== undefined) {
-          prod.stock = Math.max(0, prod.stock - item.quantity);
+          prod.stock = Math.max(0, Number(prod.stock) - item.quantity);
         }
       });
       StoreManager.writeStoreProducts(storeObj.id, products);
 
-      orders.unshift(newOrder);
-      StoreManager.writeStoreOrders(storeObj.id, orders);
+      // Persistir la orden puntualmente en Firestore y actualizar el caché local de la tienda sin truncar campos
+      const savedOrder = await StoreManager.saveSingleStoreOrder(storeObj.id, newOrder);
       if (CustomerService && typeof CustomerService.recordOrder === 'function') {
-        CustomerService.recordOrder(newOrder);
-      }
-
-      // Persistir orden en Firebase Firestore
-      if (FirebaseDb && typeof FirebaseDb.saveOrder === 'function') {
-        FirebaseDb.saveOrder(newOrder).catch(err => console.warn('[orders] Firestore save warning:', err.message));
+        CustomerService.recordOrder(savedOrder);
       }
 
       // Actualizar estadísticas del cliente en store_customers
@@ -2311,14 +2439,14 @@ async function appHandler(req, res) {
             const rel = await CustomerService.getStoreCustomer(storeObj.id, verifiedUserId);
             const stats = (rel && rel.stats) ? rel.stats : { totalOrders: 0, totalSpent: 0, tryOnsCount: 0 };
             stats.totalOrders = (stats.totalOrders || 0) + 1;
-            stats.totalSpent = (stats.totalSpent || 0) + (newOrder.total || 0);
-            stats.lastOrderAt = new Date().toISOString();
+            stats.totalSpent = (stats.totalSpent || 0) + (savedOrder.total || 0);
+            stats.lastOrderAt = nowIso;
             await CustomerService.saveStoreCustomer(storeObj.id, verifiedUserId, { stats });
           } catch (_) {}
         })();
       }
 
-      sendJson(res, 201, { ok: true, order: newOrder });
+      sendJson(res, 201, { ok: true, order: savedOrder });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
     }
@@ -2344,20 +2472,23 @@ async function appHandler(req, res) {
         return;
       }
 
-      const orders = StoreManager.readStoreOrders(targetStoreId);
-      const idx = orders.findIndex(o => o.id === orderId);
-      if (idx === -1) {
+      const order = await StoreManager.getSingleStoreOrder(targetStoreId, orderId);
+      if (!order) {
         sendJson(res, 404, { ok: false, error: 'Pedido no encontrado en esta tienda' });
         return;
       }
 
-      const order = orders[idx];
       if (order.storeId && String(order.storeId).toLowerCase() !== String(targetStoreId).toLowerCase() && auth.role !== 'superadmin') {
         sendJson(res, 403, { ok: false, error: 'El pedido pertenece a otra tienda.' });
         return;
       }
 
-      if (updates.paymentStatus !== undefined) order.paymentStatus = updates.paymentStatus;
+      if (updates.paymentStatus !== undefined) {
+        order.paymentStatus = updates.paymentStatus;
+        if (updates.paymentStatus === 'Aprobado' && !order.paidAt) {
+          order.paidAt = new Date().toISOString();
+        }
+      }
       if (updates.shippingStatus !== undefined) order.shippingStatus = updates.shippingStatus;
       if (updates.status !== undefined) order.status = updates.status;
       if (updates.trackingCode !== undefined) {
@@ -2373,16 +2504,481 @@ async function appHandler(req, res) {
       }
       if (updates.notes !== undefined) order.notes = updates.notes;
 
-      orders[idx] = order;
-      StoreManager.writeStoreOrders(targetStoreId, orders);
-
-      if (FirebaseDb && typeof FirebaseDb.updateOrder === 'function') {
-        FirebaseDb.updateOrder(orderId, order).catch(() => {});
+      const updatedOrder = await StoreManager.saveSingleStoreOrder(targetStoreId, order);
+      if (CustomerService && typeof CustomerService.recordOrder === 'function') {
+        CustomerService.recordOrder(updatedOrder);
       }
 
-      sendJson(res, 200, { ok: true, order });
+      sendJson(res, 200, { ok: true, order: updatedOrder });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // ── 10. MERCADO PAGO MULTI-TENANT (OAUTH POR TIENDA, CHECKOUT PRO AL VENDEDOR Y WEBHOOKS) ──
+
+  // 10.1 GET /api/mp/credentials/status (Estado de vinculación de Mercado Pago de la tienda — Protegido)
+  if (reqPath === '/api/mp/credentials/status' && req.method === 'GET') {
+    try {
+      const auth = await AuthGuard.authenticateRequest(req);
+      if (!auth.authenticated) {
+        sendJson(res, 401, { ok: false, error: auth.error });
+        return;
+      }
+      const targetStoreId = qs.store || qs.storeId || auth.storeId || currentStore.id;
+      if (!AuthGuard.canManageStore(auth, targetStoreId)) {
+        sendJson(res, 403, { ok: false, error: `No tenés permisos para consultar la configuración de pagos de "${targetStoreId}".` });
+        return;
+      }
+      const statusData = await MercadoPagoStorePayments.getStoreConnectionStatus(targetStoreId);
+      sendJson(res, 200, statusData);
+    } catch (e) {
+      sendJson(res, e.status || 500, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 10.2 GET /api/mp/oauth/authorize (Generar URL oficial de autorización OAuth para la tienda — Protegido)
+  if (reqPath === '/api/mp/oauth/authorize' && req.method === 'GET') {
+    try {
+      const auth = await AuthGuard.authenticateRequest(req);
+      if (!auth.authenticated) {
+        sendJson(res, 401, { ok: false, error: auth.error });
+        return;
+      }
+      const targetStoreId = qs.store || qs.storeId || auth.storeId || currentStore.id;
+      if (!AuthGuard.canManageStore(auth, targetStoreId)) {
+        sendJson(res, 403, { ok: false, error: `No tenés permisos para vincular Mercado Pago en la tienda "${targetStoreId}".` });
+        return;
+      }
+      const oauthInit = MercadoPagoStorePayments.generateOAuthAuthorizeUrl({ storeId: targetStoreId, req });
+      sendJson(res, 200, oauthInit);
+    } catch (e) {
+      sendJson(res, e.status || 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 10.3 GET /api/mp/oauth/callback (Recepción segura de código de autorización OAuth y canje por tokens en backend)
+  if (reqPath === '/api/mp/oauth/callback' && req.method === 'GET') {
+    const code = qs.code || '';
+    const state = qs.state || '';
+    const wantsJson = qs.format === 'json' || (req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html'));
+
+    try {
+      const exchanged = await MercadoPagoStorePayments.exchangeOAuthCodeForStore({ code, state, req });
+      if (wantsJson) {
+        sendJson(res, 200, exchanged);
+        return;
+      }
+      const redirectUrl = `/?store=${encodeURIComponent(exchanged.storeId)}&mp_oauth=success#admin`;
+      res.writeHead(302, { ...corsHeaders(), Location: redirectUrl });
+      res.end();
+    } catch (e) {
+      if (wantsJson) {
+        sendJson(res, e.status || 400, { ok: false, error: e.message });
+        return;
+      }
+      const redirectUrl = `/?mp_oauth=error&mp_oauth_msg=${encodeURIComponent(e.message || 'Error en autorización OAuth')}#admin`;
+      res.writeHead(302, { ...corsHeaders(), Location: redirectUrl });
+      res.end();
+    }
+    return;
+  }
+
+  // 10.4 POST /api/mp/credentials/manual (Vincular Access Token manual / de prueba a la tienda — Protegido)
+  if (reqPath === '/api/mp/credentials/manual' && req.method === 'POST') {
+    try {
+      const auth = await AuthGuard.authenticateRequest(req);
+      if (!auth.authenticated) {
+        sendJson(res, 401, { ok: false, error: auth.error });
+        return;
+      }
+      const raw = await readBody(req);
+      const body = JSON.parse(raw.toString() || '{}');
+      const targetStoreId = body.storeId || qs.store || auth.storeId || currentStore.id;
+
+      if (!AuthGuard.canManageStore(auth, targetStoreId)) {
+        sendJson(res, 403, { ok: false, error: `No tenés permisos para configurar Mercado Pago en la tienda "${targetStoreId}".` });
+        return;
+      }
+
+      const connected = await MercadoPagoStorePayments.connectManualTokenForStore({
+        storeId: targetStoreId,
+        accessToken: body.accessToken,
+        publicKey: body.publicKey || null,
+        accountLabel: body.accountLabel || null
+      });
+      sendJson(res, 200, {
+        ...connected,
+        message: `Cuenta de Mercado Pago vinculada con éxito a "${targetStoreId}".`
+      });
+    } catch (e) {
+      sendJson(res, e.status || 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 10.5 POST /api/mp/credentials/disconnect (Desconectar cuenta de Mercado Pago de la tienda — Protegido)
+  if (reqPath === '/api/mp/credentials/disconnect' && req.method === 'POST') {
+    try {
+      const auth = await AuthGuard.authenticateRequest(req);
+      if (!auth.authenticated) {
+        sendJson(res, 401, { ok: false, error: auth.error });
+        return;
+      }
+      const raw = await readBody(req);
+      const body = JSON.parse(raw.toString() || '{}');
+      const targetStoreId = body.storeId || qs.store || auth.storeId || currentStore.id;
+
+      if (!AuthGuard.canManageStore(auth, targetStoreId)) {
+        sendJson(res, 403, { ok: false, error: `No tenés permisos para desconectar Mercado Pago en la tienda "${targetStoreId}".` });
+        return;
+      }
+
+      const disconnected = await MercadoPagoStorePayments.disconnectStoreMercadoPago(targetStoreId);
+      sendJson(res, 200, {
+        ...disconnected,
+        message: `Cuenta de Mercado Pago desconectada de "${targetStoreId}".`
+      });
+    } catch (e) {
+      sendJson(res, e.status || 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 10.6 POST /api/mp/credentials/refresh (Verificar / renovar credenciales OAuth de la tienda — Protegido)
+  if (reqPath === '/api/mp/credentials/refresh' && req.method === 'POST') {
+    try {
+      const auth = await AuthGuard.authenticateRequest(req);
+      if (!auth.authenticated) {
+        sendJson(res, 401, { ok: false, error: auth.error });
+        return;
+      }
+      const raw = await readBody(req);
+      const body = JSON.parse(raw.toString() || '{}');
+      const targetStoreId = body.storeId || qs.store || auth.storeId || currentStore.id;
+
+      if (!AuthGuard.canManageStore(auth, targetStoreId)) {
+        sendJson(res, 403, { ok: false, error: `No tenés permisos para renovar credenciales de "${targetStoreId}".` });
+        return;
+      }
+
+      const refreshed = await MercadoPagoStorePayments.ensureFreshStoreAccessToken(targetStoreId, { forceRefresh: true });
+      if (!refreshed || !refreshed.accessToken) {
+        sendJson(res, 404, { ok: false, error: 'No hay una cuenta de Mercado Pago conectada en esta tienda.' });
+        return;
+      }
+      const statusData = await MercadoPagoStorePayments.getStoreConnectionStatus(targetStoreId);
+      sendJson(res, 200, {
+        ...statusData,
+        message: 'Credenciales de Mercado Pago verificadas y actualizadas correctamente.'
+      });
+    } catch (e) {
+      sendJson(res, e.status || 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 10.7 POST /api/payments/mp/create-preference (Crear orden + Preferencia Checkout Pro con las credenciales del vendedor de la tienda)
+  if (reqPath === '/api/payments/mp/create-preference' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const orderData = JSON.parse(raw.toString() || '{}');
+      const requestedStoreId = orderData.storeId || qs.store || null;
+
+      // 1. Aislamiento estricto por subdominio
+      if (isDedicatedTenantSubdomain && requestedStoreId && String(requestedStoreId).toLowerCase() !== String(currentStore.id).toLowerCase()) {
+        sendJson(res, 403, {
+          ok: false,
+          error: `No se permite generar un cobro para otra tienda ("${requestedStoreId}") desde el subdominio ${currentStore.subdomain}.capfit.store.`
+        });
+        return;
+      }
+
+      const targetStoreId = isDedicatedTenantSubdomain ? currentStore.id : (requestedStoreId || currentStore.id);
+      const storeObj = StoreManager.getStoreById(targetStoreId) || await StoreManager.getStorePublic(targetStoreId);
+      if (!storeObj) {
+        sendJson(res, 404, { ok: false, error: 'Tienda no encontrada' });
+        return;
+      }
+
+      // 2. Verificar reglas de suscripción de la tienda (Activa o en los 7 días de gracia permite vender)
+      const subAccess = StoreManager.getStoreSubscriptionAccess(storeObj);
+      if (!subAccess.canReceiveOrders) {
+        sendJson(res, 403, {
+          ok: false,
+          code: 'STORE_SUSPENDED',
+          error: subAccess.reason || 'Esta tienda se encuentra temporalmente suspendida y no puede procesar pagos.'
+        });
+        return;
+      }
+
+      // 3. Verificar que la tienda tenga su propia cuenta de Mercado Pago conectada ANTES de crear orden o descontar stock
+      const sellerCreds = await MercadoPagoStorePayments.ensureFreshStoreAccessToken(storeObj.id);
+      if (!sellerCreds || !sellerCreds.accessToken) {
+        sendJson(res, 409, {
+          ok: false,
+          code: 'MP_NOT_CONNECTED',
+          error: `La tienda "${storeObj.name}" aún no conectó su cuenta de Mercado Pago para recibir pagos.`
+        });
+        return;
+      }
+
+      // 4. Validar productos, stock y precios reales desde el servidor (Firestore)
+      const products = await StoreManager.fetchStoreProductsFromDb(storeObj.id);
+      const rawItems = Array.isArray(orderData.items) ? orderData.items : [];
+      if (rawItems.length === 0) {
+        sendJson(res, 400, { ok: false, error: 'El carrito debe incluir al menos un producto.' });
+        return;
+      }
+
+      const auth = await AuthGuard.authenticateRequest(req);
+      let verifiedUserId = null;
+      if (auth.authenticated && auth.uid) {
+        if (!orderData.userId || String(orderData.userId) === String(auth.uid) || auth.role === 'superadmin') {
+          verifiedUserId = orderData.userId ? String(orderData.userId) : String(auth.uid);
+        }
+      }
+
+      let calculatedSubtotal = 0;
+      const sanitizedItems = [];
+
+      for (const item of rawItems) {
+        const targetId = item.id || (item.product && item.product.id);
+        if (!targetId) {
+          sendJson(res, 400, { ok: false, error: 'Cada producto del pedido debe incluir un identificador válido.' });
+          return;
+        }
+        const catalogProd = products.find((p) => String(p.id) === String(targetId));
+        if (!catalogProd) {
+          sendJson(res, 400, {
+            ok: false,
+            error: `El producto "${targetId}" no existe en el catálogo oficial de la tienda "${storeObj.name}".`
+          });
+          return;
+        }
+
+        const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+        if (catalogProd.stock !== undefined && Number(catalogProd.stock) < qty) {
+          sendJson(res, 400, {
+            ok: false,
+            code: 'INSUFFICIENT_STOCK',
+            error: `Stock insuficiente para "${catalogProd.nombre}" (disponible: ${catalogProd.stock}, solicitado: ${qty}).`
+          });
+          return;
+        }
+
+        const officialPrice = Number(catalogProd.precio);
+        if (isNaN(officialPrice) || officialPrice <= 0) {
+          sendJson(res, 400, { ok: false, error: `El producto "${catalogProd.nombre}" tiene un precio inválido en catálogo.` });
+          return;
+        }
+
+        calculatedSubtotal += officialPrice * qty;
+        sanitizedItems.push({
+          id: catalogProd.id,
+          nombre: catalogProd.nombre,
+          color: item.color || 'Único',
+          colorHex: item.colorHex || '#111111',
+          quantity: qty,
+          precio: officialPrice,
+          unitPrice: officialPrice,
+          imgPreview: catalogProd.imgPreview || 'assets/gorras/Gorra_negra_frente.webp'
+        });
+      }
+
+      const storeSections = StoreManager.getStoreSections(storeObj.id);
+      const freeShippingThreshold = (storeSections && storeSections.envios && Number(storeSections.envios.freeShippingThreshold)) || 40000;
+      const standardShippingCost = (storeSections && storeSections.envios && Number(storeSections.envios.standardCost)) || 3500;
+      const officialShipping = calculatedSubtotal >= freeShippingThreshold ? 0 : standardShippingCost;
+      const calculatedTotal = calculatedSubtotal + officialShipping;
+
+      const orderId = `#MP-${Date.now().toString().slice(-6)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+      const buyerEmail = (orderData.buyerEmail || (orderData.customer && orderData.customer.email) || (auth.authenticated && auth.email) || '').toLowerCase().trim();
+      const nowIso = new Date().toISOString();
+
+      const newOrder = {
+        id: orderId,
+        storeId: storeObj.id,
+        userId: verifiedUserId,
+        buyerEmail,
+        isClaimed: Boolean(verifiedUserId),
+        date: nowIso,
+        createdAt: nowIso,
+        paidAt: null,
+        customer: {
+          name: (orderData.customer && orderData.customer.name ? String(orderData.customer.name).trim() : '') || 'Comprador ' + (storeObj.name || 'CAPFIT'),
+          email: buyerEmail || 'cliente@ejemplo.com',
+          phone: (orderData.customer && orderData.customer.phone ? String(orderData.customer.phone).trim() : '') || '',
+          address: (orderData.customer && orderData.customer.address ? String(orderData.customer.address).trim() : '') || '',
+          city: (orderData.customer && orderData.customer.city ? String(orderData.customer.city).trim() : '') || '',
+          postalCode: (orderData.customer && orderData.customer.postalCode ? String(orderData.customer.postalCode).trim() : '') || ''
+        },
+        items: sanitizedItems,
+        subtotal: calculatedSubtotal,
+        shipping: officialShipping,
+        shippingCost: officialShipping,
+        total: calculatedTotal,
+        totalAmount: calculatedTotal,
+        currency: 'ARS',
+        paymentMethod: 'Mercado Pago Checkout Pro',
+        paymentStatus: 'Pendiente',
+        shippingStatus: 'Por preparar',
+        shippingTracking: {
+          carrier: (orderData.shippingTracking && orderData.shippingTracking.carrier) || 'Andreani',
+          trackingCode: '',
+          shippedAt: null
+        },
+        trackingCode: '',
+        notes: orderData.notes ? String(orderData.notes).slice(0, 500) : '',
+        status: 'pending',
+        externalReference: `ord_${storeObj.id}_${orderId}`,
+        mpPreferenceId: null,
+        mpPaymentId: null,
+        processedWebhookIds: []
+      };
+
+      // 5. Generar la preferencia en Mercado Pago con el Access Token de la tienda vendedora (0% comisión CapFit)
+      const prefResult = await MercadoPagoStorePayments.createStoreCheckoutPreference({
+        storeObj,
+        order: newOrder,
+        req
+      });
+
+      // 6. Descontar stock reservado del catálogo de la tienda
+      sanitizedItems.forEach((item) => {
+        const prod = products.find((p) => String(p.id) === String(item.id));
+        if (prod && prod.stock !== undefined) {
+          prod.stock = Math.max(0, Number(prod.stock) - item.quantity);
+        }
+      });
+      StoreManager.writeStoreProducts(storeObj.id, products);
+
+      if (CustomerService && typeof CustomerService.recordOrder === 'function') {
+        CustomerService.recordOrder(newOrder);
+      }
+
+      sendJson(res, 201, {
+        ok: true,
+        storeId: storeObj.id,
+        storeName: storeObj.name,
+        order: newOrder,
+        preferenceId: prefResult.preferenceId,
+        externalReference: prefResult.externalReference,
+        initPoint: prefResult.initPoint,
+        sandboxInitPoint: prefResult.sandboxInitPoint,
+        isLiveMode: prefResult.isLiveMode
+      });
+    } catch (e) {
+      sendJson(res, e.status || 500, { ok: false, code: e.code || 'MP_CHECKOUT_ERROR', error: e.message });
+    }
+    return;
+  }
+
+  // 10.8 POST & GET /api/webhooks/mercadopago (Notificaciones Webhook multi-tenant de Mercado Pago para órdenes de tiendas)
+  if (reqPath === '/api/webhooks/mercadopago' && (req.method === 'POST' || req.method === 'GET')) {
+    try {
+      let body = {};
+      if (req.method === 'POST') {
+        const raw = await readBody(req);
+        try {
+          body = JSON.parse(raw.toString() || '{}');
+        } catch (_) {}
+      }
+
+      const topic = String(body.type || body.topic || qs.type || qs.topic || '').toLowerCase();
+      if (topic.includes('preapproval') || (!qs.storeId && !qs.store && !body.storeId && !(body.external_reference && String(body.external_reference).startsWith('ord_')) && !(qs.external_reference && String(qs.external_reference).startsWith('ord_')) && isMainPlatformHost)) {
+        const subResult = await MercadoPagoSubscriptions.processWebhook(body, req.headers, qs);
+        sendJson(res, 200, subResult);
+        return;
+      }
+
+      const paymentId =
+        (body.data && body.data.id) ||
+        qs['data.id'] ||
+        (topic === 'payment' ? qs.id : null) ||
+        body.paymentId ||
+        qs.payment_id ||
+        null;
+
+      const storeId = qs.storeId || qs.store || body.storeId || (body.metadata && body.metadata.store_id) || (!isMainPlatformHost ? currentStore.id : null);
+      const externalRefHint = body.external_reference || qs.external_reference || null;
+      const sandboxStatusOverride = body.simulated_status || body.sandbox_status || qs.simulated_status || null;
+
+      // Si es otro tipo de evento informativo de MP (ej. merchant_order sin paymentId), acusar recibo 200
+      if (!paymentId) {
+        sendJson(res, 200, { ok: true, ignored: true, reason: 'Webhook recibido sin paymentId' });
+        return;
+      }
+
+      const webhookResult = await MercadoPagoStorePayments.processStorePaymentNotification({
+        storeId,
+        paymentId,
+        externalReferenceHint: externalRefHint,
+        sandboxStatusOverride
+      });
+
+      sendJson(res, 200, webhookResult);
+    } catch (e) {
+      sendJson(res, e.status || 400, { ok: false, error: e.message });
+    }
+    return;
+  }
+
+  // 10.9 GET & POST /api/payments/mp/verify-order (Verificación de estado de orden al volver de Checkout Pro)
+  if (reqPath === '/api/payments/mp/verify-order' && (req.method === 'GET' || req.method === 'POST')) {
+    try {
+      let body = {};
+      if (req.method === 'POST') {
+        const raw = await readBody(req);
+        try {
+          body = JSON.parse(raw.toString() || '{}');
+        } catch (_) {}
+      }
+
+      const targetStoreId = body.storeId || qs.store || qs.storeId || currentStore.id;
+      const orderId = body.orderId || qs.order_id || qs.orderId || '';
+      const paymentId = body.paymentId || qs.payment_id || qs.collection_id || null;
+      const sandboxStatus = body.sandboxStatus || qs.sandbox_status || null;
+
+      if (!orderId) {
+        sendJson(res, 400, { ok: false, error: 'Se requiere orderId para verificar la orden.' });
+        return;
+      }
+
+      if (paymentId) {
+        try {
+          const verified = await MercadoPagoStorePayments.processStorePaymentNotification({
+            storeId: targetStoreId,
+            paymentId,
+            externalReferenceHint: `ord_${targetStoreId}_${orderId}`,
+            sandboxStatusOverride: sandboxStatus
+          });
+          sendJson(res, 200, verified);
+          return;
+        } catch (verifyErr) {
+          console.warn('[verify-order] Aviso verificando paymentId:', verifyErr.message);
+        }
+      }
+
+      const order = await StoreManager.getSingleStoreOrder(targetStoreId, orderId);
+      if (!order) {
+        sendJson(res, 404, { ok: false, error: 'Orden no encontrada en esta tienda.' });
+        return;
+      }
+
+      sendJson(res, 200, {
+        ok: true,
+        storeId: targetStoreId,
+        orderId: order.id,
+        paymentStatus: order.paymentStatus,
+        status: order.status,
+        order
+      });
+    } catch (e) {
+      sendJson(res, e.status || 500, { ok: false, error: e.message });
     }
     return;
   }

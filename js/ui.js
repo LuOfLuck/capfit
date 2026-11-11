@@ -398,6 +398,41 @@
         freeShippingMsg.innerHTML = `<strong>¡Falta poco!</strong> Te faltan <strong>${Catalogo.formatPrecio(remainingForFreeShipping)}</strong> para tener envío gratis a todo el país.`;
       }
     }
+
+    // Actualizar estado de los botones de pago según si la tienda tiene Mercado Pago conectado
+    const currentStore = (window.Store && typeof window.Store.getCurrentStore === 'function') ? window.Store.getCurrentStore() : null;
+    const isMpConnected = currentStore ? Boolean(currentStore.mpConnected) : true;
+    const mpBtns = document.querySelectorAll('.btn-mercadopago, .btn-checkout-primary');
+    let mpWarnBox = document.getElementById('cart-mp-disconnected-warning');
+
+    if (!isMpConnected) {
+      if (!mpWarnBox) {
+        const summaryCard = document.querySelector('.order-summary-card');
+        if (summaryCard) {
+          mpWarnBox = document.createElement('div');
+          mpWarnBox.id = 'cart-mp-disconnected-warning';
+          mpWarnBox.style.cssText = 'background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:12px 14px;border-radius:10px;font-size:0.82rem;line-height:1.45;margin-bottom:12px;font-weight:600';
+          const firstBtn = summaryCard.querySelector('.btn-checkout-primary');
+          if (firstBtn) summaryCard.insertBefore(mpWarnBox, firstBtn);
+        }
+      }
+      if (mpWarnBox) {
+        mpWarnBox.style.display = 'block';
+        mpWarnBox.textContent = `Aviso: Esta tienda (${currentStore.name || currentStore.subdomain}) aún no conectó su cuenta de Mercado Pago. El pago online está deshabilitado hasta que el vendedor vincule su cuenta.`;
+      }
+      mpBtns.forEach((btn) => {
+        btn.disabled = true;
+        btn.style.opacity = '0.55';
+        btn.style.cursor = 'not-allowed';
+      });
+    } else {
+      if (mpWarnBox) mpWarnBox.style.display = 'none';
+      mpBtns.forEach((btn) => {
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.style.cursor = '';
+      });
+    }
   }
 
   // Update Try-On View UI (Image 3 design)

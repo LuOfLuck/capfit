@@ -1,8 +1,13 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/serverless.js", "use": "@vercel/node" },
-    { "src": "api/**/*.js", "use": "@vercel/node" },
+    {
+      "src": "api/serverless.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 60
+      }
+    },
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "landing/**", "use": "@vercel/static" },
     { "src": "css/**", "use": "@vercel/static" },
