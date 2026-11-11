@@ -21,7 +21,7 @@ const AuthGuard = require('./auth-guard');
 const StoreManager = require('./store-manager');
 const FirebaseDb = require('./firebase-db');
 
-const MP_OAUTH_AUTH_BASE = process.env.MP_OAUTH_AUTH_URL || 'https://auth.mercadopago.com.ar/authorization';
+const MP_OAUTH_AUTH_BASE = process.env.MP_OAUTH_AUTH_URL || 'https://auth.mercadopago.com/authorization';
 const MP_API_BASE = 'https://api.mercadopago.com';
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000; // 15 minutos
 

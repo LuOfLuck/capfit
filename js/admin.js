@@ -1356,7 +1356,15 @@ const AdminPanel = (() => {
       });
       const data = await res.json();
       if (res.ok && data.ok && data.authorizeUrl) {
-        window.location.href = data.authorizeUrl;
+        try {
+          if (window.top && window.top !== window) {
+            window.top.location.href = data.authorizeUrl;
+          } else {
+            window.location.href = data.authorizeUrl;
+          }
+        } catch (_) {
+          window.location.href = data.authorizeUrl;
+        }
         return;
       }
       const msg = data.error || 'No se pudo iniciar la autorización OAuth con Mercado Pago.';
@@ -1601,14 +1609,26 @@ const AdminPanel = (() => {
           </div>
         `}
 
-        <!-- Formulario de vinculación con Token de Prueba / Producción -->
-        <div id="mp-manual-token-box" style="display:${isConnected ? 'none' : 'block'};background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:22px">
-          <h4 style="font-size:0.98rem;font-weight:700;color:#0f172a;margin:0 0 6px">
-            Vincular Credenciales de Prueba o Token Directo (Exclusivo para ${escapeHtml(_currentStoreName)})
-          </h4>
-          <p style="font-size:0.83rem;color:#64748b;margin:0 0 16px">
-            Pegá el <code>Access Token</code> de tu aplicación de Mercado Pago (comienza con <code>APP_USR-...</code> o <code>TEST-...</code>). Se almacenará cifrado con AES-256-GCM en <code>store_secrets/${escapeHtml(_currentStoreId)}</code> sin compartirse con ninguna otra tienda.
-          </p>
+        <!-- Formulario avanzado / alternativo para credenciales directas -->
+        <div id="mp-manual-token-box" style="display:none;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px;padding:22px;margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <h4 style="font-size:0.98rem;font-weight:700;color:#0f172a;margin:0">
+              Vincular Credenciales Directas (Modo Avanzado)
+            </h4>
+            <button type="button" onclick="AdminPanel.toggleManualMpBox()" style="background:none;border:none;color:#64748b;font-size:0.85rem;cursor:pointer;font-weight:600">
+              ✕ Cerrar
+            </button>
+          </div>
+
+          <div style="background:#f1f5f9;border-left:4px solid #009ee3;padding:12px 14px;border-radius:6px;margin-bottom:16px;font-size:0.84rem;color:#334155;line-height:1.5">
+            <strong>¿Cómo obtener tu Access Token de vendedor?</strong>
+            <ol style="margin:6px 0 0;padding-left:18px">
+              <li>Ingresá a <a href="https://www.mercadopago.com.ar/developers" target="_blank" rel="noopener noreferrer" style="color:#0284c7;font-weight:600;text-decoration:underline">mercadopago.com.ar/developers</a> con tu cuenta.</li>
+              <li>Andá a <strong>"Tus integraciones"</strong> → Seleccioná o creá tu aplicación.</li>
+              <li>En el menú lateral hacé clic en <strong>"Credenciales de producción"</strong> (o de prueba).</li>
+              <li>Copiá el <strong>Access Token</strong> (empieza con <code>APP_USR-</code> o <code>TEST-</code>) y pegalo acá.</li>
+            </ol>
+          </div>
 
           <form onsubmit="AdminPanel.submitManualStoreMpToken(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
             <div class="admin-field-group" style="grid-column:1 / -1">
@@ -1620,12 +1640,12 @@ const AdminPanel = (() => {
               <input type="text" id="mp-manual-public-key" placeholder="APP_USR-... o TEST-..." style="font-family:monospace">
             </div>
             <div class="admin-field-group">
-              <label for="mp-manual-account-label">Etiqueta / Email identificatorio de la cuenta</label>
+              <label for="mp-manual-account-label">Email o nombre para identificar tu cuenta</label>
               <input type="text" id="mp-manual-account-label" placeholder="Ej: cobros@${escapeHtml(_currentSubdomain)}.com">
             </div>
             <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;gap:10px;margin-top:6px">
               <button type="submit" class="admin-btn-primary" style="padding:10px 22px">
-                Guardar Credenciales Cifradas
+                Guardar y Activar Cobros
               </button>
             </div>
           </form>

@@ -2553,6 +2553,10 @@ async function appHandler(req, res) {
         return;
       }
       const oauthInit = MercadoPagoStorePayments.generateOAuthAuthorizeUrl({ storeId: targetStoreId, req });
+      if (!oauthInit.ok) {
+        sendJson(res, 400, { ok: false, error: oauthInit.error, clientIdConfigured: false });
+        return;
+      }
       sendJson(res, 200, oauthInit);
     } catch (e) {
       sendJson(res, e.status || 400, { ok: false, error: e.message });
