@@ -178,6 +178,15 @@
     sessionStorage.removeItem('capfit_store_name');
     sessionStorage.removeItem('capfit_user_email');
     sessionStorage.removeItem('capfit_user_name');
+    sessionStorage.removeItem('capfit_admin_auth_token');
+    sessionStorage.removeItem('capfit_admin_role');
+    sessionStorage.removeItem('capfit_admin_store_id');
+    sessionStorage.removeItem('capfit_admin_store_name');
+    sessionStorage.removeItem('capfit_admin_subdomain');
+    localStorage.removeItem('capfit_active_store_id');
+    if (window.CapfitCustomer && typeof window.CapfitCustomer.clearSession === 'function') {
+      try { window.CapfitCustomer.clearSession(); } catch (_) {}
+    }
   }
 
   // Restablecer contraseña
@@ -196,9 +205,9 @@
     const idToken = await firebaseUser.getIdToken(true);
 
     // 2. Sanitizar storeId objetivo para evitar IDs de desarrollo o prefijos ais-
-    const cleanTargetStore = (targetStoreId && typeof targetStoreId === 'string' && !targetStoreId.startsWith('ais-'))
+    const cleanTargetStore = (targetStoreId && typeof targetStoreId === 'string' && !targetStoreId.startsWith('ais-') && targetStoreId !== 'admin_portal' && targetStoreId !== 'admin' && targetStoreId !== 'account')
       ? targetStoreId.trim()
-      : ((window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-')) ? Store.getCurrentStoreId() : null);
+      : ((window.Store && Store.getCurrentStoreId && !Store.getCurrentStoreId().startsWith('ais-') && Store.getCurrentStoreId() !== 'admin_portal' && Store.getCurrentStoreId() !== 'admin') ? Store.getCurrentStoreId() : null);
 
     const res = await fetch('/api/admin/auth/firebase-verify', {
       method: 'POST',
@@ -220,10 +229,15 @@
     if (data.ok) {
       // Guardar sesión autorizada de administrador firmada con HMAC para la tienda validada
       sessionStorage.setItem('capfit_session', data.token);
+      sessionStorage.setItem('capfit_admin_auth_token', data.token);
       sessionStorage.setItem('capfit_role', data.role);
+      sessionStorage.setItem('capfit_admin_role', data.role);
       sessionStorage.setItem('capfit_store_id', data.storeId);
+      sessionStorage.setItem('capfit_admin_store_id', data.storeId);
       sessionStorage.setItem('capfit_store_subdomain', data.subdomain || '');
+      sessionStorage.setItem('capfit_admin_subdomain', data.subdomain || '');
       sessionStorage.setItem('capfit_store_name', data.storeName || '');
+      sessionStorage.setItem('capfit_admin_store_name', data.storeName || '');
       sessionStorage.setItem('capfit_user_email', firebaseUser.email);
       sessionStorage.setItem('capfit_user_name', data.user?.displayName || firebaseUser.displayName || '');
 
@@ -271,12 +285,18 @@
 
     // Guardar sesión autorizada firmada por el servidor
     sessionStorage.setItem('capfit_session', data.token);
+    sessionStorage.setItem('capfit_admin_auth_token', data.token);
     sessionStorage.setItem('capfit_role', 'store_owner');
+    sessionStorage.setItem('capfit_admin_role', 'store_owner');
     sessionStorage.setItem('capfit_store_id', data.storeId);
+    sessionStorage.setItem('capfit_admin_store_id', data.storeId);
     sessionStorage.setItem('capfit_store_subdomain', data.subdomain);
+    sessionStorage.setItem('capfit_admin_subdomain', data.subdomain);
     sessionStorage.setItem('capfit_store_name', data.storeName);
+    sessionStorage.setItem('capfit_admin_store_name', data.storeName);
     sessionStorage.setItem('capfit_user_email', user.email);
     sessionStorage.setItem('capfit_user_name', user.displayName || data.storeName);
+    localStorage.setItem('capfit_active_store_id', data.storeId);
 
     return data;
   }

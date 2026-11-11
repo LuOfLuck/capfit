@@ -116,13 +116,25 @@
         _isOwnerOfCurrentStore = Boolean(data.isOwnerOfCurrentStore);
 
         // Reconocimiento Automático de Dueño de Tienda (Opción A):
-        // Conectar sesión administrativa usando el ID Token firmado criptográficamente
+        // Conectar sesión administrativa solo si no hay ya una sesión administrativa HMAC activa en el Backoffice
         if ((_isOwnerOfCurrentStore || _ownedStores.length > 0) && idToken) {
-          const activeStore = _isOwnerOfCurrentStore ? currentStoreId : (_ownedStores[0] || 'principal');
-          sessionStorage.setItem('capfit_session', idToken);
-          sessionStorage.setItem('capfit_admin_auth_token', idToken);
-          sessionStorage.setItem('capfit_role', 'store_owner');
-          sessionStorage.setItem('capfit_store_id', activeStore);
+          const existingAdminToken = sessionStorage.getItem('capfit_admin_auth_token') || sessionStorage.getItem('capfit_session') || '';
+          const existingAdminStore = sessionStorage.getItem('capfit_admin_store_id') || sessionStorage.getItem('capfit_store_id') || '';
+          const hasHmacAdminToken = existingAdminToken.startsWith('capfit_sess.');
+          const activeStore = (existingAdminStore && existingAdminStore !== 'principal' && _ownedStores.includes(existingAdminStore))
+            ? existingAdminStore
+            : (_isOwnerOfCurrentStore ? currentStoreId : (_ownedStores[0] || existingAdminStore || 'principal'));
+
+          if (!hasHmacAdminToken) {
+            sessionStorage.setItem('capfit_session', idToken);
+            sessionStorage.setItem('capfit_admin_auth_token', idToken);
+          }
+          if (!sessionStorage.getItem('capfit_role')) {
+            sessionStorage.setItem('capfit_role', 'store_owner');
+          }
+          if (!existingAdminStore || existingAdminStore === 'principal') {
+            sessionStorage.setItem('capfit_store_id', activeStore);
+          }
           sessionStorage.setItem('capfit_user_email', _userProfile.email);
           sessionStorage.setItem('capfit_user_name', _userProfile.displayName || '');
         }
@@ -1263,12 +1275,9 @@
   }
 
   /**
-   * Cierre de sesión de CapFit ID
+   * Limpia el estado en memoria de CapFit ID inmediatamente (invocado también por AdminPanel.logout)
    */
-  async function handleSignOut() {
-    if (window.CapfitAuth && typeof window.CapfitAuth.signOutUser === 'function') {
-      await window.CapfitAuth.signOutUser();
-    }
+  function clearCustomerSessionState() {
     _currentUser = null;
     _userProfile = null;
     _storeCustomer = null;
@@ -1277,6 +1286,16 @@
     updateHeaderAuthUI();
     updateTryOnQuickSelfies();
     closeAccountModal();
+  }
+
+  /**
+   * Cierre de sesión de CapFit ID
+   */
+  async function handleSignOut() {
+    if (window.CapfitAuth && typeof window.CapfitAuth.signOutUser === 'function') {
+      await window.CapfitAuth.signOutUser();
+    }
+    clearCustomerSessionState();
     if (window.showToast) window.showToast('Sesión cerrada');
   }
 
@@ -1307,6 +1326,7 @@
   // API Pública
   window.CapfitCustomer = {
     syncSession: syncCustomerSession,
+    clearSession: clearCustomerSessionState,
     getUser: () => _userProfile,
     getFirebaseUser: () => _currentUser,
     getStoreCustomer: () => _storeCustomer,

@@ -330,8 +330,15 @@ const SuscripcionManager = (() => {
 
   function getSubscriptionAuthHeaders(extra = {}) {
     const headers = { ...extra };
-    const token = sessionStorage.getItem('capfit_admin_auth_token') || sessionStorage.getItem('capfit_session');
-    if (token && token.includes('.')) {
+    const t1 = sessionStorage.getItem('capfit_admin_auth_token');
+    const t2 = sessionStorage.getItem('capfit_session');
+    let token = null;
+    if (t1 && t1.startsWith('capfit_sess.')) token = t1;
+    else if (t2 && t2.startsWith('capfit_sess.')) token = t2;
+    else if (t1 && t1.includes('.')) token = t1;
+    else if (t2 && t2.includes('.')) token = t2;
+
+    if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
@@ -387,24 +394,41 @@ const SuscripcionManager = (() => {
     _estado.planes = calcularPlanesEnPesos(_estado.tasaCambioARS);
 
     try {
-      const res = await fetch(`/api/plans?store=${encodeURIComponent(storeId)}`);
+      const res = await fetch(`/api/plans?store=${encodeURIComponent(storeId)}`, {
+        headers: getSubscriptionAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
-        _estado.storeData = data;
-        const currentPlan = (data.currentPlanId || (data.quota && data.quota.plan) || 'free').toLowerCase();
-        _estado.planActualId = currentPlan;
-        _estado.nivelActual = obtenerNivelUsuario(currentPlan);
-
-        if (data.quota) {
-          const used = Number(data.quota.used || 0);
-          const limit = Number(data.quota.limit || 20);
+        const returnedId = String(data.storeId || '').toLowerCase();
+        if (storeId !== 'principal' && returnedId === 'principal') {
+          const fallbackName = (window.AdminPanel && typeof window.AdminPanel.getCurrentStoreName === 'function' && window.AdminPanel.getCurrentStoreName()) || storeId;
+          _estado.storeData = { ...data, storeId, storeName: fallbackName };
+          _estado.planActualId = 'free';
+          _estado.nivelActual = 0;
           _estado.cuota = {
-            used,
-            limit,
-            remaining: Math.max(0, limit - used),
-            percentage: Math.min(100, Math.round((used / Math.max(1, limit)) * 100)),
-            period: data.quota.period || ''
+            used: 0,
+            limit: 20,
+            remaining: 20,
+            percentage: 0,
+            period: new Date().toISOString().slice(0, 7)
           };
+        } else {
+          _estado.storeData = data;
+          const currentPlan = (data.currentPlanId || (data.quota && data.quota.planId) || (data.quota && data.quota.plan) || 'free').toLowerCase();
+          _estado.planActualId = currentPlan;
+          _estado.nivelActual = obtenerNivelUsuario(currentPlan);
+
+          if (data.quota) {
+            const used = Number(data.quota.used || 0);
+            const limit = Number(data.quota.limit || 20);
+            _estado.cuota = {
+              used,
+              limit,
+              remaining: Math.max(0, limit - used),
+              percentage: Math.min(100, Math.round((used / Math.max(1, limit)) * 100)),
+              period: data.quota.period || ''
+            };
+          }
         }
       }
     } catch (err) {

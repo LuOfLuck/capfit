@@ -408,7 +408,10 @@ function getStoreBySubdomain(subdomain) {
  */
 async function getStorePublic(storeIdentifier) {
   if (!storeIdentifier) return storesCache.get('principal') || { ...defaultPrincipal };
-  const key = String(storeIdentifier).trim();
+  const key = String(storeIdentifier).trim().toLowerCase();
+  if (key === 'admin_portal' || key === 'admin' || key === 'account') {
+    return storesCache.get('principal') || { ...defaultPrincipal };
+  }
 
   try {
     const directRef = doc(db, 'stores', key);
@@ -416,6 +419,7 @@ async function getStorePublic(storeIdentifier) {
     if (directSnap.exists()) {
       const sanitized = sanitizePublicStore({ id: directSnap.id, ...directSnap.data() });
       storesCache.set(sanitized.id, sanitized);
+      storesLastSyncAt.set(sanitized.id, Date.now());
       return sanitized;
     }
 
@@ -426,6 +430,7 @@ async function getStorePublic(storeIdentifier) {
       const docSnap = querySnap.docs[0];
       const sanitized = sanitizePublicStore({ id: docSnap.id, ...docSnap.data() });
       storesCache.set(sanitized.id, sanitized);
+      storesLastSyncAt.set(sanitized.id, Date.now());
       return sanitized;
     }
   } catch (err) {
@@ -436,12 +441,61 @@ async function getStorePublic(storeIdentifier) {
 }
 
 /**
+ * Extrae el identificador de tienda solicitado por subdominio, query o header y garantiza
+ * que esté cargado desde Firestore en instancias Serverless frías antes de resolver la petición.
+ */
+async function ensureRequestStoreLoaded(req, bodyObj = null) {
+  if (!req) return null;
+  const rawHost = (req.headers && (req.headers['x-forwarded-host'] || req.headers.host)) || '';
+  const hostWithoutPort = String(rawHost).toLowerCase().split(',')[0].trim().split(':')[0];
+
+  const candidates = new Set();
+
+  if (hostWithoutPort.endsWith('.capfit.store')) {
+    const sub = hostWithoutPort.split('.')[0];
+    if (sub && !RESERVED_SUBDOMAINS.includes(sub)) {
+      candidates.add(sub);
+    }
+  }
+
+  const headerStore = req.headers && (req.headers['x-store-id'] || req.headers['x-tenant-id']);
+  if (headerStore) candidates.add(String(headerStore).trim().toLowerCase());
+
+  if (req.url) {
+    try {
+      const parsedUrl = url.parse(req.url, true);
+      if (parsedUrl.query) {
+        const qStore = parsedUrl.query.store || parsedUrl.query.tienda || parsedUrl.query.storeId;
+        if (qStore) candidates.add(String(qStore).trim().toLowerCase());
+      }
+    } catch (_) {}
+  }
+
+  const parsedBody = bodyObj || req.body;
+  if (parsedBody && typeof parsedBody === 'object') {
+    const bStore = parsedBody.storeId || parsedBody.store;
+    if (bStore) candidates.add(String(bStore).trim().toLowerCase());
+  }
+
+  for (const cand of candidates) {
+    if (!cand || cand === 'principal' || cand === 'admin_portal' || cand === 'admin' || cand === 'account' || cand.startsWith('ais-')) {
+      continue;
+    }
+    const lastSync = storesLastSyncAt.get(cand) || 0;
+    if (!storesCache.has(cand) || (Date.now() - lastSync > CACHE_TTL_MS)) {
+      await getStorePublic(cand);
+    }
+  }
+}
+
+/**
  * Resolución multi-tenant del request por Headers, Dominio o Query Params
  */
 function resolveStoreFromRequest(req, bodyObj = null) {
   if (!req) return getStoreById('principal');
 
-  const host = (req.headers && req.headers.host ? req.headers.host : '').toLowerCase().trim();
+  const rawHost = (req.headers && (req.headers['x-forwarded-host'] || req.headers.host)) || '';
+  const host = String(rawHost).toLowerCase().split(',')[0].trim();
   const hostWithoutPort = host.split(':')[0];
 
   const isDevOrSharedEnvironment = (
@@ -667,14 +721,26 @@ function createStore(params) {
     active: true
   };
 
-  createOrUpdateStoreWithSecrets({
+  // Actualizar cachés en memoria de inmediato (sincrónico) antes de lanzar la escritura a Firestore
+  const cleanCached = sanitizePublicStore(publicData);
+  storesCache.set(cleanSub, cleanCached);
+  storesLastSyncAt.set(cleanSub, Date.now());
+  cachedProducts.set(cleanSub, []);
+  productsLastSyncAt.set(cleanSub, Date.now());
+  cachedOrders.set(cleanSub, []);
+  ordersLastSyncAt.set(cleanSub, Date.now());
+
+  const syncPromise = createOrUpdateStoreWithSecrets({
     ...publicData,
     adminUsername: params.username || params.adminUsername,
     adminPassword: params.password || params.adminPassword
   }).catch(e => console.warn('createStore background sync:', e.message));
 
-  cachedProducts.set(cleanSub, []);
-  cachedOrders.set(cleanSub, []);
+  Object.defineProperty(publicData, 'syncPromise', {
+    value: syncPromise,
+    enumerable: false,
+    configurable: true
+  });
 
   return publicData;
 }
@@ -693,6 +759,8 @@ function updateStore(idOrData, maybeUpdates) {
 
   if (updates.name !== undefined) s.name = updates.name.trim();
   if (updates.tagline !== undefined) s.tagline = updates.tagline.trim();
+  if (updates.ownerUid !== undefined) s.ownerUid = updates.ownerUid;
+  if (updates.ownerEmail !== undefined) s.ownerEmail = updates.ownerEmail;
   if (updates.plan !== undefined) {
     const pDetails = getPlanDetails(updates.plan);
     s.plan = pDetails.id;
@@ -728,11 +796,17 @@ function updateStore(idOrData, maybeUpdates) {
   storesLastSyncAt.set(s.id, Date.now());
 
   // Actualizar Firestore
-  createOrUpdateStoreWithSecrets({
+  const syncPromise = createOrUpdateStoreWithSecrets({
     ...s,
     adminUsername: updates.adminUsername || updates.username,
     adminPassword: updates.adminPassword || updates.password
   }).catch(e => console.warn('updateStore sync:', e.message));
+
+  Object.defineProperty(s, 'syncPromise', {
+    value: syncPromise,
+    enumerable: false,
+    configurable: true
+  });
 
   return s;
 }
@@ -1184,6 +1258,10 @@ async function fetchStoreProductsFromDb(storeId, forceRefresh = false) {
       } else if (existing.length > 0) {
         productsLastSyncAt.set(sId, Date.now());
         return existing;
+      } else {
+        cachedProducts.set(sId, []);
+        productsLastSyncAt.set(sId, Date.now());
+        return [];
       }
     } catch (_) {}
   }
@@ -1195,10 +1273,12 @@ function writeStoreProducts(storeId, products) {
   cachedProducts.set(sId, products);
   productsLastSyncAt.set(sId, Date.now());
   if (FirebaseDb && typeof FirebaseDb.saveProduct === 'function') {
-    products.forEach(p => {
-      FirebaseDb.saveProduct({ ...p, id: String(p.id), storeId: sId }, sId).catch(() => {});
-    });
+    const promises = products.map(p =>
+      FirebaseDb.saveProduct({ ...p, id: String(p.id), storeId: sId }, sId).catch(() => {})
+    );
+    return Promise.all(promises);
   }
+  return Promise.resolve([]);
 }
 
 function deleteStoreProduct(storeId, productId) {
@@ -1551,24 +1631,50 @@ function findStoresByOwner({ email, uid }) {
   });
 }
 
-function linkStoreOwner({ storeId, uid, email, displayName, role }) {
+function linkStoreOwner(arg1, arg2) {
+  let storeId, uid, email, displayName, role;
+  if (typeof arg1 === 'string' && arg2 && typeof arg2 === 'object') {
+    storeId = arg1;
+    uid = arg2.uid;
+    email = arg2.email;
+    displayName = arg2.displayName;
+    role = arg2.role;
+  } else if (arg1 && typeof arg1 === 'object') {
+    storeId = arg1.storeId;
+    uid = arg1.uid;
+    email = arg1.email;
+    displayName = arg1.displayName;
+    role = arg1.role;
+  }
+
   const store = getStoreById(storeId);
+  const promises = [];
   if (store) {
     if (uid) store.ownerUid = uid;
     if (email) store.ownerEmail = email;
-    updateStore(store.id, { ownerUid: uid, ownerEmail: email });
+    const updated = updateStore(store.id, { ownerUid: uid, ownerEmail: email });
+    if (updated && updated.syncPromise) promises.push(updated.syncPromise);
   }
 
-  if (FirebaseDb && typeof FirebaseDb.saveStoreOwner === 'function') {
-    FirebaseDb.saveStoreOwner({
-      uid,
-      email: email || '',
-      displayName: displayName || (store ? store.name : ''),
-      role: role || 'store_owner',
-      storeId: store ? store.id : (storeId || ''),
-      subdomain: store ? store.subdomain : '',
-      createdAt: new Date().toISOString()
-    }).catch(() => {});
+  if (FirebaseDb && typeof FirebaseDb.saveStoreOwner === 'function' && (uid || email)) {
+    promises.push(
+      FirebaseDb.saveStoreOwner({
+        uid: uid || String(email).toLowerCase().replace(/[^a-z0-9_-]/g, '_'),
+        email: email || '',
+        displayName: displayName || (store ? store.name : ''),
+        role: role || 'store_owner',
+        storeId: store ? store.id : (storeId || ''),
+        subdomain: store ? store.subdomain : '',
+        createdAt: new Date().toISOString()
+      }).catch(() => {})
+    );
+  }
+  if (store) {
+    Object.defineProperty(store, 'syncPromise', {
+      value: Promise.all(promises),
+      enumerable: false,
+      configurable: true
+    });
   }
   return store;
 }
@@ -1605,6 +1711,7 @@ const StoreManager = {
   // Inicialización y Resolución
   init,
   ensureInitialized,
+  ensureRequestStoreLoaded,
   sanitizePublicStore,
   getAllStores,
   getStoreById,

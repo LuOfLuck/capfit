@@ -583,15 +583,18 @@ async function logAITryOn(logData) {
 
 // ── STORE OWNERS (ADMIN USERS) ──
 async function saveStoreOwner(owner) {
+  if (!owner || (!owner.uid && !owner.email)) return false;
+  const docId = String(owner.uid || owner.email).trim().replace(/\//g, '_');
   try {
-    const ref = doc(db, 'store_owners', owner.uid);
+    const ref = doc(db, 'store_owners', docId);
     await setDoc(ref, {
       ...owner,
+      uid: owner.uid || docId,
       updatedAt: new Date().toISOString()
     }, { merge: true });
     return true;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `store_owners/${owner.uid}`);
+    handleFirestoreError(err, OperationType.WRITE, `store_owners/${docId}`);
     return false;
   }
 }

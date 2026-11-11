@@ -233,6 +233,9 @@ async function appHandler(req, res) {
 
   // Asegurar que la base de datos Firestore esté sincronizada antes de resolver tienda
   await StoreManager.ensureInitialized();
+  if (typeof StoreManager.ensureRequestStoreLoaded === 'function') {
+    await StoreManager.ensureRequestStoreLoaded(req);
+  }
 
   // Resolver la tienda actual según host, subdominio o parámetro (?store=tienda1)
   const currentStore = StoreManager.resolveStoreFromRequest(req);
@@ -682,20 +685,55 @@ async function appHandler(req, res) {
 
   // 0. GET /api/store/current (Información de la tienda activa y su cuota mensual de IA)
   if (reqPath === '/api/store/current' && req.method === 'GET') {
-    const quota = StoreManager.getAiQuotaStatus(currentStore.id);
-    const subAccess = StoreManager.getStoreSubscriptionAccess(currentStore);
+    const requestedStoreParam = (qs.store || qs.tienda || qs.storeId || req.headers['x-store-id'] || '').toString().trim().toLowerCase();
+    const isExplicitCustomStore = Boolean(
+      requestedStoreParam &&
+      requestedStoreParam !== 'principal' &&
+      requestedStoreParam !== 'capfit' &&
+      requestedStoreParam !== 'admin_portal' &&
+      requestedStoreParam !== 'admin' &&
+      requestedStoreParam !== 'account' &&
+      !requestedStoreParam.startsWith('ais-')
+    );
+
+    let resolvedCurrent = currentStore;
+    if (isExplicitCustomStore && (!resolvedCurrent || resolvedCurrent.id === 'principal')) {
+      let fromDb = StoreManager.getStoreById(requestedStoreParam) || StoreManager.getStoreBySubdomain(requestedStoreParam);
+      if (!fromDb && typeof StoreManager.getStorePublic === 'function') {
+        fromDb = await StoreManager.getStorePublic(requestedStoreParam).catch(() => null);
+      }
+      if (!fromDb && (req.headers['authorization'] || req.headers['Authorization'])) {
+        // Si el dueño autenticado pide su tienda recién creada, authenticateRequest la rehidrata en Firestore
+        await AuthGuard.authenticateRequest(req).catch(() => null);
+        fromDb = StoreManager.getStoreById(requestedStoreParam) || StoreManager.getStoreBySubdomain(requestedStoreParam);
+      }
+      if (fromDb) {
+        resolvedCurrent = fromDb;
+      } else {
+        // NUNCA devolver 'principal' (CAPFIT Oficial / ENTERPRISE) cuando se pidió explícitamente otra tienda
+        sendJson(res, 404, {
+          ok: false,
+          code: 'STORE_NOT_FOUND',
+          error: `La tienda "${requestedStoreParam}" no fue encontrada.`
+        });
+        return;
+      }
+    }
+
+    const quota = StoreManager.getAiQuotaStatus(resolvedCurrent.id);
+    const subAccess = StoreManager.getStoreSubscriptionAccess(resolvedCurrent);
     sendJson(res, 200, {
       ok: true,
       store: {
-        id: currentStore.id,
-        subdomain: currentStore.subdomain,
-        fullDomain: currentStore.fullDomain || `${currentStore.subdomain}.capfit.store`,
-        name: currentStore.name,
-        tagline: currentStore.tagline,
-        plan: currentStore.plan || 'Starter',
-        brandColor: currentStore.brandColor || '#111111',
-        mpConnected: Boolean(currentStore.mpConnected),
-        mpConnectionMode: currentStore.mpConnectionMode || null
+        id: resolvedCurrent.id,
+        subdomain: resolvedCurrent.subdomain,
+        fullDomain: resolvedCurrent.fullDomain || `${resolvedCurrent.subdomain}.capfit.store`,
+        name: resolvedCurrent.name,
+        tagline: resolvedCurrent.tagline,
+        plan: resolvedCurrent.plan || 'Starter',
+        brandColor: resolvedCurrent.brandColor || '#111111',
+        mpConnected: Boolean(resolvedCurrent.mpConnected),
+        mpConnectionMode: resolvedCurrent.mpConnectionMode || null
       },
       aiQuota: quota,
       subscriptionAccess: subAccess
@@ -1002,8 +1040,30 @@ async function appHandler(req, res) {
       const docStoreId = ownerDoc ? (ownerDoc.storeId || (Array.isArray(ownerDoc.stores) && ownerDoc.stores[0])) : null;
       const docRole = ownerDoc ? ownerDoc.role : null;
 
+      if (cleanTargetStoreId && cleanTargetStoreId !== 'principal' && cleanTargetStoreId !== 'admin_portal' && cleanTargetStoreId !== 'admin') {
+        if (!StoreManager.getStoreById(cleanTargetStoreId) && typeof StoreManager.getStorePublic === 'function') {
+          await StoreManager.getStorePublic(cleanTargetStoreId).catch(() => {});
+        }
+      }
+
+      if (docStoreId && !StoreManager.getStoreById(docStoreId) && typeof StoreManager.getStorePublic === 'function') {
+        await StoreManager.getStorePublic(docStoreId).catch(() => {});
+      }
+
+      let ownedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid });
+      if (ownedStores.length === 0 && CustomerService && typeof CustomerService.detectOwnedStores === 'function') {
+        try {
+          const detectedIds = await CustomerService.detectOwnedStores(cleanEmail, uid);
+          for (const dId of detectedIds) {
+            if (!StoreManager.getStoreById(dId) && typeof StoreManager.getStorePublic === 'function') {
+              await StoreManager.getStorePublic(dId).catch(() => {});
+            }
+          }
+          ownedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid });
+        } catch (_) {}
+      }
+
       const allStores = StoreManager.getAllStores();
-      const ownedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid });
 
       // Determinar si el usuario es SuperAdmin
       const isSuperAdmin = (claimRole === 'superadmin') || (docRole === 'superadmin') || (cleanEmail === superadminEmail) || (cleanEmail === 'admin@capfit.shop');
@@ -1031,13 +1091,14 @@ async function appHandler(req, res) {
 
       // 3. Caso: Store Owner validado por Custom Claims, Documento Firestore o Propiedad de Tienda
       if (targetStore && validOwnedStoreIds.has(targetStore.id) && !isSuperAdmin) {
-        StoreManager.linkStoreOwner({
+        const linked = StoreManager.linkStoreOwner({
           storeId: targetStore.id,
           uid,
           email: cleanEmail,
           displayName: displayName || targetStore.name,
           role: 'store_owner'
         });
+        if (linked && linked.syncPromise) await linked.syncPromise;
 
         const signedToken = AuthGuard.signSessionToken({
           uid,
@@ -1127,9 +1188,10 @@ async function appHandler(req, res) {
         return;
       }
 
-      // Verificar que el subdominio no pertenezca ya a otra tienda existente
+      // Verificar que el subdominio no pertenezca ya a otra tienda existente (en memoria o en Firestore)
       const cleanSubCheck = String(subdomain).toLowerCase().trim().replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '');
-      const existingStore = StoreManager.getStoreById(cleanSubCheck);
+      const existingStore = StoreManager.getStoreById(cleanSubCheck) ||
+        (typeof StoreManager.getStorePublic === 'function' ? await StoreManager.getStorePublic(cleanSubCheck).catch(() => null) : null);
       if (existingStore && existingStore.ownerUid && existingStore.ownerUid !== uid) {
         sendJson(res, 409, { ok: false, error: `El subdominio "${cleanSubCheck}" ya está registrado por otra tienda.` });
         return;
@@ -1145,14 +1207,20 @@ async function appHandler(req, res) {
         plan: 'free',
         tagline: tagline || `Tienda oficial de gorras de ${storeName}`
       });
+      if (newStore && newStore.syncPromise) {
+        await newStore.syncPromise;
+      }
 
-      StoreManager.linkStoreOwner({
+      const linked = StoreManager.linkStoreOwner({
         storeId: newStore.id,
         uid,
         email: cleanEmail,
         displayName: displayName || verifiedToken.name || storeName,
         role: 'store_owner'
       });
+      if (linked && linked.syncPromise) {
+        await linked.syncPromise;
+      }
 
       const signedToken = AuthGuard.signSessionToken({
         uid,
@@ -1624,9 +1692,47 @@ async function appHandler(req, res) {
   // 1.05 GET /api/plans (Listado de planes y suscripciones CapFit)
   if (reqPath === '/api/plans' && req.method === 'GET') {
     const plans = StoreManager.getPlansCatalog ? StoreManager.getPlansCatalog() : [];
-    const rawTargetId = (qs.store && qs.store !== 'admin_portal' && qs.store !== 'admin') ? qs.store : currentStore.id;
-    const cleanTargetId = (!rawTargetId || rawTargetId === 'admin_portal' || rawTargetId === 'admin') ? 'principal' : rawTargetId;
-    const store = StoreManager.getStoreById(cleanTargetId) || StoreManager.getStoreBySubdomain(cleanTargetId) || StoreManager.getStoreById('principal') || currentStore;
+    const rawTargetId = (qs.store && qs.store !== 'admin_portal' && qs.store !== 'admin' && qs.store !== 'account') ? qs.store : currentStore.id;
+    const cleanTargetId = (!rawTargetId || rawTargetId === 'admin_portal' || rawTargetId === 'admin' || rawTargetId === 'account') ? 'principal' : String(rawTargetId).trim().toLowerCase();
+
+    let store = StoreManager.getStoreById(cleanTargetId) || StoreManager.getStoreBySubdomain(cleanTargetId);
+    if (!store && cleanTargetId !== 'principal') {
+      store = await StoreManager.getStorePublic(cleanTargetId);
+    }
+    if (!store && cleanTargetId !== 'principal' && req.headers && req.headers.authorization) {
+      await AuthGuard.authenticateRequest(req).catch(() => {});
+      store = StoreManager.getStoreById(cleanTargetId) || StoreManager.getStoreBySubdomain(cleanTargetId);
+    }
+    if (!store && cleanTargetId === 'principal') {
+      store = StoreManager.getStoreById('principal') || currentStore;
+    }
+
+    if (!store) {
+      const freeDetails = StoreManager.getPlanDetails ? StoreManager.getPlanDetails('free') : { id: 'free', name: 'FREE', aiMonthlyLimit: 20 };
+      sendJson(res, 200, {
+        ok: true,
+        currentPlanId: 'free',
+        currentPlanName: 'FREE',
+        storeId: cleanTargetId,
+        storeName: cleanTargetId,
+        quota: {
+          storeId: cleanTargetId,
+          storeName: cleanTargetId,
+          subdomain: cleanTargetId,
+          fullDomain: `${cleanTargetId}.capfit.store`,
+          plan: freeDetails.name || 'FREE',
+          planId: 'free',
+          limit: freeDetails.aiMonthlyLimit || 20,
+          used: 0,
+          remaining: freeDetails.aiMonthlyLimit || 20,
+          period: new Date().toISOString().slice(0, 7),
+          percentUsed: 0
+        },
+        plans
+      });
+      return;
+    }
+
     const quota = StoreManager.getAiQuotaStatus(store.id);
     const planId = (store.planId || store.plan || 'free').toLowerCase();
     const planDetails = StoreManager.getPlanDetails ? StoreManager.getPlanDetails(planId) : null;
@@ -1654,10 +1760,13 @@ async function appHandler(req, res) {
       const raw = await readBody(req);
       const body = JSON.parse(raw.toString() || '{}');
       let storeId = body.storeId || qs.store || auth.storeId || currentStore.id;
-      if (!storeId || storeId === 'admin_portal' || storeId === 'admin') {
-        storeId = (auth.storeId && auth.storeId !== 'admin_portal' && auth.storeId !== 'admin') ? auth.storeId : 'principal';
+      if (!storeId || storeId === 'admin_portal' || storeId === 'admin' || storeId === 'account') {
+        storeId = (auth.storeId && auth.storeId !== 'admin_portal' && auth.storeId !== 'admin' && auth.storeId !== 'account') ? auth.storeId : 'principal';
       }
-      const resolvedStore = StoreManager.getStoreById(storeId) || StoreManager.getStoreBySubdomain(storeId);
+      let resolvedStore = StoreManager.getStoreById(storeId) || StoreManager.getStoreBySubdomain(storeId);
+      if (!resolvedStore && storeId !== 'principal') {
+        resolvedStore = await StoreManager.getStorePublic(storeId);
+      }
       if (resolvedStore) storeId = resolvedStore.id;
 
       if (!AuthGuard.canManageStore(auth, storeId)) {
@@ -1699,11 +1808,21 @@ async function appHandler(req, res) {
   // 1.08 GET /api/subscriptions/status (Consultar estado de suscripción)
   if (reqPath === '/api/subscriptions/status' && req.method === 'GET') {
     const rawTargetId = qs.store || qs.storeId || currentStore.id;
-    const cleanTargetId = (!rawTargetId || rawTargetId === 'admin_portal' || rawTargetId === 'admin') ? 'principal' : rawTargetId;
-    const store = StoreManager.getStoreById(cleanTargetId) || StoreManager.getStoreBySubdomain(cleanTargetId) || currentStore;
+    const cleanTargetId = (!rawTargetId || rawTargetId === 'admin_portal' || rawTargetId === 'admin' || rawTargetId === 'account') ? 'principal' : String(rawTargetId).trim().toLowerCase();
+    const auth = await AuthGuard.authenticateRequest(req);
+    let store = StoreManager.getStoreById(cleanTargetId) || StoreManager.getStoreBySubdomain(cleanTargetId);
+    if (!store && cleanTargetId !== 'principal') {
+      store = await StoreManager.getStorePublic(cleanTargetId);
+    }
+    if (!store && cleanTargetId === 'principal') {
+      store = StoreManager.getStoreById('principal') || currentStore;
+    }
+    if (!store) {
+      sendJson(res, 404, { ok: false, error: `Tienda "${cleanTargetId}" no encontrada.` });
+      return;
+    }
     const quota = StoreManager.getAiQuotaStatus(store.id);
     const planDetails = StoreManager.getPlanDetails(store.planId || store.plan);
-    const auth = await AuthGuard.authenticateRequest(req);
     const isAuthorizedAdmin = auth.authenticated && AuthGuard.canManageStore(auth, store.id);
     const mpStatus = MercadoPagoSubscriptions.getCredentialsStatus();
 
@@ -1912,6 +2031,7 @@ async function appHandler(req, res) {
       const raw = await readBody(req);
       const body = JSON.parse(raw.toString() || '{}');
       const newStore = StoreManager.createStore(body);
+      if (newStore && newStore.syncPromise) await newStore.syncPromise;
       sendJson(res, 201, {
         ok: true,
         message: `Tienda "${newStore.name}" creada con éxito en ${newStore.subdomain}.capfit.store`,
@@ -1954,6 +2074,7 @@ async function appHandler(req, res) {
       }
 
       const updated = StoreManager.updateStore(storeTargetId, updates);
+      if (updated && updated.syncPromise) await updated.syncPromise;
       sendJson(res, 200, {
         ok: true,
         message: 'Tienda actualizada',
@@ -2001,7 +2122,7 @@ async function appHandler(req, res) {
         sendJson(res, 400, { ok: false, error: 'El nombre y precio son obligatorios.' });
         return;
       }
-      const products = StoreManager.readStoreProducts(targetStoreId);
+      const products = [...(await StoreManager.fetchStoreProductsFromDb(targetStoreId))];
       let baseId = (p.id || p.nombre)
         .toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -2021,13 +2142,14 @@ async function appHandler(req, res) {
         ? ['Protección UV400', 'Marco resistente y liviano', 'Cristales polarizados', 'Incluye estuche']
         : ['Algodón premium', 'Ajuste regulable', 'Unisex'];
 
+      const targetStoreObj = StoreManager.getStoreById(targetStoreId) || currentStore;
       const newProduct = {
         id: finalId,
         storeId: targetStoreId,
         tipo: p.tipo || 'gorra',
         categoria: p.categoria || p.tipo || 'gorra',
         nombre: p.nombre.trim(),
-        marca: p.marca ? p.marca.trim() : (currentStore.name || 'CAPFIT'),
+        marca: p.marca ? p.marca.trim() : ((targetStoreObj && targetStoreObj.name) || 'CAPFIT'),
         coleccion: p.coleccion ? p.coleccion.trim() : 'Urbana',
         precio: Number(p.precio) || 0,
         precioAnterior: p.precioAnterior ? Number(p.precioAnterior) : null,
@@ -2046,7 +2168,7 @@ async function appHandler(req, res) {
       };
 
       products.unshift(newProduct);
-      StoreManager.writeStoreProducts(targetStoreId, products);
+      await StoreManager.writeStoreProducts(targetStoreId, products);
       sendJson(res, 201, { ok: true, product: newProduct, message: 'Producto guardado en la base de datos de la tienda' });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
@@ -2067,6 +2189,7 @@ async function appHandler(req, res) {
         sendJson(res, 403, { ok: false, error: `No tenés permisos para sincronizar el catálogo de "${targetStoreId}".` });
         return;
       }
+      await StoreManager.fetchStoreProductsFromDb(targetStoreId);
       const resSync = await StoreManager.syncStoreProductsToFirestore(targetStoreId);
       sendJson(res, 200, { ok: true, ...resSync, message: `Catálogo de "${targetStoreId}" sincronizado en Firestore` });
     } catch (e) {
@@ -2094,7 +2217,7 @@ async function appHandler(req, res) {
         return;
       }
 
-      const products = StoreManager.readStoreProducts(targetStoreId);
+      const products = [...(await StoreManager.fetchStoreProductsFromDb(targetStoreId))];
       const idx = products.findIndex(p => p.id === targetId);
       if (idx === -1) {
         sendJson(res, 404, { ok: false, error: 'Producto no encontrado en esta tienda' });
@@ -2122,7 +2245,7 @@ async function appHandler(req, res) {
       if (updates.detalles !== undefined && Array.isArray(updates.detalles)) p.detalles = updates.detalles;
 
       products[idx] = p;
-      StoreManager.writeStoreProducts(targetStoreId, products);
+      await StoreManager.writeStoreProducts(targetStoreId, products);
       sendJson(res, 200, { ok: true, product: p, message: 'Producto actualizado en la base de datos de la tienda' });
     } catch (e) {
       sendJson(res, 500, { ok: false, error: e.message });
@@ -2146,7 +2269,11 @@ async function appHandler(req, res) {
         return;
       }
 
+      await StoreManager.fetchStoreProductsFromDb(targetStoreId);
       const ok = StoreManager.deleteStoreProduct(targetStoreId, targetId);
+      if (FirebaseDb && typeof FirebaseDb.deleteProduct === 'function') {
+        await FirebaseDb.deleteProduct(targetId, targetStoreId).catch(() => {});
+      }
       if (!ok) {
         sendJson(res, 404, { ok: false, error: 'Producto no encontrado' });
         return;

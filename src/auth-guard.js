@@ -364,7 +364,7 @@ function extractTokenFromRequest(req) {
 /**
  * Resolves role and store permissions for a verified Firebase user
  */
-async function resolveUserPermissions({ uid, email, claims = {} }) {
+async function resolveUserPermissions({ uid, email, claims = {}, targetStoreId = null }) {
   const cleanEmail = (email || '').toLowerCase().trim();
   const superadminEmail = (process.env.SUPERADMIN_EMAIL || 'lucasg33322@gmail.com').toLowerCase().trim();
 
@@ -381,10 +381,37 @@ async function resolveUserPermissions({ uid, email, claims = {} }) {
   const docRole = ownerDoc ? ownerDoc.role : null;
   const docStoreId = ownerDoc ? (ownerDoc.storeId || (Array.isArray(ownerDoc.stores) && ownerDoc.stores[0])) : null;
 
-  const ownedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid });
+  // Asegurar que la tienda objetivo o la tienda del documento esté cargada en caché desde Firestore
+  const storesToEnsure = [targetStoreId, claimStoreId, docStoreId].filter(Boolean);
+  for (const sId of storesToEnsure) {
+    const cleanSId = String(sId).trim().toLowerCase();
+    if (cleanSId && cleanSId !== 'principal' && cleanSId !== 'admin_portal' && cleanSId !== 'admin' && !StoreManager.getStoreById(cleanSId)) {
+      if (typeof StoreManager.getStorePublic === 'function') {
+        await StoreManager.getStorePublic(cleanSId).catch(() => {});
+      }
+    }
+  }
+
+  let ownedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid });
   const ownedStoreIds = new Set(ownedStores.map((s) => s.id));
   if (claimStoreId) ownedStoreIds.add(String(claimStoreId));
   if (docStoreId) ownedStoreIds.add(String(docStoreId));
+
+  // Si aún no se encontraron tiendas en el caché local de esta instancia serverless, consultar Firestore
+  if (ownedStoreIds.size === 0 && (cleanEmail || uid)) {
+    try {
+      const CustomerService = require('./customer-service');
+      if (CustomerService && typeof CustomerService.detectOwnedStores === 'function') {
+        const detected = await CustomerService.detectOwnedStores(cleanEmail, uid);
+        for (const dId of detected) {
+          ownedStoreIds.add(String(dId));
+          if (!StoreManager.getStoreById(dId) && typeof StoreManager.getStorePublic === 'function') {
+            await StoreManager.getStorePublic(dId).catch(() => {});
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   const isSuperAdmin =
     claimRole === 'superadmin' ||
@@ -399,12 +426,47 @@ async function resolveUserPermissions({ uid, email, claims = {} }) {
     };
   }
 
+  // Auto-rehidratación segura: si el usuario autenticado solicita gestionar una tienda específica (ej. "marca1")
+  // que se creó antes de corregir las reglas de Firestore y por eso no quedó persistida en la nube,
+  // y esa tienda no pertenece a nadie más, la recreamos y vinculamos en Firestore automáticamente.
+  if (ownedStoreIds.size === 0 && targetStoreId && uid && cleanEmail) {
+    const cleanCand = String(targetStoreId).trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (cleanCand && cleanCand.length >= 3 && cleanCand !== 'principal' && cleanCand !== 'admin_portal' && cleanCand !== 'admin' && cleanCand !== 'account') {
+      const existing = StoreManager.getStoreById(cleanCand) || (typeof StoreManager.getStorePublic === 'function' ? await StoreManager.getStorePublic(cleanCand).catch(() => null) : null);
+      if (!existing) {
+        try {
+          const prettyName = cleanCand.charAt(0).toUpperCase() + cleanCand.slice(1);
+          const healed = StoreManager.createStore({
+            subdomain: cleanCand,
+            name: prettyName,
+            username: cleanCand,
+            ownerEmail: cleanEmail,
+            ownerUid: uid,
+            plan: 'free',
+            tagline: `Tienda oficial de ${prettyName}`
+          });
+          if (healed && healed.syncPromise) await healed.syncPromise;
+          const linked = StoreManager.linkStoreOwner({
+            storeId: cleanCand,
+            uid,
+            email: cleanEmail,
+            displayName: prettyName,
+            role: 'store_owner'
+          });
+          if (linked && linked.syncPromise) await linked.syncPromise;
+          ownedStoreIds.add(cleanCand);
+        } catch (_) {}
+      }
+    }
+  }
+
   if (ownedStoreIds.size > 0 || claimRole === 'store_owner' || docRole === 'store_owner') {
-    const primaryStoreId = claimStoreId || docStoreId || (ownedStores[0] && ownedStores[0].id) || null;
+    const arrOwned = Array.from(ownedStoreIds);
+    const primaryStoreId = claimStoreId || docStoreId || arrOwned[0] || null;
     return {
       role: 'store_owner',
       storeId: primaryStoreId,
-      ownedStoreIds: Array.from(ownedStoreIds)
+      ownedStoreIds: arrOwned
     };
   }
 
@@ -425,11 +487,50 @@ async function authenticateRequest(req) {
     return { authenticated: false, status: 401, error: 'Autenticación requerida (Authorization: Bearer token ausente).' };
   }
 
+  let requestedStoreId = null;
+  if (req) {
+    const hdr = req.headers && (req.headers['x-store-id'] || req.headers['x-tenant-id']);
+    if (hdr) requestedStoreId = String(hdr).trim();
+    if (!requestedStoreId && req.url) {
+      try {
+        const parsed = require('url').parse(req.url, true);
+        if (parsed.query && (parsed.query.store || parsed.query.storeId)) {
+          requestedStoreId = String(parsed.query.store || parsed.query.storeId).trim();
+        }
+      } catch (_) {}
+    }
+  }
+
   // 1. Check if it is a CapFit HMAC-signed session token
   if (token.startsWith('capfit_sess.')) {
     const sessionRes = verifySessionToken(token);
     if (!sessionRes.verified) {
       return { authenticated: false, status: 401, error: sessionRes.error };
+    }
+
+    // Si el token firmado incluye un storeId que no está en la memoria de esta instancia serverless, cargarlo o rehidratarlo
+    const primaryStore = sessionRes.storeId;
+    if (primaryStore && primaryStore !== 'principal' && primaryStore !== 'admin_portal' && primaryStore !== 'admin' && sessionRes.role === 'store_owner') {
+      let existing = StoreManager.getStoreById(primaryStore);
+      if (!existing && typeof StoreManager.getStorePublic === 'function') {
+        existing = await StoreManager.getStorePublic(primaryStore).catch(() => null);
+      }
+      if (!existing && sessionRes.email) {
+        try {
+          const cleanSub = String(primaryStore).toLowerCase().trim();
+          const prettyName = cleanSub.charAt(0).toUpperCase() + cleanSub.slice(1);
+          const healed = StoreManager.createStore({
+            subdomain: cleanSub,
+            name: prettyName,
+            username: cleanSub,
+            ownerEmail: sessionRes.email,
+            ownerUid: sessionRes.uid,
+            plan: 'free',
+            tagline: `Tienda oficial de ${prettyName}`
+          });
+          if (healed && healed.syncPromise) await healed.syncPromise;
+        } catch (_) {}
+      }
     }
 
     // Refresh owned stores from StoreManager in case store ownership was linked during the session
@@ -458,7 +559,8 @@ async function authenticateRequest(req) {
     const perms = await resolveUserPermissions({
       uid: fbRes.uid,
       email: fbRes.email,
-      claims: fbRes.claims
+      claims: fbRes.claims,
+      targetStoreId: requestedStoreId
     });
 
     return {

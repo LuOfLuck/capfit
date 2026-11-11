@@ -47,8 +47,10 @@ const AdminPanel = (() => {
 
   function getActiveAuthToken() {
     const t1 = sessionStorage.getItem(SESSION_KEY);
-    if (t1 && t1.includes('.')) return t1;
     const t2 = sessionStorage.getItem('capfit_session');
+    if (t1 && t1.startsWith('capfit_sess.')) return t1;
+    if (t2 && t2.startsWith('capfit_sess.')) return t2;
+    if (t1 && t1.includes('.')) return t1;
     if (t2 && t2.includes('.')) return t2;
     // Limpiar tokens planos antiguos no firmados
     if (t1 && !t1.includes('.')) sessionStorage.removeItem(SESSION_KEY);
@@ -124,18 +126,26 @@ const AdminPanel = (() => {
         _adminRole = verifyRes.role || 'store_owner';
         _currentStoreId = verifyRes.storeId || 'principal';
         _currentStoreName = verifyRes.storeName || 'Mi Tienda';
-        _currentSubdomain = verifyRes.subdomain || 'tienda1';
+        _currentSubdomain = verifyRes.subdomain || _currentStoreId;
         _userEmail = user.email || '';
         _userName = user.displayName || '';
+        _products = [];
+        _orders = [];
+        _aiQuota = null;
 
         sessionStorage.setItem(SESSION_KEY, verifyRes.token);
+        sessionStorage.setItem('capfit_session', verifyRes.token);
         sessionStorage.setItem(ROLE_KEY, _adminRole);
         sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
         sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
         sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
         sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
         sessionStorage.setItem(USER_NAME_KEY, _userName);
+        localStorage.setItem('capfit_active_store_id', _currentStoreId);
 
+        if (window.Store && Store.updateHeaderLogo) {
+          Store.updateHeaderLogo({ id: _currentStoreId, name: _currentStoreName, subdomain: _currentSubdomain });
+        }
         if (window.showToast) window.showToast(`¡Bienvenido al Backoffice, ${_userName || _userEmail}!`);
         render();
       } else if (verifyRes.needRegisterStore) {
@@ -220,18 +230,26 @@ const AdminPanel = (() => {
         _adminRole = verifyRes.role || 'store_owner';
         _currentStoreId = verifyRes.storeId || 'principal';
         _currentStoreName = verifyRes.storeName || 'Mi Tienda';
-        _currentSubdomain = verifyRes.subdomain || 'tienda1';
+        _currentSubdomain = verifyRes.subdomain || _currentStoreId;
         _userEmail = user.email || cleanInput;
         _userName = user.displayName || '';
+        _products = [];
+        _orders = [];
+        _aiQuota = null;
 
         sessionStorage.setItem(SESSION_KEY, verifyRes.token);
+        sessionStorage.setItem('capfit_session', verifyRes.token);
         sessionStorage.setItem(ROLE_KEY, _adminRole);
         sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
         sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
         sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
         sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
         sessionStorage.setItem(USER_NAME_KEY, _userName);
+        localStorage.setItem('capfit_active_store_id', _currentStoreId);
 
+        if (window.Store && Store.updateHeaderLogo) {
+          Store.updateHeaderLogo({ id: _currentStoreId, name: _currentStoreName, subdomain: _currentSubdomain });
+        }
         if (window.showToast) window.showToast('¡Sesión iniciada con éxito!');
         render();
       } else if (verifyRes.needRegisterStore) {
@@ -284,18 +302,38 @@ const AdminPanel = (() => {
       _adminRole = 'store_owner';
       _currentStoreId = regRes.storeId;
       _currentStoreName = regRes.storeName;
-      _currentSubdomain = regRes.subdomain;
+      _currentSubdomain = regRes.subdomain || regRes.storeId;
       _userEmail = user.email || '';
       _userName = user.displayName || data.storeName;
+      _products = [];
+      _orders = [];
+      _aiQuota = {
+        storeId: _currentStoreId,
+        storeName: _currentStoreName,
+        subdomain: _currentSubdomain,
+        fullDomain: `${_currentSubdomain}.capfit.store`,
+        plan: 'FREE',
+        planId: 'free',
+        limit: 20,
+        used: 0,
+        remaining: 20,
+        period: new Date().toISOString().slice(0, 7),
+        percentUsed: 0
+      };
 
       sessionStorage.setItem(SESSION_KEY, regRes.token);
+      sessionStorage.setItem('capfit_session', regRes.token);
       sessionStorage.setItem(ROLE_KEY, _adminRole);
       sessionStorage.setItem(STORE_ID_KEY, _currentStoreId);
       sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
       sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
       sessionStorage.setItem(USER_EMAIL_KEY, _userEmail);
       sessionStorage.setItem(USER_NAME_KEY, _userName);
+      localStorage.setItem('capfit_active_store_id', _currentStoreId);
 
+      if (window.Store && Store.updateHeaderLogo) {
+        Store.updateHeaderLogo({ id: _currentStoreId, name: _currentStoreName, subdomain: _currentSubdomain });
+      }
       if (window.showToast) window.showToast(`¡Tienda "${data.storeName}" creada con éxito!`);
       render();
     } catch (err) {
@@ -372,6 +410,9 @@ const AdminPanel = (() => {
     if (window.CapfitAuth && CapfitAuth.signOutUser) {
       await CapfitAuth.signOutUser().catch(() => {});
     }
+    if (window.CapfitCustomer && typeof window.CapfitCustomer.clearSession === 'function') {
+      try { window.CapfitCustomer.clearSession(); } catch (_) {}
+    }
     sessionStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(ROLE_KEY);
     sessionStorage.removeItem(STORE_ID_KEY);
@@ -384,9 +425,18 @@ const AdminPanel = (() => {
     sessionStorage.removeItem('capfit_store_id');
     sessionStorage.removeItem('capfit_store_subdomain');
     sessionStorage.removeItem('capfit_store_name');
+    localStorage.removeItem('capfit_active_store_id');
     _adminRole = 'store_owner';
+    _currentStoreId = 'principal';
+    _currentStoreName = 'CAPFIT Store';
+    _currentSubdomain = 'principal';
     _userEmail = '';
     _userName = '';
+    _products = [];
+    _orders = [];
+    _aiQuota = null;
+    _mpPaymentConfig = null;
+    _allStores = [];
     if (window.showToast) window.showToast('Sesión de administrador cerrada');
     render();
   }
@@ -394,7 +444,9 @@ const AdminPanel = (() => {
   // ── Data Fetching ──
   async function loadProducts() {
     try {
-      const res = await fetch(`/api/products${getStoreQuery()}`);
+      const res = await fetch(`/api/products${getStoreQuery()}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         _products = await res.json();
       }
@@ -418,16 +470,28 @@ const AdminPanel = (() => {
 
   async function loadStoreQuota() {
     try {
-      const res = await fetch(`/api/store/current${getStoreQuery()}`);
+      const res = await fetch(`/api/store/current${getStoreQuery()}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
-        if (data.ok) {
+        if (data.ok && data.store) {
+          // Proteger contra sobreescritura accidental con 'principal' (CAPFIT Oficial) si estamos gestionando otra tienda
+          const returnedId = (data.store.id || '').toLowerCase();
+          const returnedSub = (data.store.subdomain || '').toLowerCase();
+          const requestedId = (_currentStoreId || '').toLowerCase();
+          if (requestedId && requestedId !== 'principal' && returnedId === 'principal' && returnedSub !== requestedId) {
+            return;
+          }
           _aiQuota = data.aiQuota;
-          if (data.store) {
-            _currentStoreName = data.store.name;
-            _currentSubdomain = data.store.subdomain;
-            sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
-            sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
+          _currentStoreName = data.store.name || _currentStoreName;
+          _currentSubdomain = data.store.subdomain || _currentStoreId;
+          sessionStorage.setItem(STORE_NAME_KEY, _currentStoreName);
+          sessionStorage.setItem(SUBDOMAIN_KEY, _currentSubdomain);
+          sessionStorage.setItem('capfit_store_name', _currentStoreName);
+          sessionStorage.setItem('capfit_store_subdomain', _currentSubdomain);
+          if (window.Store && Store.updateHeaderLogo) {
+            Store.updateHeaderLogo(data.store);
           }
         }
       }
@@ -469,8 +533,7 @@ const AdminPanel = (() => {
 
   async function refreshData() {
     await Promise.all([loadProducts(), loadOrders(), loadStoreQuota(), loadStoreMpConfig(), loadAllStores()]);
-    renderMetrics();
-    renderActiveTabContent();
+    renderDashboard();
   }
 
   // ── Metric Calculations ──
@@ -875,7 +938,9 @@ const AdminPanel = (() => {
 
   function openStorefront() {
     const host = (window.location.hostname || '').toLowerCase();
-    const sub = _currentSubdomain || 'principal';
+    const sub = (_currentSubdomain && _currentSubdomain !== 'capfit' && _currentSubdomain !== 'principal' && _currentSubdomain !== 'tienda1')
+      ? _currentSubdomain
+      : ((_currentStoreId && _currentStoreId !== 'principal' && _currentStoreId !== 'admin_portal' && _currentStoreId !== 'admin') ? _currentStoreId : (_currentSubdomain || 'principal'));
     if (host.includes('capfit.store')) {
       if (sub === 'principal' || sub === 'capfit') {
         window.open('https://app.capfit.store/', '_blank');
