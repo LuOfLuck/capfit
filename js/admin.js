@@ -287,6 +287,11 @@ const AdminPanel = (() => {
       if (!window.CapfitAuth) throw new Error('Módulo Auth no disponible.');
 
       let user = CapfitAuth.getCurrentUser();
+      const targetEmail = (data.email || '').trim().toLowerCase();
+      if (user && targetEmail && user.email && user.email.toLowerCase() !== targetEmail) {
+        await CapfitAuth.signOutUser();
+        user = null;
+      }
       if (!user) {
         user = await CapfitAuth.registerWithEmail(data.email, data.password);
       }
@@ -338,6 +343,18 @@ const AdminPanel = (() => {
       render();
     } catch (err) {
       console.error('Error registrando tienda:', err);
+      if (err && err.code === 'EMAIL_ALREADY_HAS_STORE') {
+        _portalTab = 'login';
+        renderLoginView();
+        const loginEmailInput = document.getElementById('admin-email-input') || document.getElementById('admin-user');
+        if (loginEmailInput && data.email) loginEmailInput.value = data.email;
+        const loginErrEl = document.getElementById('admin-login-error');
+        if (loginErrEl) {
+          loginErrEl.textContent = err.message;
+          loginErrEl.style.display = 'block';
+        }
+        return;
+      }
       if (errorEl) {
         errorEl.textContent = err.message || 'Error al registrar tienda';
         errorEl.style.display = 'block';

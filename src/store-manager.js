@@ -700,6 +700,21 @@ function createStore(params) {
     throw new Error(`El subdominio "${cleanSub}" está reservado.`);
   }
 
+  const cleanOwnerEmail = (params.ownerEmail || `contacto@${cleanSub}.com`).toLowerCase().trim();
+  const cleanOwnerUid = params.ownerUid ? String(params.ownerUid).trim() : null;
+
+  // Regla estricta: 1 correo = 1 tienda (y 1 UID = 1 tienda)
+  for (const existing of storesCache.values()) {
+    if (!existing || existing.id === cleanSub || existing.id === 'principal') continue;
+    const exEmail = (existing.ownerEmail || '').toLowerCase().trim();
+    if (cleanOwnerEmail && exEmail && exEmail === cleanOwnerEmail) {
+      throw new Error(`El correo "${cleanOwnerEmail}" ya tiene una tienda registrada ("${existing.name}" en ${existing.subdomain}.capfit.store). Solo se permite una tienda por correo electrónico.`);
+    }
+    if (cleanOwnerUid && existing.ownerUid && String(existing.ownerUid) === cleanOwnerUid) {
+      throw new Error(`Esta cuenta de usuario ya tiene una tienda registrada ("${existing.name}" en ${existing.subdomain}.capfit.store). Solo se permite una tienda por cuenta.`);
+    }
+  }
+
   const planDetails = getPlanDetails(params.plan || 'starter');
   const limit = params.aiMonthlyLimit !== undefined ? Number(params.aiMonthlyLimit) : planDetails.aiMonthlyLimit;
 
@@ -709,8 +724,8 @@ function createStore(params) {
     fullDomain: `${cleanSub}.capfit.store`,
     name: (params.name || `Tienda ${cleanSub}`).trim(),
     tagline: (params.tagline || 'Tienda personalizada').trim(),
-    ownerEmail: (params.ownerEmail || `contacto@${cleanSub}.com`).trim(),
-    ownerUid: params.ownerUid || null,
+    ownerEmail: cleanOwnerEmail,
+    ownerUid: cleanOwnerUid,
     plan: planDetails.id,
     planId: planDetails.id,
     aiMonthlyLimit: limit,
@@ -757,10 +772,25 @@ function updateStore(idOrData, maybeUpdates) {
   const s = getStoreById(targetId);
   if (!s) throw new Error('Tienda no encontrada');
 
+  if (updates.ownerEmail !== undefined || updates.ownerUid !== undefined) {
+    const nextEmail = updates.ownerEmail !== undefined ? String(updates.ownerEmail || '').toLowerCase().trim() : (s.ownerEmail || '').toLowerCase().trim();
+    const nextUid = updates.ownerUid !== undefined ? (updates.ownerUid ? String(updates.ownerUid).trim() : null) : s.ownerUid;
+    for (const existing of storesCache.values()) {
+      if (!existing || existing.id === s.id || existing.id === 'principal') continue;
+      const exEmail = (existing.ownerEmail || '').toLowerCase().trim();
+      if (nextEmail && exEmail && exEmail === nextEmail) {
+        throw new Error(`El correo "${nextEmail}" ya pertenece a la tienda "${existing.name}" (${existing.subdomain}.capfit.store). Solo se permite una tienda por correo.`);
+      }
+      if (nextUid && existing.ownerUid && String(existing.ownerUid) === nextUid) {
+        throw new Error(`Esta cuenta de usuario ya es dueña de la tienda "${existing.name}" (${existing.subdomain}.capfit.store). Solo se permite una tienda por cuenta.`);
+      }
+    }
+  }
+
   if (updates.name !== undefined) s.name = updates.name.trim();
   if (updates.tagline !== undefined) s.tagline = updates.tagline.trim();
   if (updates.ownerUid !== undefined) s.ownerUid = updates.ownerUid;
-  if (updates.ownerEmail !== undefined) s.ownerEmail = updates.ownerEmail;
+  if (updates.ownerEmail !== undefined) s.ownerEmail = String(updates.ownerEmail || '').toLowerCase().trim();
   if (updates.plan !== undefined) {
     const pDetails = getPlanDetails(updates.plan);
     s.plan = pDetails.id;
@@ -1648,19 +1678,29 @@ function linkStoreOwner(arg1, arg2) {
   }
 
   const store = getStoreById(storeId);
+  const cleanEmail = (email || '').toLowerCase().trim();
+
+  // Verificar que este correo o UID no sea dueño de otra tienda distinta (regla 1 correo = 1 tienda)
+  const existingOwned = findStoresByOwner({ email: cleanEmail, uid });
+  const conflictingStore = existingOwned.find(st => st.id !== 'principal' && (!store || st.id !== store.id));
+  if (conflictingStore) {
+    // Nunca sobrescribir otra tienda ni pisar store_owners con una segunda tienda; mantener su única tienda asignada
+    return conflictingStore;
+  }
+
   const promises = [];
   if (store) {
     if (uid) store.ownerUid = uid;
-    if (email) store.ownerEmail = email;
-    const updated = updateStore(store.id, { ownerUid: uid, ownerEmail: email });
+    if (cleanEmail) store.ownerEmail = cleanEmail;
+    const updated = updateStore(store.id, { ownerUid: uid, ownerEmail: cleanEmail });
     if (updated && updated.syncPromise) promises.push(updated.syncPromise);
   }
 
-  if (FirebaseDb && typeof FirebaseDb.saveStoreOwner === 'function' && (uid || email)) {
+  if (FirebaseDb && typeof FirebaseDb.saveStoreOwner === 'function' && (uid || cleanEmail)) {
     promises.push(
       FirebaseDb.saveStoreOwner({
-        uid: uid || String(email).toLowerCase().replace(/[^a-z0-9_-]/g, '_'),
-        email: email || '',
+        uid: uid || String(cleanEmail).toLowerCase().replace(/[^a-z0-9_-]/g, '_'),
+        email: cleanEmail,
         displayName: displayName || (store ? store.name : ''),
         role: role || 'store_owner',
         storeId: store ? store.id : (storeId || ''),

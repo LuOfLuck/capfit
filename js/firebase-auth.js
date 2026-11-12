@@ -280,7 +280,12 @@
 
     const data = await res.json();
     if (!data.ok) {
-      throw new Error(data.error || 'No se pudo crear la tienda.');
+      const err = new Error(data.error || 'No se pudo crear la tienda.');
+      if (data.code) err.code = data.code;
+      if (data.storeId) err.storeId = data.storeId;
+      if (data.subdomain) err.subdomain = data.subdomain;
+      if (data.storeName) err.storeName = data.storeName;
+      throw err;
     }
 
     // Guardar sesión autorizada firmada por el servidor

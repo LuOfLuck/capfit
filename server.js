@@ -1068,28 +1068,27 @@ async function appHandler(req, res) {
       // Determinar si el usuario es SuperAdmin
       const isSuperAdmin = (claimRole === 'superadmin') || (docRole === 'superadmin') || (cleanEmail === superadminEmail) || (cleanEmail === 'admin@capfit.shop');
 
-      // Determinar tiendas que este usuario posee legítimamente
-      const validOwnedStoreIds = new Set(ownedStores.map(s => s.id));
-      if (claimStoreId) validOwnedStoreIds.add(String(claimStoreId));
-      if (docStoreId) validOwnedStoreIds.add(String(docStoreId));
+      // Determinar tiendas que este usuario posee legítimamente (Regla estricta: 1 correo = 1 tienda)
+      const validOwnedStoreIds = new Set(ownedStores.map(s => s.id).filter(id => id !== 'principal'));
+      if (claimStoreId && claimStoreId !== 'principal') validOwnedStoreIds.add(String(claimStoreId));
+      if (docStoreId && docStoreId !== 'principal') validOwnedStoreIds.add(String(docStoreId));
 
       let targetStore = null;
-      if (claimStoreId || docStoreId) {
+      if (ownedStores.length > 0) {
+        targetStore = ownedStores.find(s => s.id !== 'principal') || ownedStores[0];
+      }
+      if (!targetStore && (claimStoreId || docStoreId)) {
         const preferredId = claimStoreId || docStoreId;
         targetStore = StoreManager.getStoreById(preferredId) || StoreManager.getStoreBySubdomain(preferredId);
       }
-      if (!targetStore && cleanTargetStoreId) {
+      if (isSuperAdmin && cleanTargetStoreId) {
         const requestedStore = StoreManager.getStoreById(cleanTargetStoreId) || StoreManager.getStoreBySubdomain(cleanTargetStoreId);
-        // Solo permitir seleccionar targetStoreId si el usuario es dueño de esa tienda o es SuperAdmin
-        if (requestedStore && (isSuperAdmin || validOwnedStoreIds.has(requestedStore.id))) {
+        if (requestedStore) {
           targetStore = requestedStore;
         }
       }
-      if (!targetStore && ownedStores.length > 0) {
-        targetStore = ownedStores[0];
-      }
 
-      // 3. Caso: Store Owner validado por Custom Claims, Documento Firestore o Propiedad de Tienda
+      // 3. Caso: Store Owner validado por Custom Claims, Documento Firestore o Propiedad de Tienda (1 correo = 1 tienda)
       if (targetStore && validOwnedStoreIds.has(targetStore.id) && !isSuperAdmin) {
         const linked = StoreManager.linkStoreOwner({
           storeId: targetStore.id,
@@ -1105,7 +1104,7 @@ async function appHandler(req, res) {
           email: cleanEmail,
           role: 'store_owner',
           storeId: targetStore.id,
-          ownedStoreIds: Array.from(validOwnedStoreIds)
+          ownedStoreIds: [targetStore.id]
         });
 
         sendJson(res, 200, {
@@ -1181,18 +1180,57 @@ async function appHandler(req, res) {
       }
 
       const uid = verifiedToken.uid;
-      const cleanEmail = verifiedToken.email;
+      const cleanEmail = (verifiedToken.email || '').toLowerCase().trim();
 
       if (!subdomain || !storeName) {
         sendJson(res, 400, { ok: false, error: 'El nombre de la tienda y el subdominio son obligatorios.' });
         return;
       }
 
-      // Verificar que el subdominio no pertenezca ya a otra tienda existente (en memoria o en Firestore)
       const cleanSubCheck = String(subdomain).toLowerCase().trim().replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '');
+
+      // 1. Regla estricta: 1 correo = 1 tienda (consultar memoria + Firestore para impedir duplicados)
+      if (FirebaseDb && typeof FirebaseDb.getStoreOwner === 'function') {
+        try {
+          const existingOwnerDoc = await FirebaseDb.getStoreOwner(uid);
+          const docStoreId = existingOwnerDoc && (existingOwnerDoc.storeId || (Array.isArray(existingOwnerDoc.stores) && existingOwnerDoc.stores[0]));
+          if (docStoreId && docStoreId !== 'principal') {
+            if (!StoreManager.getStoreById(docStoreId) && typeof StoreManager.getStorePublic === 'function') {
+              await StoreManager.getStorePublic(docStoreId).catch(() => {});
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (CustomerService && typeof CustomerService.detectOwnedStores === 'function') {
+        try {
+          const detectedIds = await CustomerService.detectOwnedStores(cleanEmail, uid);
+          for (const dId of detectedIds) {
+            if (!StoreManager.getStoreById(dId) && typeof StoreManager.getStorePublic === 'function') {
+              await StoreManager.getStorePublic(dId).catch(() => {});
+            }
+          }
+        } catch (_) {}
+      }
+
+      const alreadyOwnedStores = StoreManager.findStoresByOwner({ email: cleanEmail, uid }).filter(s => s.id !== 'principal');
+      if (alreadyOwnedStores.length > 0) {
+        const primaryOwned = alreadyOwnedStores[0];
+        sendJson(res, 409, {
+          ok: false,
+          code: 'EMAIL_ALREADY_HAS_STORE',
+          storeId: primaryOwned.id,
+          subdomain: primaryOwned.subdomain,
+          storeName: primaryOwned.name,
+          error: `El correo "${cleanEmail}" ya tiene una tienda vinculada ("${primaryOwned.name}" en ${primaryOwned.subdomain}.capfit.store). Solo se permite una tienda por correo electrónico. Iniciá sesión para administrarla.`
+        });
+        return;
+      }
+
+      // 2. Verificar que el subdominio no pertenezca ya a otra tienda existente (en memoria o en Firestore)
       const existingStore = StoreManager.getStoreById(cleanSubCheck) ||
         (typeof StoreManager.getStorePublic === 'function' ? await StoreManager.getStorePublic(cleanSubCheck).catch(() => null) : null);
-      if (existingStore && existingStore.ownerUid && existingStore.ownerUid !== uid) {
+      if (existingStore) {
         sendJson(res, 409, { ok: false, error: `El subdominio "${cleanSubCheck}" ya está registrado por otra tienda.` });
         return;
       }
